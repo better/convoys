@@ -102,7 +102,7 @@ class Exponential(Model):
             likelihood_censored = (1 - c) + c * numpy.exp(-lambd*N)
             neg_LL = -numpy.sum(numpy.log(B * likelihood_observed + (1 - B) * likelihood_censored))
             neg_LL_deriv_c = -numpy.sum(B * 1/c + (1 - B) * (-1 + numpy.exp(-lambd*N)) / likelihood_censored)
-            neg_LL_deriv_lambd = -numpy.sum(B * (1/lambd - T) + (1 - B) * (c * -T * numpy.exp(-lambd*N)) / likelihood_censored)
+            neg_LL_deriv_lambd = -numpy.sum(B * (1/lambd - C) + (1 - B) * (c * -N * numpy.exp(-lambd*N)) / likelihood_censored)
             return neg_LL, numpy.array([neg_LL_deriv_c, neg_LL_deriv_lambd])
 
         c_initial = numpy.mean(B)
@@ -209,10 +209,21 @@ def plot_conversion(data, t_max=None, title=None, group_min_size=0, max_groups=1
     groups = sorted(groups)
 
     if share_params:
-        # TODO: Pool data and fit shared parameters for all models if requested
-        raise
+        if model == 'exponential':
+            m = Exponential()
+        elif model == 'gamma':
+            m = Gamma()
+        else:
+            raise Exception('sharing params only works with exponential/gamma')
+        pooled_data = sum(js.values(), [])
+        C, N, B = get_arrays(pooled_data, t_factor)
+        m.fit(C, N, B)
+        if share_params is True:
+            params = {k: m.params[k] for k in ['k', 'lambd'] if k in m.params}
+        else:
+            params = {k: m.params[k] for k in params}
     else:
-        shared_params = {}
+        params = {}
 
     # PLOT
     colors = seaborn.color_palette('hls', len(groups))
@@ -224,9 +235,9 @@ def plot_conversion(data, t_max=None, title=None, group_min_size=0, max_groups=1
         elif model == 'kaplan-meier':
             m = KaplanMeier()
         elif model == 'exponential':
-            m = Bootstrapper(lambda: Exponential(params=shared_params))
+            m = Bootstrapper(lambda: Exponential(params=params))
         elif model == 'gamma':
-            m = Bootstrapper(lambda: Gamma(params=shared_params))
+            m = Bootstrapper(lambda: Gamma(params=params))
         m.fit(C, N, B)
 
         label = '%s (n=%.0f, k=%.0f)' % (group, len(B), sum(B))
