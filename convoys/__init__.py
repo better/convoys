@@ -154,8 +154,8 @@ class Gamma(Model):
             return neg_LL
 
         c_initial = numpy.mean(B)
-        lambd_initial = 1.0 / max(N)
-        lambd_max = 30.0 / max(N)
+        lambd_initial = 1.0 / max(C)
+        lambd_max = 30.0 / max(C)
         k_initial = 10.0
         lambd = self.params.get('lambd')
         k = self.params.get('k')
