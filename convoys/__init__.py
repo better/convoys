@@ -7,6 +7,7 @@ import numpy
 import random
 import seaborn
 import scipy.optimize
+import six
 from scipy.special import gamma, gammainc
 from matplotlib import pyplot
 
@@ -33,7 +34,8 @@ def get_arrays(data, t_factor):
     return numpy.array(C), numpy.array(N), numpy.array(B)
 
 
-class Model(abc.ABC):
+@six.add_metaclass(abc.ABCMeta)
+class Model():
     def __init__(self, params={}):
         self.params = params
 
