@@ -23,12 +23,14 @@ def get_timescale(t):
     return t_factor, t_unit
 
 
-def get_te(data, t_factor):
-    T = [(converted_at - created_at).total_seconds() * t_factor if converted_at is not None else (now - created_at).total_seconds() * t_factor
+def get_arrays(data, t_factor):
+    C = [(converted_at - created_at).total_seconds() * t_factor if converted_at is not None else 0.0
          for created_at, converted_at, now in data]
-    E = [bool(converted_at is not None)
+    N = [(now - created_at).total_seconds() * t_factor
          for created_at, converted_at, now in data]
-    return numpy.array(T), numpy.array(E)
+    B = [bool(converted_at is not None)
+         for created_at, converted_at, now in data]
+    return numpy.array(C), numpy.array(N), numpy.array(B)
 
 
 class Model(abc.ABC):
@@ -36,7 +38,7 @@ class Model(abc.ABC):
         self.params = params
 
     @abc.abstractmethod
-    def fit(self, T, E):
+    def fit(self, C, N, B):
         pass
 
     @abc.abstractmethod
@@ -45,20 +47,21 @@ class Model(abc.ABC):
 
 
 class Basic(Model):
-    def fit(self, T, E):
-        n, k = len(T), 0
-        self.ts = []
-        self.ns = []
-        self.ks = []
-        for t, e in sorted(zip(T, E)):
-            # TODO: this logic is incorrect, need to fix
-            if e:
-                k += 1
-            else:
-                n -= 1
+    def fit(self, C, N, B, n_limit=30):
+        n, k = len(C), 0
+        self.ts = [0]
+        self.ns = [n]
+        self.ks = [k]
+        events = [(c, 1, 0) for c, n, b in zip(C, N, B) if b] + \
+                 [(n, -int(b), -1) for c, n, b in zip(C, N, B)]
+        for t, k_delta, n_delta in sorted(events):
+            k += k_delta
+            n += n_delta
             self.ts.append(t)
             self.ks.append(k)
             self.ns.append(n)
+            if n < n_limit:
+                break
 
     def predict(self, ts, confidence_interval=False):
         js = [bisect.bisect_left(self.ts, t) for t in ts]
@@ -71,9 +74,10 @@ class Basic(Model):
 
 
 class KaplanMeier(Model):
-    def fit(self, T, E):
+    def fit(self, C, N, B):
+        T = [c if b else n for c, n, b in zip(C, N, B)]
         kmf = lifelines.KaplanMeierFitter()
-        kmf.fit(T, event_observed=E)
+        kmf.fit(T, event_observed=B)
         self.ts = kmf.survival_function_.index.values
         self.ps = 1.0 - kmf.survival_function_['KM_estimate'].values
         self.ps_hi = 1.0 - kmf.confidence_interval_['KM_estimate_lower_0.95'].values
@@ -90,20 +94,20 @@ class KaplanMeier(Model):
 
 
 class Exponential(Model):
-    def fit(self, T, E):
+    def fit(self, C, N, B):
         def f(x):
             c, lambd = x
             neg_LL, neg_LL_deriv_c, neg_LL_deriv_lambd = 0, 0, 0
-            likelihood_observed = c * lambd * numpy.exp(-lambd*T)
-            likelihood_censored = (1 - c) + c * numpy.exp(-lambd*T)
-            neg_LL = -numpy.sum(numpy.log(E * likelihood_observed + (1 - E) * likelihood_censored))
-            neg_LL_deriv_c = -numpy.sum(E * 1/c + (1 - E) * (-1 + numpy.exp(-lambd*T)) / likelihood_censored)
-            neg_LL_deriv_lambd = -numpy.sum(E * (1/lambd - T) + (1 - E) * (c * -T * numpy.exp(-lambd*T)) / likelihood_censored)
+            likelihood_observed = c * lambd * numpy.exp(-lambd*C)
+            likelihood_censored = (1 - c) + c * numpy.exp(-lambd*N)
+            neg_LL = -numpy.sum(numpy.log(B * likelihood_observed + (1 - B) * likelihood_censored))
+            neg_LL_deriv_c = -numpy.sum(B * 1/c + (1 - B) * (-1 + numpy.exp(-lambd*N)) / likelihood_censored)
+            neg_LL_deriv_lambd = -numpy.sum(B * (1/lambd - T) + (1 - B) * (c * -T * numpy.exp(-lambd*N)) / likelihood_censored)
             return neg_LL, numpy.array([neg_LL_deriv_c, neg_LL_deriv_lambd])
 
-        c_initial = numpy.mean(E)
-        lambd_initial = 1.0 / max(T)
-        lambd_max = 30.0 / max(T)
+        c_initial = numpy.mean(B)
+        lambd_initial = 1.0 / max(N)
+        lambd_max = 30.0 / max(N)
         lambd = self.params.get('lambd')
         res = scipy.optimize.minimize(
             fun=f,
@@ -121,21 +125,21 @@ class Exponential(Model):
 
 
 class Gamma(Model):
-    def fit(self, T, E):
+    def fit(self, C, N, B):
         # TODO(erikbern): should compute Jacobian of this one
         def f(x):
             c, lambd, k = x
             neg_LL = 0
             # PDF of gamma: 1.0 / gamma(k) * lambda ^ k * t^(k-1) * exp(-t * lambda)
-            likelihood_observed = c * 1/gamma(k) * lambd**k * T**(k-1) * numpy.exp(-lambd*T)
+            likelihood_observed = c * 1/gamma(k) * lambd**k * C**(k-1) * numpy.exp(-lambd*C)
             # CDF of gamma: 1.0 / gamma(k) * gammainc(k, lambda * t)
-            likelihood_censored = (1 - c) + c * (1 - gammainc(k, lambd*T))
-            neg_LL = -numpy.sum(numpy.log(E * likelihood_observed + (1 - E) * likelihood_censored))
+            likelihood_censored = (1 - c) + c * (1 - gammainc(k, lambd*N))
+            neg_LL = -numpy.sum(numpy.log(B * likelihood_observed + (1 - B) * likelihood_censored))
             return neg_LL
 
-        c_initial = numpy.mean(E)
-        lambd_initial = 1.0 / max(T)
-        lambd_max = 30.0 / max(T)
+        c_initial = numpy.mean(B)
+        lambd_initial = 1.0 / max(N)
+        lambd_max = 30.0 / max(N)
         k_initial = 10.0
         lambd = self.params.get('lambd')
         k = self.params.get('k')
@@ -158,13 +162,14 @@ class Bootstrapper(Model):
     def __init__(self, base_fitter, n_bootstraps=100):
         self.models = [base_fitter() for i in range(n_bootstraps)]
 
-    def fit(self, T, E):
-        TE = list(zip(T, E))
+    def fit(self, C, N, B):
+        CNB = list(zip(C, N, B))
         for model in self.models:
-            TE_bootstrapped = [random.choice(TE) for _ in TE]
-            T_bootstrapped = numpy.array([t for t, e in TE_bootstrapped])
-            E_bootstrapped = numpy.array([e for t, e in TE_bootstrapped])
-            model.fit(T_bootstrapped, E_bootstrapped)
+            CNB_bootstrapped = [random.choice(CNB) for _ in CNB]
+            C_bootstrapped = numpy.array([c for c, n, b in CNB_bootstrapped])
+            N_bootstrapped = numpy.array([n for c, n, b in CNB_bootstrapped])
+            B_bootstrapped = numpy.array([b for c, n, b in CNB_bootstrapped])
+            model.fit(C_bootstrapped, N_bootstrapped, B_bootstrapped)
 
     def predict(self, ts, confidence_interval=False):
         all_ts = numpy.array([model.predict(ts) for model in self.models])
@@ -176,7 +181,7 @@ class Bootstrapper(Model):
             return numpy.mean(all_ts, axis=0)
 
 
-def plot_conversion(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='kaplan-meier', share_params=False):
+def plot_conversion(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='basic', share_params=False):
     # Set x scale
     if t_max is None:
         t_max = max(now - created_at for group, created_at, converted_at, now in data)
@@ -213,7 +218,7 @@ def plot_conversion(data, t_max=None, title=None, group_min_size=0, max_groups=1
     colors = seaborn.color_palette('hls', len(groups))
     y_max = 0
     for group, color in zip(sorted(groups), colors):
-        T, E = get_te(js[group], t_factor)
+        C, N, B = get_arrays(js[group], t_factor)
         if model == 'basic':
             m = Basic()
         elif model == 'kaplan-meier':
@@ -222,9 +227,9 @@ def plot_conversion(data, t_max=None, title=None, group_min_size=0, max_groups=1
             m = Bootstrapper(lambda: Exponential(params=shared_params))
         elif model == 'gamma':
             m = Bootstrapper(lambda: Gamma(params=shared_params))
-        m.fit(T, E)
+        m.fit(C, N, B)
 
-        label = '%s (n=%.0f, k=%.0f)' % (group, len(E), sum(E))
+        label = '%s (n=%.0f, k=%.0f)' % (group, len(B), sum(B))
         t = numpy.linspace(0, t_max, 1000)
         p, p_lo, p_hi = m.predict(t, confidence_interval=True)
         y_max = max(y_max, 90. * max(p_hi), 110. * max(p))
