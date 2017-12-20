@@ -3,7 +3,7 @@ import random
 import scipy.stats
 from convoys import Exponential
 
-def test_exponential_model(c=0.05, lambd=0.1, n=100000):
+def test_exponential_model(c=0.05, lambd=0.1, n=1000000):
     # With a really long observation window, the rate should converge to the measured
     C = numpy.array([random.random() < c and scipy.stats.expon.rvs(scale=1.0/lambd) or 0.0 for x in range(n)])
     N = numpy.array([100 for c in C])
