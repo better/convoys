@@ -44,6 +44,32 @@ class Model(abc.ABC):
         pass
 
 
+class Basic(Model):
+    def fit(self, T, E):
+        n, k = len(T), 0
+        self.ts = []
+        self.ns = []
+        self.ks = []
+        for t, e in sorted(zip(T, E)):
+            # TODO: this logic is incorrect, need to fix
+            if e:
+                k += 1
+            else:
+                n -= 1
+            self.ts.append(t)
+            self.ks.append(k)
+            self.ns.append(n)
+
+    def predict(self, ts, confidence_interval=False):
+        js = [bisect.bisect_left(self.ts, t) for t in ts]
+        ks = numpy.array([self.ks[j] if j < len(self.ks) else float('nan') for j in js])
+        ns = numpy.array([self.ns[j] if j < len(self.ns) else float('nan') for j in js])
+        if confidence_interval:
+            return ks / ns, scipy.stats.beta.ppf(0.05, ks, ns-ks), scipy.stats.beta.ppf(0.95, ks, ns-ks)
+        else:
+            return ks / ns
+
+
 class KaplanMeier(Model):
     def fit(self, T, E):
         kmf = lifelines.KaplanMeierFitter()
@@ -188,7 +214,9 @@ def plot_conversion(data, t_max=None, title=None, group_min_size=0, max_groups=1
     y_max = 0
     for group, color in zip(sorted(groups), colors):
         T, E = get_te(js[group], t_factor)
-        if model == 'kaplan-meier':
+        if model == 'basic':
+            m = Basic()
+        elif model == 'kaplan-meier':
             m = KaplanMeier()
         elif model == 'exponential':
             m = Bootstrapper(lambda: Exponential(params=shared_params))
@@ -200,9 +228,6 @@ def plot_conversion(data, t_max=None, title=None, group_min_size=0, max_groups=1
         t = numpy.linspace(0, t_max, 1000)
         p, p_lo, p_hi = m.predict(t, confidence_interval=True)
         y_max = max(y_max, 90. * max(p_hi), 110. * max(p))
-        m2 = KaplanMeier()
-        m2.fit(T, E)
-        p = m2.predict(t)
         
         pyplot.plot(t, 100. * p, color=color, label=label)
         pyplot.fill_between(t, 100. * p_lo, 100. * p_hi, color=color, alpha=0.2)
