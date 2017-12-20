@@ -65,12 +65,13 @@ class Basic(Model):
 
     def predict(self, ts, confidence_interval=False):
         js = [bisect.bisect_left(self.ts, t) for t in ts]
-        ks = numpy.array([self.ks[j] if j < len(self.ks) else float('nan') for j in js])
-        ns = numpy.array([self.ns[j] if j < len(self.ns) else float('nan') for j in js])
+        ks = numpy.array([self.ks[j] for j in js if j < len(self.ks)])
+        ns = numpy.array([self.ns[j] for j in js if j < len(self.ns)])
+        ts = numpy.array([ts[j] for j in js if j < len(self.ns)])
         if confidence_interval:
-            return ks / ns, scipy.stats.beta.ppf(0.05, ks, ns-ks), scipy.stats.beta.ppf(0.95, ks, ns-ks)
+            return ts, ks / ns, scipy.stats.beta.ppf(0.05, ks, ns-ks), scipy.stats.beta.ppf(0.95, ks, ns-ks)
         else:
-            return ks / ns
+            return ts, ks / ns
 
 
 class KaplanMeier(Model):
@@ -86,11 +87,11 @@ class KaplanMeier(Model):
     def predict(self, ts, confidence_interval=False):
         js = [bisect.bisect_left(self.ts, t) for t in ts]
         def array_lookup(a):
-            return numpy.array([a[j] if j < len(a) else float('nan') for j in js])
+            return numpy.array([a[j] for j in js if j < len(self.ts)])
         if confidence_interval:
-            return (array_lookup(self.ps), array_lookup(self.ps_lo), array_lookup(self.ps_hi))
+            return (array_lookup(self.ts), array_lookup(self.ps), array_lookup(self.ps_lo), array_lookup(self.ps_hi))
         else:
-            return array_lookup(self.ps)
+            return (array_lookup(self.ts), array_lookup(self.ps))
 
 
 class Exponential(Model):
@@ -119,9 +120,9 @@ class Exponential(Model):
         c, lambd = res.x
         self.params = dict(c=c, lambd=lambd)
 
-    def predict(self, t):
+    def predict(self, ts):
         c, lambd = self.params['c'], self.params['lambd']
-        return c * (1 - numpy.exp(-t * lambd))
+        return ts, c * (1 - numpy.exp(-ts * lambd))
 
 
 class Gamma(Model):
@@ -153,9 +154,9 @@ class Gamma(Model):
         c, lambd, k = res.x
         self.params = dict(c=c, lambd=lambd, k=k)
 
-    def predict(self, t):
+    def predict(self, ts):
         c, lambd, k = self.params['c'], self.params['lambd'], self.params['k']
-        return c * gammainc(k, lambd*t)
+        return ts, c * gammainc(k, lambd*ts)
 
 
 class Bootstrapper(Model):
@@ -172,16 +173,17 @@ class Bootstrapper(Model):
             model.fit(C_bootstrapped, N_bootstrapped, B_bootstrapped)
 
     def predict(self, ts, confidence_interval=False):
-        all_ts = numpy.array([model.predict(ts) for model in self.models])
+        all_ts = numpy.array([model.predict(ts)[1] for model in self.models])
         if confidence_interval:
-            return (numpy.mean(all_ts, axis=0),
+            return (ts,
+                    numpy.mean(all_ts, axis=0),
                     numpy.percentile(all_ts, 5, axis=0),
                     numpy.percentile(all_ts, 95, axis=0))
         else:
-            return numpy.mean(all_ts, axis=0)
+            return (ts, numpy.mean(all_ts, axis=0))
 
 
-def plot_conversion(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='basic', share_params=False):
+def plot_conversion(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='kaplan-meier', projection=None, share_params=False):
     # Set x scale
     if t_max is None:
         t_max = max(now - created_at for group, created_at, converted_at, now in data)
@@ -209,12 +211,12 @@ def plot_conversion(data, t_max=None, title=None, group_min_size=0, max_groups=1
     groups = sorted(groups)
 
     if share_params:
-        if model == 'exponential':
+        if projection == 'exponential':
             m = Exponential()
-        elif model == 'gamma':
+        elif projection == 'gamma':
             m = Gamma()
         else:
-            raise Exception('sharing params only works with exponential/gamma')
+            raise Exception('sharing params only works if projection is exponential/gamma (was: %s)' % projection)
         pooled_data = sum(js.values(), [])
         C, N, B = get_arrays(pooled_data, t_factor)
         m.fit(C, N, B)
@@ -230,23 +232,37 @@ def plot_conversion(data, t_max=None, title=None, group_min_size=0, max_groups=1
     y_max = 0
     for group, color in zip(sorted(groups), colors):
         C, N, B = get_arrays(js[group], t_factor)
+        t = numpy.linspace(0, t_max, 1000)
+
         if model == 'basic':
             m = Basic()
         elif model == 'kaplan-meier':
             m = KaplanMeier()
-        elif model == 'exponential':
-            m = Bootstrapper(lambda: Exponential(params=params))
-        elif model == 'gamma':
-            m = Bootstrapper(lambda: Gamma(params=params))
         m.fit(C, N, B)
 
         label = '%s (n=%.0f, k=%.0f)' % (group, len(B), sum(B))
-        t = numpy.linspace(0, t_max, 1000)
-        p, p_lo, p_hi = m.predict(t, confidence_interval=True)
-        y_max = max(y_max, 90. * max(p_hi), 110. * max(p))
-        
-        pyplot.plot(t, 100. * p, color=color, label=label)
-        pyplot.fill_between(t, 100. * p_lo, 100. * p_hi, color=color, alpha=0.2)
+
+        if projection is True:
+            p = m
+        else:
+            if projection == 'exponential':
+                p = Bootstrapper(lambda: Exponential(params=params))
+            elif projection == 'gamma':
+                p = Bootstrapper(lambda: Gamma(params=params))
+            else:
+                raise Exception('projection must be exponential/gamma (was: %s)' % projection)
+            p.fit(C, N, B)
+
+        if projection:
+            p_t, p_y, p_y_lo, p_y_hi = p.predict(t, confidence_interval=True)
+            label += ' projected: %.2f%% (%.2f%% - %.2f%%)' % (100.*p_y[-1], 100.*p_y_lo[-1], 100.*p_y_hi[-1])
+            y_max = max(y_max, 90. * max(p_y_hi))
+            pyplot.plot(p_t, 100. * p_y, color=color, linestyle=':', alpha=0.7)
+            pyplot.fill_between(p_t, 100. * p_y_lo, 100. * p_y_hi, color=color, alpha=0.2)
+
+        m_t, m_y = m.predict(t)
+        pyplot.plot(m_t, 100. * m_y, color=color, label=label)
+        y_max = max(y_max, 110. * max(m_y))
 
     if title:
         pyplot.title(title)
