@@ -64,7 +64,7 @@ class KaplanMeier(Model):
 
 
 class Exponential(Model):
-    def fit(self, T, E, lambd=None):
+    def fit(self, T, E, params={}):
         def f(x):
             c, lambd = x
             neg_LL, neg_LL_deriv_c, neg_LL_deriv_lambd = 0, 0, 0
@@ -78,6 +78,7 @@ class Exponential(Model):
         c_initial = numpy.mean(E)
         lambd_initial = 1.0 / max(T)
         lambd_max = 30.0 / max(T)
+        lambd = params.get('lambd')
         res = scipy.optimize.minimize(
             fun=f,
             x0=(c_initial, lambd_initial),
@@ -94,7 +95,7 @@ class Exponential(Model):
 
 
 class Gamma(Model):
-    def fit(self, T, E, lambd=None, k=None):
+    def fit(self, T, E, params={}):
         # TODO(erikbern): should compute Jacobian of this one
         def f(x):
             c, lambd, k = x
@@ -110,6 +111,8 @@ class Gamma(Model):
         lambd_initial = 1.0 / max(T)
         lambd_max = 30.0 / max(T)
         k_initial = 10.0
+        lambd = params.get('lambd')
+        k = params.get('k')
         res = scipy.optimize.minimize(
             fun=f,
             x0=(c_initial, lambd_initial, k_initial),
@@ -175,7 +178,9 @@ def plot_conversion(data, title, group_min_size=0, max_groups=100, model='kaplan
     xlim = 180  # TODO FIX
 
     if share_params:
-        
+        # TODO: pool data, fit base parameters
+        pass
+    shared_params = {}
     
     # PLOT
     colors = seaborn.color_palette('hls', len(groups))
@@ -184,9 +189,9 @@ def plot_conversion(data, title, group_min_size=0, max_groups=100, model='kaplan
         if model == 'kaplan-meier':
             m = KaplanMeier()
         elif model == 'exponential':
-            m = Bootstrapper(Exponential)
+            m = Bootstrapper(lambda: Exponential(params=shared_params))
         elif model == 'gamma':
-            m = Bootstrapper(Gamma)
+            m = Bootstrapper(lambda: Gamma(params=shared_params))
         T, E, t_factor, t_unit = datetime_to_float(js[group]) # TODO: do outside this loop
         m.fit(T, E)
         #ylim = max(ylim, 90. * p_hi[i], 110. * p[i])
