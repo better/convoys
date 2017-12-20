@@ -23,18 +23,18 @@ def get_timescale(t):
     return t_factor, t_unit
 
 
-def datetime_to_float(data):
-    deltas = [now - created_at for created_at, converted_at, now in data]
-    t = numpy.percentile(deltas, 90)
-    t_factor, t_unit = get_timescale(t)
+def get_te(data, t_factor):
     T = [(converted_at - created_at).total_seconds() * t_factor if converted_at is not None else (now - created_at).total_seconds() * t_factor
          for created_at, converted_at, now in data]
     E = [bool(converted_at is not None)
          for created_at, converted_at, now in data]
-    return numpy.array(T), numpy.array(E), t_factor, t_unit
+    return numpy.array(T), numpy.array(E)
 
 
 class Model(abc.ABC):
+    def __init__(self, params={}):
+        self.params = params
+
     @abc.abstractmethod
     def fit(self, T, E):
         pass
@@ -64,7 +64,7 @@ class KaplanMeier(Model):
 
 
 class Exponential(Model):
-    def fit(self, T, E, params={}):
+    def fit(self, T, E):
         def f(x):
             c, lambd = x
             neg_LL, neg_LL_deriv_c, neg_LL_deriv_lambd = 0, 0, 0
@@ -78,7 +78,7 @@ class Exponential(Model):
         c_initial = numpy.mean(E)
         lambd_initial = 1.0 / max(T)
         lambd_max = 30.0 / max(T)
-        lambd = params.get('lambd')
+        lambd = self.params.get('lambd')
         res = scipy.optimize.minimize(
             fun=f,
             x0=(c_initial, lambd_initial),
@@ -95,7 +95,7 @@ class Exponential(Model):
 
 
 class Gamma(Model):
-    def fit(self, T, E, params={}):
+    def fit(self, T, E):
         # TODO(erikbern): should compute Jacobian of this one
         def f(x):
             c, lambd, k = x
@@ -111,8 +111,8 @@ class Gamma(Model):
         lambd_initial = 1.0 / max(T)
         lambd_max = 30.0 / max(T)
         k_initial = 10.0
-        lambd = params.get('lambd')
-        k = params.get('k')
+        lambd = self.params.get('lambd')
+        k = self.params.get('k')
         res = scipy.optimize.minimize(
             fun=f,
             x0=(c_initial, lambd_initial, k_initial),
@@ -150,18 +150,20 @@ class Bootstrapper(Model):
             return numpy.mean(all_ts, axis=0)
 
 
-def plot_conversion(data, title, group_min_size=0, max_groups=100, model='kaplan-meier', share_params=False):
+def plot_conversion(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='kaplan-meier', share_params=False):
+    # Set x scale
+    if t_max is None:
+        t_max = max(now - created_at for group, created_at, converted_at, now in data)
+    t_factor, t_unit = get_timescale(t_max)
+    t_max = t_max.total_seconds() * t_factor
+
+    # Split data by group
     js = {}
     for group, created_at, converted_at, now in data:
         if converted_at is not None and converted_at < created_at:
-            # TODO: move this into the preprocessing functions
             print('created at', created_at, 'but converted at', converted_at)
-            converted = None
+            continue
         js.setdefault(group, []).append((created_at, converted_at, now))
-
-    if share_params:
-        # TODO: Fit shared parameters for all models if requested
-        raise
 
     # Remove groups with too few data points
     groups = [group for group, data_points in js.items() if len(data_points) >= group_min_size]
@@ -175,42 +177,41 @@ def plot_conversion(data, title, group_min_size=0, max_groups=100, model='kaplan
     # Sort groups lexicographically
     groups = sorted(groups)
 
-    xlim = 180  # TODO FIX
-
     if share_params:
-        # TODO: pool data, fit base parameters
-        pass
-    shared_params = {}
-    
+        # TODO: Pool data and fit shared parameters for all models if requested
+        raise
+    else:
+        shared_params = {}
+
     # PLOT
     colors = seaborn.color_palette('hls', len(groups))
+    y_max = 0
     for group, color in zip(sorted(groups), colors):
-        print(group)
+        T, E = get_te(js[group], t_factor)
         if model == 'kaplan-meier':
             m = KaplanMeier()
         elif model == 'exponential':
             m = Bootstrapper(lambda: Exponential(params=shared_params))
         elif model == 'gamma':
             m = Bootstrapper(lambda: Gamma(params=shared_params))
-        T, E, t_factor, t_unit = datetime_to_float(js[group]) # TODO: do outside this loop
         m.fit(T, E)
-        #ylim = max(ylim, 90. * p_hi[i], 110. * p[i])
-        #xlim = max(xlim, min(t_max, t[i]))
 
-        # label = '%s (n=%.0f, k=%.0f): %.1f%% (%.1f-%.1f%%)' % (group, len(js[group]), int(len(js[group]) * p[i]), 100. * p[i], 100.*p_lo[i], 100.*p_hi[i])
-        t = numpy.linspace(0, xlim, 100)
+        label = '%s (n=%.0f, k=%.0f)' % (group, len(E), sum(E))
+        t = numpy.linspace(0, t_max, 1000)
         p, p_lo, p_hi = m.predict(t, confidence_interval=True)
+        y_max = max(y_max, 90. * max(p_hi), 110. * max(p))
         m2 = KaplanMeier()
         m2.fit(T, E)
         p = m2.predict(t)
         
-        pyplot.plot(t, 100. * p, color=color, label=group)
+        pyplot.plot(t, 100. * p, color=color, label=label)
         pyplot.fill_between(t, 100. * p_lo, 100. * p_hi, color=color, alpha=0.2)
 
-    pyplot.title(title)
-    #pyplot.xlim([0, xlim])
-    #pyplot.ylim([0, ylim])
-    #pyplot.xlabel(t_unit)
+    if title:
+        pyplot.title(title)
+    pyplot.xlim([0, t_max])
+    pyplot.ylim([0, y_max])
+    pyplot.xlabel(t_unit)
     pyplot.ylabel('Conversion rate %')
     pyplot.legend()
     pyplot.gca().grid(True)
