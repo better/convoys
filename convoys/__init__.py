@@ -205,14 +205,7 @@ class Bootstrapper(Model):
             return numpy.mean(all_ps)
 
 
-def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='kaplan-meier', projection=None, share_params=False):
-    # Set x scale
-    if t_max is None:
-        t_max = max(now - created_at for group, created_at, converted_at, now in data)
-    t_factor, t_unit = get_timescale(t_max)
-    t_max = t_max.total_seconds() * t_factor
-
-    # Split data by group
+def split_by_group(data, group_min_size, max_groups):
     js = {}
     for group, created_at, converted_at, now in data:
         if converted_at is not None and converted_at < created_at:
@@ -232,6 +225,10 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
     # Sort groups lexicographically
     groups = sorted(groups)
 
+    return groups, js
+
+
+def get_params(js, projection, share_params, t_factor):
     if share_params:
         if projection == 'exponential':
             m = Exponential()
@@ -243,11 +240,25 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
         C, N, B = get_arrays(pooled_data, t_factor)
         m.fit(C, N, B)
         if share_params is True:
-            params = {k: m.params[k] for k in ['k', 'lambd'] if k in m.params}
+            return {k: m.params[k] for k in ['k', 'lambd'] if k in m.params}
         else:
-            params = {k: m.params[k] for k in params}
+            return {k: m.params[k] for k in params}
     else:
-        params = {}
+        return {}
+
+
+def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='kaplan-meier', projection=None, share_params=False):
+    # Set x scale
+    if t_max is None:
+        t_max = max(now - created_at for group, created_at, converted_at, now in data)
+    t_factor, t_unit = get_timescale(t_max)
+    t_max = t_max.total_seconds() * t_factor
+
+    # Split data by group
+    groups, js = split_by_group(data, group_min_size, max_groups)
+
+    # Get shared params
+    params = get_params(js, projection, share_params, t_factor)
 
     # PLOT
     colors = seaborn.color_palette('hls', len(groups))
@@ -292,6 +303,68 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
     pyplot.xlim([0, t_max])
     pyplot.ylim([0, y_max])
     pyplot.xlabel(t_unit)
+    pyplot.ylabel('Conversion rate %')
+    pyplot.legend()
+    pyplot.gca().grid(True)
+    pyplot.tight_layout()
+
+
+def plot_conversion(data, window, projection, group_min_size=0, max_groups=100, stride=None, share_params=False, title=None):
+    if stride is None:
+        stride = window
+
+    # Find limits
+    t_lo = min(created_at for _, created_at, _, _ in data)
+    t_hi = min(now for _, _, _, now in data)
+    t_factor, t_unit = get_timescale(t_hi - t_lo)
+
+    # Split data by group
+    groups, js = split_by_group(data, group_min_size, max_groups)
+
+    # Get shared params
+    params = get_params(js, projection, share_params, t_factor)
+
+    # PLOT
+    colors = seaborn.color_palette('hls', len(groups))
+    for group, color in zip(sorted(groups), colors):
+        t1 = t_lo
+        ts, ys, y_los, y_his = [], [], [], []
+        js[group].sort()
+        created_ats = [created_at for created_at, _, _ in js[group]]
+        while True:
+            t2 = t1 + window
+            i1 = bisect.bisect_left(created_ats, t1)
+            i2 = bisect.bisect_left(created_ats, t2)
+            if i1 >= len(js[group]):
+                break
+            data = js[group][i1:i2]
+            t1 += stride
+
+            C, N, B = get_arrays(data, t_factor)
+            if sum(B) == 0:
+                continue
+
+            if projection == 'exponential':
+                p = Bootstrapper(lambda: Exponential(params=params))
+            elif projection == 'gamma':
+                p = Bootstrapper(lambda: Gamma(params=params))
+            else:
+                raise Exception('projection must be exponential/gamma (was: %s)' % projection)
+            p.fit(C, N, B)
+
+            y, y_lo, y_hi = p.predict_final(confidence_interval=True)
+            print('%30s %40s %.4f %.4f %.4f' % (group, t1, y, y_lo, y_hi))
+            ts.append(t2)
+            ys.append(y)
+            y_los.append(y_lo)
+            y_his.append(y_hi)
+
+        ys, y_los, y_his = (100.*numpy.array(x) for x in (ys, y_los, y_his))
+        pyplot.plot(ts, ys, color=color, label=group)
+        pyplot.fill_between(ts, y_los, y_his, color=color, alpha=0.2)
+
+    if title:
+        pyplot.title(title)
     pyplot.ylabel('Conversion rate %')
     pyplot.legend()
     pyplot.gca().grid(True)
