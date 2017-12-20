@@ -45,6 +45,10 @@ class Model(abc.ABC):
     def predict(self, ts, confidence_interval=False):
         pass
 
+    @abc.abstractmethod
+    def predict_final(self, confidence_interval=False):
+        pass
+
 
 class Basic(Model):
     def fit(self, C, N, B, n_limit=30):
@@ -93,6 +97,12 @@ class KaplanMeier(Model):
         else:
             return (array_lookup(self.ts), array_lookup(self.ps))
 
+    def predict_final(self, confidence_interval=False):
+        if self.confidence_interval:
+            return (self.ps[-1], self.ps_lo[-1], self.ps_hi[-1])
+        else:
+            return self.ps[-1]
+
 
 class Exponential(Model):
     def fit(self, C, N, B):
@@ -123,6 +133,9 @@ class Exponential(Model):
     def predict(self, ts):
         c, lambd = self.params['c'], self.params['lambd']
         return ts, c * (1 - numpy.exp(-ts * lambd))
+
+    def predict_final(self):
+        return self.params['c']
 
 
 class Gamma(Model):
@@ -158,6 +171,9 @@ class Gamma(Model):
         c, lambd, k = self.params['c'], self.params['lambd'], self.params['k']
         return ts, c * gammainc(k, lambd*ts)
 
+    def predict_final(self):
+        return self.params['c']
+
 
 class Bootstrapper(Model):
     def __init__(self, base_fitter, n_bootstraps=100):
@@ -175,15 +191,19 @@ class Bootstrapper(Model):
     def predict(self, ts, confidence_interval=False):
         all_ts = numpy.array([model.predict(ts)[1] for model in self.models])
         if confidence_interval:
-            return (ts,
-                    numpy.mean(all_ts, axis=0),
-                    numpy.percentile(all_ts, 5, axis=0),
-                    numpy.percentile(all_ts, 95, axis=0))
+            return (ts, numpy.mean(all_ts, axis=0), numpy.percentile(all_ts, 5, axis=0), numpy.percentile(all_ts, 95, axis=0))
         else:
             return (ts, numpy.mean(all_ts, axis=0))
 
+    def predict_final(self, confidence_interval=False):
+        all_ps = numpy.array([model.predict_final() for model in self.models])
+        if confidence_interval:
+            return (numpy.mean(all_ps), numpy.percentile(all_ps, 5), numpy.percentile(all_ps, 95))
+        else:
+            return numpy.mean(all_ps)
 
-def plot_conversion(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='kaplan-meier', projection=None, share_params=False):
+
+def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='kaplan-meier', projection=None, share_params=False):
     # Set x scale
     if t_max is None:
         t_max = max(now - created_at for group, created_at, converted_at, now in data)
@@ -255,7 +275,8 @@ def plot_conversion(data, t_max=None, title=None, group_min_size=0, max_groups=1
 
         if projection:
             p_t, p_y, p_y_lo, p_y_hi = p.predict(t, confidence_interval=True)
-            label += ' projected: %.2f%% (%.2f%% - %.2f%%)' % (100.*p_y[-1], 100.*p_y_lo[-1], 100.*p_y_hi[-1])
+            p_y_final, p_y_lo_final, p_y_hi_final = p.predict_final(confidence_interval=True)
+            label += ' projected: %.2f%% (%.2f%% - %.2f%%)' % (100.*p_y_final, 100.*p_y_lo_final, 100.*p_y_hi_final)
             y_max = max(y_max, 90. * max(p_y_hi))
             pyplot.plot(p_t, 100. * p_y, color=color, linestyle=':', alpha=0.7)
             pyplot.fill_between(p_t, 100. * p_y_lo, 100. * p_y_hi, color=color, alpha=0.2)
