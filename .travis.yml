@@ -4,6 +4,5 @@ python:
   - "3.4"
   - "3.5"
   - "3.6"
-  - "nightly"
 install: "pip install pytest -r requirements.txt"
 script: pytest
