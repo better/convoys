@@ -193,7 +193,7 @@ class Weibull(Model):
         c_initial = numpy.mean(B)
         lambd_initial = 1.0 / max(C)
         lambd_max = 30.0 / max(C)
-        k_initial = 1.0
+        k_initial = 0.9
         lambd = self.params.get('lambd')
         k = self.params.get('k')
         res = scipy.optimize.minimize(
@@ -257,12 +257,13 @@ def split_by_group(data, group_min_size, max_groups):
             print('created at', created_at, 'but converted at', converted_at)
             continue
         js.setdefault(group, []).append((created_at, converted_at, now))
+    groups = list(js.keys())
 
     # Remove groups with too few data points
-    groups = [group for group, data_points in js.items() if len(data_points) >= group_min_size]
+    groups = [group for group in groups if len(js[group]) >= group_min_size]
 
     # Require at least one conversion per group
-    groups = [group for group, data_points in js.items() if any(converted_at for _, converted_at, _ in data_points) > 0]
+    groups = [group for group in groups if any(converted_at for _, converted_at, _ in js[group]) > 0]
 
     # Pick the top groups
     groups = sorted(groups, key=lambda group: len(js[group]), reverse=True)[:max_groups]
