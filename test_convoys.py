@@ -33,7 +33,7 @@ def test_bootstrapped_exponential_model(c=0.05, lambd=0.1, n=10000):
     N = numpy.array([100 for converted_at in C])
     B = numpy.array([bool(converted_at > 0) for converted_at in C])
     c = numpy.mean(B)
-    model = Bootstrapper(Exponential)
+    model = Bootstrapper('exponential')
     model.fit(C, N, B)
     y, y_lo, y_hi = model.predict_final(confidence_interval=True)
     c_lo = scipy.stats.beta.ppf(0.05, n*c, n*(1-c))

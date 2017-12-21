@@ -215,7 +215,7 @@ class Weibull(Model):
 
 
 class Bootstrapper(Model):
-    def __init__(self, projection, params, n_bootstraps=100):
+    def __init__(self, projection, params={}, n_bootstraps=100):
         if projection == 'exponential':
             base_fitter = lambda: Exponential(params=params)
         elif projection == 'gamma':
