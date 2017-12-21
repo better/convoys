@@ -309,7 +309,7 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
     pyplot.tight_layout()
 
 
-def plot_conversion(data, window, projection, group_min_size=0, max_groups=100, stride=None, share_params=False, title=None):
+def plot_conversion(data, window, projection, group_min_size=0, max_groups=100, window_min_size=1, stride=None, share_params=False, title=None):
     if stride is None:
         stride = window
 
@@ -335,13 +335,13 @@ def plot_conversion(data, window, projection, group_min_size=0, max_groups=100, 
             t2 = t1 + window
             i1 = bisect.bisect_left(created_ats, t1)
             i2 = bisect.bisect_left(created_ats, t2)
-            if i1 >= len(js[group]):
+            if i2 >= len(js[group]):
                 break
             data = js[group][i1:i2]
             t1 += stride
 
             C, N, B = get_arrays(data, t_factor)
-            if sum(B) == 0:
+            if sum(B) < window_min_size:
                 continue
 
             if projection == 'exponential':
