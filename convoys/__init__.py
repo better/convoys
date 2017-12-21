@@ -100,7 +100,7 @@ class KaplanMeier(Model):
             return (array_lookup(self.ts), array_lookup(self.ps))
 
     def predict_final(self, confidence_interval=False):
-        if self.confidence_interval:
+        if confidence_interval:
             return (self.ps[-1], self.ps_lo[-1], self.ps_hi[-1])
         else:
             return self.ps[-1]
@@ -324,7 +324,7 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
 
         if projection is True:
             p = m
-        else:
+        elif projection:
             p = Bootstrapper(projection, params)
             p.fit(C, N, B)
 
