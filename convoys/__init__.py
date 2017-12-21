@@ -25,7 +25,7 @@ def get_timescale(t):
 
 
 def get_arrays(data, t_factor):
-    C = [(converted_at - created_at).total_seconds() * t_factor if converted_at is not None else 0.0
+    C = [(converted_at - created_at).total_seconds() * t_factor if converted_at is not None else 1.0
          for created_at, converted_at, now in data]
     N = [(now - created_at).total_seconds() * t_factor
          for created_at, converted_at, now in data]
@@ -177,8 +177,53 @@ class Gamma(Model):
         return self.params['c']
 
 
+class Weibull(Model):
+    def fit(self, C, N, B):
+        # TODO(erikbern): should compute Jacobian of this one
+        def f(x):
+            c, lambd, k = x
+            neg_LL = 0
+            # PDF of Weibull: k * lambda * (x * lambda)^(k-1) * exp(-(t * lambda)^k)
+            likelihood_observed = c * k * lambd * (C * lambd)**(k-1) * numpy.exp(-(C*lambd)**k)
+            # CDF of Weibull: 1 - exp(-(t * lambda)^k)
+            likelihood_censored = (1 - c) + c * numpy.exp(-(N*lambd)**k)
+            neg_LL = -numpy.sum(numpy.log(B * likelihood_observed + (1 - B) * likelihood_censored))
+            return neg_LL
+
+        c_initial = numpy.mean(B)
+        lambd_initial = 1.0 / max(C)
+        lambd_max = 30.0 / max(C)
+        k_initial = 1.0
+        lambd = self.params.get('lambd')
+        k = self.params.get('k')
+        res = scipy.optimize.minimize(
+            fun=f,
+            x0=(c_initial, lambd_initial, k_initial),
+            bounds=((1e-4, 1-1e-4),
+                    (lambd, lambd) if lambd else (1e-4, lambd_max),
+                    (k, k) if k else (0.3, 3.0)),
+            method='L-BFGS-B')
+        c, lambd, k = res.x
+        self.params = dict(c=c, lambd=lambd, k=k)
+
+    def predict(self, ts):
+        c, lambd, k = self.params['c'], self.params['lambd'], self.params['k']
+        return ts, c * gammainc(k, lambd*ts)
+
+    def predict_final(self):
+        return self.params['c']
+
+
 class Bootstrapper(Model):
-    def __init__(self, base_fitter, n_bootstraps=100):
+    def __init__(self, projection, params, n_bootstraps=100):
+        if projection == 'exponential':
+            base_fitter = lambda: Exponential(params=params)
+        elif projection == 'gamma':
+            base_fitter = lambda: Gamma(params=params)
+        elif projection == 'weibull':
+            base_fitter = lambda: Weibull(params=params)
+        else:
+            raise Exception('projection must be exponential/gamma/weibull (was: %s)' % projection)
         self.models = [base_fitter() for i in range(n_bootstraps)]
 
     def fit(self, C, N, B):
@@ -234,8 +279,10 @@ def get_params(js, projection, share_params, t_factor):
             m = Exponential()
         elif projection == 'gamma':
             m = Gamma()
+        elif projection == 'weibull':
+            m = Weibull()
         else:
-            raise Exception('sharing params only works if projection is exponential/gamma (was: %s)' % projection)
+            raise Exception('sharing params only works if projection is exponential/gamma/weibull (was: %s)' % projection)
         pooled_data = sum(js.values(), [])
         C, N, B = get_arrays(pooled_data, t_factor)
         m.fit(C, N, B)
@@ -278,12 +325,7 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
         if projection is True:
             p = m
         else:
-            if projection == 'exponential':
-                p = Bootstrapper(lambda: Exponential(params=params))
-            elif projection == 'gamma':
-                p = Bootstrapper(lambda: Gamma(params=params))
-            else:
-                raise Exception('projection must be exponential/gamma (was: %s)' % projection)
+            p = Bootstrapper(projection, params)
             p.fit(C, N, B)
 
         if projection:
@@ -344,12 +386,7 @@ def plot_conversion(data, window, projection, group_min_size=0, max_groups=100, 
             if sum(B) < window_min_size:
                 continue
 
-            if projection == 'exponential':
-                p = Bootstrapper(lambda: Exponential(params=params))
-            elif projection == 'gamma':
-                p = Bootstrapper(lambda: Gamma(params=params))
-            else:
-                raise Exception('projection must be exponential/gamma (was: %s)' % projection)
+            p = Bootstrapper(projection, params)
             p.fit(C, N, B)
 
             y, y_lo, y_hi = p.predict_final(confidence_interval=True)
