@@ -53,6 +53,10 @@ class Model():
     def predict_final(self, confidence_interval=False):
         pass
 
+    @abc.abstractmethod
+    def predict_time(self, confidence_interval=False):
+        pass
+
 
 class SimpleBinomial(Model):
     def fit(self, C, N, B):
@@ -74,6 +78,9 @@ class SimpleBinomial(Model):
             return b/a, scipy.stats.beta.ppf(0.05, b, a-b), scipy.stats.beta.ppf(0.95, b, a-b)
         else:
             return b/a
+
+    def predict_time(self):
+        return 0.0
 
 
 class Basic(Model):
@@ -129,6 +136,9 @@ class KaplanMeier(Model):
         else:
             return self.ps[-1]
 
+    def predict_time(self):
+        raise NotImplementedError
+
 
 class Exponential(Model):
     def fit(self, C, N, B):
@@ -159,6 +169,9 @@ class Exponential(Model):
 
     def predict_final(self):
         return self.params['c']
+
+    def predict_time(self):
+        return 1.0 / self.params['lambd']
 
 
 class Gamma(Model):
@@ -197,6 +210,9 @@ class Gamma(Model):
     def predict_final(self):
         return self.params['c']
 
+    def predict_time(self):
+        return self.params['k'] / self.params['lambd']
+
 
 class Weibull(Model):
     def fit(self, C, N, B):
@@ -233,6 +249,9 @@ class Weibull(Model):
     def predict_final(self):
         return self.params['c']
 
+    def predict_time(self):
+        return gamma(1 + 1./self.params['k']) / self.params['lambd']
+
 
 class Bootstrapper(Model):
     def __init__(self, projection, params={}, n_bootstraps=100):
@@ -268,6 +287,15 @@ class Bootstrapper(Model):
             return (numpy.mean(all_ps), numpy.percentile(all_ps, 5), numpy.percentile(all_ps, 95))
         else:
             return numpy.mean(all_ps)
+
+    def predict_time(self, confidence_interval=False):
+        # TODO(erikbern): not sure if it makes sense to use median here,
+        # but the mean is problematic because the distribution is so skewed.
+        all_ps = numpy.array([model.predict_time() for model in self.models])
+        if confidence_interval:
+            return (numpy.median(all_ps), numpy.percentile(all_ps, 5), numpy.percentile(all_ps, 95))
+        else:
+            return numpy.median(all_ps)
 
 
 def split_by_group(data, group_min_size, max_groups):
@@ -376,7 +404,7 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
     pyplot.tight_layout()
 
 
-def plot_conversion(data, window, projection, group_min_size=0, max_groups=100, window_min_size=1, stride=None, share_params=False, title=None):
+def plot_conversion(data, window, projection, group_min_size=0, max_groups=100, window_min_size=1, stride=None, share_params=False, title=None, time=False):
     if stride is None:
         stride = window
 
@@ -418,20 +446,27 @@ def plot_conversion(data, window, projection, group_min_size=0, max_groups=100, 
                 p = Bootstrapper(projection, params)
             p.fit(C, N, B)
 
-            y, y_lo, y_hi = p.predict_final(confidence_interval=True)
+            if time:
+                y, y_lo, y_hi = p.predict_time(confidence_interval=True)
+            else:
+                y, y_lo, y_hi = p.predict_final(confidence_interval=True)
             print('%30s %40s %.4f %.4f %.4f' % (group, t1, y, y_lo, y_hi))
             ts.append(t2)
             ys.append(y)
             y_los.append(y_lo)
             y_his.append(y_hi)
 
-        ys, y_los, y_his = (100.*numpy.array(x) for x in (ys, y_los, y_his))
+        if not time:
+            ys, y_los, y_his = (100.**numpy.array(x) for x in (ys, y_los, y_his))
         pyplot.plot(ts, ys, color=color, label='%s (%d)' % (group, len(js[group])))
         pyplot.fill_between(ts, y_los, y_his, color=color, alpha=0.2)
 
     if title:
         pyplot.title(title)
-    pyplot.ylabel('Conversion rate %')
+    if time:
+        pyplot.ylabel('Average time to conversion (%s)' % t_unit)
+    else:
+        pyplot.ylabel('Conversion rate %')
     pyplot.legend()
     pyplot.gca().grid(True)
     pyplot.tight_layout()
