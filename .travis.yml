@@ -3,5 +3,12 @@ python:
   - "2.7"
   - "3.5"
   - "3.6"
-install: "pip install pytest -r requirements.txt"
-script: pytest
+before_install:
+  - pip install pytest pytest-cov
+  - pip install coveralls
+install:
+  - pip install pytest -r requirements.txt
+script:
+  - py.test
+after_success:
+  - coveralls
