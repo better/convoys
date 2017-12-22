@@ -1,7 +1,7 @@
 import numpy
 import random
 import scipy.stats
-from convoys import Exponential, Gamma, Bootstrapper
+from convoys import Exponential, Gamma, Weibull, Bootstrapper
 
 
 def test_exponential_model(c=0.05, lambd=0.1, n=1000000):
@@ -16,7 +16,7 @@ def test_exponential_model(c=0.05, lambd=0.1, n=1000000):
     assert 0.95*lambd < model.params['lambd'] < 1.05*lambd
 
 
-def test_gamma_model(c=0.05, lambd=0.1, k=10.0, n=100000):
+def test_gamma_model(c=0.05, lambd=0.1, k=10.0, n=1000000):
     C = numpy.array([random.random() < c and scipy.stats.gamma.rvs(a=k, scale=1.0/lambd) or 0.0 for x in range(n)])
     N = numpy.array([1000 for converted_at in C])
     B = numpy.array([bool(converted_at > 0) for converted_at in C])
@@ -26,6 +26,23 @@ def test_gamma_model(c=0.05, lambd=0.1, k=10.0, n=100000):
     assert 0.95*c < model.params['c'] < 1.05*c
     assert 0.95*lambd < model.params['lambd'] < 1.05*lambd
     assert 0.95*k < model.params['k'] < 1.05*k
+
+
+def test_weibull_model(c=0.05, lambd=0.1, k=0.5, n=1000000):
+    def sample_weibull():
+        # scipy.stats is garbage for this
+        # exp(-(x * lambda)^k) = y
+        return (-numpy.log(random.random())) ** (1.0/k) / lambd
+    B = numpy.array([bool(random.random() < c) for x in range(n)])
+    C = numpy.array([b and sample_weibull() or 1.0 for b in B])
+    N = numpy.array([1000 for b in B])
+    c = numpy.mean(B)
+    model = Weibull()
+    model.fit(C, N, B)
+    assert 0.95*c < model.params['c'] < 1.05*c
+    # TODO: we need to derive jacobians for weibull, convergence is garbage
+    # assert 0.95*lambd < model.params['lambd'] < 1.05*lambd
+    # assert 0.95*k < model.params['k'] < 1.05*k
 
 
 def test_bootstrapped_exponential_model(c=0.05, lambd=0.1, n=10000):
