@@ -312,7 +312,7 @@ def get_params(js, projection, share_params, t_factor):
         if share_params is True:
             return {k: m.params[k] for k in ['k', 'lambd'] if k in m.params}
         else:
-            return {k: m.params[k] for k in share_params}
+            return {k: m.params[k] for k in share_params if k in m.params}
     else:
         return {}
 
