@@ -3,12 +3,14 @@ import bisect
 import datetime
 import lifelines
 import math
+import numpy
 import random
 import seaborn
 import scipy.optimize
 import six
-from autograd import numpy, grad
+from autograd import grad
 from scipy.special import gamma, gammainc
+from autograd.numpy import exp, log, sum
 from matplotlib import pyplot
 
 
@@ -50,6 +52,28 @@ class Model():
     @abc.abstractmethod
     def predict_final(self, confidence_interval=False):
         pass
+
+
+class SimpleBinomial(Model):
+    def fit(self, C, N, B):
+        self.params['a'] = len(B)
+        self.params['b'] = sum(B)
+
+    def predict(self, ts, confidence_interval=False):
+        a, b = self.params['a'], self.params['b']
+        def rep(x):
+            return numpy.ones(len(ts)) * x
+        if confidence_interval:
+            return ts, rep(b/a), rep(scipy.stats.beta.ppf(0.05, b, a-b)), rep(scipy.stats.beta.ppf(0.95, b, a-b))
+        else:
+            return ts, rep(b/a)
+
+    def predict_final(self, confidence_interval=False):
+        a, b = self.params['a'], self.params['b']
+        if confidence_interval:
+            return b/a, scipy.stats.beta.ppf(0.05, b, a-b), scipy.stats.beta.ppf(0.95, b, a-b)
+        else:
+            return b/a
 
 
 class Basic(Model):
@@ -110,9 +134,9 @@ class Exponential(Model):
     def fit(self, C, N, B):
         def f(x):
             c, lambd = x
-            likelihood_observed = c * lambd * numpy.exp(-lambd*C)
-            likelihood_censored = (1 - c) + c * numpy.exp(-lambd*N)
-            neg_LL = -numpy.sum(numpy.log(B * likelihood_observed + (1 - B) * likelihood_censored))
+            likelihood_observed = c * lambd * exp(-lambd*C)
+            likelihood_censored = (1 - c) + c * exp(-lambd*N)
+            neg_LL = -sum(log(B * likelihood_observed + (1 - B) * likelihood_censored))
             return neg_LL
 
         c_initial = numpy.mean(B)
@@ -131,7 +155,7 @@ class Exponential(Model):
 
     def predict(self, ts):
         c, lambd = self.params['c'], self.params['lambd']
-        return ts, c * (1 - numpy.exp(-ts * lambd))
+        return ts, c * (1 - exp(-ts * lambd))
 
     def predict_final(self):
         return self.params['c']
@@ -144,10 +168,10 @@ class Gamma(Model):
             c, lambd, k = x
             neg_LL = 0
             # PDF of gamma: 1.0 / gamma(k) * lambda ^ k * t^(k-1) * exp(-t * lambda)
-            likelihood_observed = c * 1/gamma(k) * lambd**k * C**(k-1) * numpy.exp(-lambd*C)
+            likelihood_observed = c * 1/gamma(k) * lambd**k * C**(k-1) * exp(-lambd*C)
             # CDF of gamma: 1.0 / gamma(k) * gammainc(k, lambda * t)
             likelihood_censored = (1 - c) + c * (1 - gammainc(k, lambd*N))
-            neg_LL = -numpy.sum(numpy.log(B * likelihood_observed + (1 - B) * likelihood_censored))
+            neg_LL = -sum(log(B * likelihood_observed + (1 - B) * likelihood_censored))
             return neg_LL
 
         c_initial = numpy.mean(B)
@@ -179,10 +203,10 @@ class Weibull(Model):
         def f(x):
             c, lambd, k = x
             # PDF of Weibull: k * lambda * (x * lambda)^(k-1) * exp(-(t * lambda)^k)
-            likelihood_observed = c * k * lambd * (C * lambd)**(k-1) * numpy.exp(-(C*lambd)**k)
+            likelihood_observed = c * k * lambd * (C * lambd)**(k-1) * exp(-(C*lambd)**k)
             # CDF of Weibull: 1 - exp(-(t * lambda)^k)
-            likelihood_censored = (1 - c) + c * numpy.exp(-(N*lambd)**k)
-            neg_LL = -numpy.sum(numpy.log(B * likelihood_observed + (1 - B) * likelihood_censored))
+            likelihood_censored = (1 - c) + c * exp(-(N*lambd)**k)
+            neg_LL = -sum(log(B * likelihood_observed + (1 - B) * likelihood_censored))
             return neg_LL
 
         c_initial = numpy.mean(B)
@@ -204,7 +228,7 @@ class Weibull(Model):
 
     def predict(self, ts):
         c, lambd, k = self.params['c'], self.params['lambd'], self.params['k']
-        return ts, c * (1 - numpy.exp(-(ts*lambd)**k))
+        return ts, c * (1 - exp(-(ts*lambd)**k))
 
     def predict_final(self):
         return self.params['c']
@@ -315,6 +339,8 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
             m = Basic()
         elif model == 'kaplan-meier':
             m = KaplanMeier()
+        elif model == 'simple-binomial':
+            m = SimpleBinomial()
         m.fit(C, N, B)
 
         label = '%s (n=%.0f, k=%.0f)' % (group, len(B), sum(B))
@@ -368,7 +394,7 @@ def plot_conversion(data, window, projection, group_min_size=0, max_groups=100, 
     for group, color in zip(sorted(groups), colors):
         t1 = t_lo
         ts, ys, y_los, y_his = [], [], [], []
-        js[group].sort()
+        js[group].sort(key=lambda x: x[0])
         created_ats = [created_at for created_at, _, _ in js[group]]
         while True:
             t2 = t1 + window
@@ -383,7 +409,11 @@ def plot_conversion(data, window, projection, group_min_size=0, max_groups=100, 
             if sum(B) < window_min_size:
                 continue
 
-            p = Bootstrapper(projection, params)
+            if projection == 'simple-binomial':
+                # TODO: ugly code
+                p = SimpleBinomial()
+            else:
+                p = Bootstrapper(projection, params)
             p.fit(C, N, B)
 
             y, y_lo, y_hi = p.predict_final(confidence_interval=True)
