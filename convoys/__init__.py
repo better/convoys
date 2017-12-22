@@ -3,11 +3,11 @@ import bisect
 import datetime
 import lifelines
 import math
-import numpy
 import random
 import seaborn
 import scipy.optimize
 import six
+from autograd import numpy, grad
 from scipy.special import gamma, gammainc
 from matplotlib import pyplot
 
@@ -110,13 +110,10 @@ class Exponential(Model):
     def fit(self, C, N, B):
         def f(x):
             c, lambd = x
-            neg_LL, neg_LL_deriv_c, neg_LL_deriv_lambd = 0, 0, 0
             likelihood_observed = c * lambd * numpy.exp(-lambd*C)
             likelihood_censored = (1 - c) + c * numpy.exp(-lambd*N)
             neg_LL = -numpy.sum(numpy.log(B * likelihood_observed + (1 - B) * likelihood_censored))
-            neg_LL_deriv_c = -numpy.sum(B * 1/c + (1 - B) * (-1 + numpy.exp(-lambd*N)) / likelihood_censored)
-            neg_LL_deriv_lambd = -numpy.sum(B * (1/lambd - C) + (1 - B) * (c * -N * numpy.exp(-lambd*N)) / likelihood_censored)
-            return neg_LL, numpy.array([neg_LL_deriv_c, neg_LL_deriv_lambd])
+            return neg_LL
 
         c_initial = numpy.mean(B)
         lambd_initial = 1.0 / max(N)
@@ -124,11 +121,11 @@ class Exponential(Model):
         lambd = self.params.get('lambd')
         res = scipy.optimize.minimize(
             fun=f,
+            jac=grad(f),
             x0=(c_initial, lambd_initial),
             bounds=((1e-4, 1-1e-4),
                     (lambd, lambd) if lambd else (1e-4, lambd_max)),
-            method='L-BFGS-B',
-            jac=True)
+            method='L-BFGS-B')
         c, lambd = res.x
         self.params = dict(c=c, lambd=lambd)
 
@@ -179,10 +176,8 @@ class Gamma(Model):
 
 class Weibull(Model):
     def fit(self, C, N, B):
-        # TODO(erikbern): should compute Jacobian of this one
         def f(x):
             c, lambd, k = x
-            neg_LL = 0
             # PDF of Weibull: k * lambda * (x * lambda)^(k-1) * exp(-(t * lambda)^k)
             likelihood_observed = c * k * lambd * (C * lambd)**(k-1) * numpy.exp(-(C*lambd)**k)
             # CDF of Weibull: 1 - exp(-(t * lambda)^k)
@@ -198,6 +193,7 @@ class Weibull(Model):
         k = self.params.get('k')
         res = scipy.optimize.minimize(
             fun=f,
+            jac=grad(f),
             x0=(c_initial, lambd_initial, k_initial),
             bounds=((1e-4, 1-1e-4),
                     (lambd, lambd) if lambd else (1e-4, lambd_max),

@@ -40,7 +40,7 @@ def test_weibull_model(c=0.05, lambd=0.1, k=0.5, n=1000000):
     model = Weibull()
     model.fit(C, N, B)
     assert 0.95*c < model.params['c'] < 1.05*c
-    # TODO: we need to derive jacobians for weibull, convergence is garbage
+    # TODO: figure out how to make L-BFGS-B run longer
     # assert 0.95*lambd < model.params['lambd'] < 1.05*lambd
     # assert 0.95*k < model.params['k'] < 1.05*k
 
