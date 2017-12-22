@@ -208,7 +208,7 @@ class Weibull(Model):
 
     def predict(self, ts):
         c, lambd, k = self.params['c'], self.params['lambd'], self.params['k']
-        return ts, c * gammainc(k, lambd*ts)
+        return ts, c * (1 - numpy.exp(-(ts*lambd)**k))
 
     def predict_final(self):
         return self.params['c']
