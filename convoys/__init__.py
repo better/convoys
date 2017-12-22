@@ -426,7 +426,7 @@ def plot_conversion(data, window, projection, group_min_size=0, max_groups=100, 
             y_his.append(y_hi)
 
         ys, y_los, y_his = (100.*numpy.array(x) for x in (ys, y_los, y_his))
-        pyplot.plot(ts, ys, color=color, label=group)
+        pyplot.plot(ts, ys, color=color, label='%s (%d)' % (group, len(js[group])))
         pyplot.fill_between(ts, y_los, y_his, color=color, alpha=0.2)
 
     if title:
