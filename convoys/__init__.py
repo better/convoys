@@ -304,13 +304,15 @@ def get_params(js, projection, share_params, t_factor):
             m = Weibull()
         else:
             raise Exception('sharing params only works if projection is exponential/gamma/weibull (was: %s)' % projection)
-        pooled_data = sum(js.values(), [])
+        pooled_data = []
+        for v in js.values():
+            pooled_data += v
         C, N, B = get_arrays(pooled_data, t_factor)
         m.fit(C, N, B)
         if share_params is True:
             return {k: m.params[k] for k in ['k', 'lambd'] if k in m.params}
         else:
-            return {k: m.params[k] for k in params}
+            return {k: m.params[k] for k in share_params}
     else:
         return {}
 
