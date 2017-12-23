@@ -9,7 +9,7 @@ import seaborn
 import scipy.optimize
 import six
 from autograd import grad
-from scipy.special import gamma, gammainc
+from autograd.scipy.special import gamma, gammainc
 from autograd.numpy import exp, log, sum
 from matplotlib import pyplot
 
@@ -385,7 +385,6 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
             p_t, p_y, p_y_lo, p_y_hi = p.predict(t, confidence_interval=True)
             p_y_final, p_y_lo_final, p_y_hi_final = p.predict_final(confidence_interval=True)
             label += ' projected: %.2f%% (%.2f%% - %.2f%%)' % (100.*p_y_final, 100.*p_y_lo_final, 100.*p_y_hi_final)
-            y_max = max(y_max, 90. * max(p_y_hi))
             pyplot.plot(p_t, 100. * p_y, color=color, linestyle=':', alpha=0.7)
             pyplot.fill_between(p_t, 100. * p_y_lo, 100. * p_y_hi, color=color, alpha=0.2)
 
