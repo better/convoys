@@ -1,7 +1,8 @@
+import datetime
 import numpy
 import random
 import scipy.stats
-from convoys import Exponential, Gamma, Weibull, Bootstrapper
+from convoys import Exponential, Gamma, Weibull, Bootstrapper, plot_cohorts
 
 
 def test_exponential_model(c=0.05, lambd=0.1, n=100000):
@@ -58,3 +59,20 @@ def test_bootstrapped_exponential_model(c=0.05, lambd=0.1, n=10000):
     assert 0.95*c < y < 1.05 * c
     assert 0.95*c_lo < y_lo < 1.05 * c_lo
     assert 0.95*c_hi < y_hi < 1.05 * c_hi
+
+
+def test_plot_cohorts(c=0.05, k=10, lambd=0.1, n=1000):
+    data = []
+    now = datetime.datetime(2001, 7, 1)
+    for x in range(n):
+        date_a = datetime.datetime(2000, 1, 1) + datetime.timedelta(days=random.random()*100)
+        if random.random() < c:
+            delay = scipy.stats.gamma.rvs(a=k, scale=1.0/lambd)
+            date_b = date_a + datetime.timedelta(days=delay)
+            if date_b < now:
+                data.append(('foo', date_a, date_b, now))
+            else:
+                data.append(('foo', date_a, None, now))
+        else:
+            data.append(('foo', date_a, None, now))
+    plot_cohorts(data, projection='gamma')
