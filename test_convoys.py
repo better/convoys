@@ -3,8 +3,8 @@ import matplotlib
 import numpy
 import random
 import scipy.stats
-from convoys import Exponential, Gamma, Weibull, Bootstrapper, plot_cohorts
 matplotlib.use('Agg')  # Needed for matplotlib to run in Travis
+from convoys import Exponential, Gamma, Weibull, Bootstrapper, plot_cohorts
 
 
 def test_exponential_model(c=0.05, lambd=0.1, n=100000):
