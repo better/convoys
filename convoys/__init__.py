@@ -400,7 +400,6 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
     pyplot.ylabel('Conversion rate %')
     pyplot.legend()
     pyplot.gca().grid(True)
-    pyplot.tight_layout()
 
 
 def plot_conversion(data, window, projection, group_min_size=0, max_groups=100, window_min_size=1, stride=None, share_params=False, title=None, time=False):
@@ -468,4 +467,3 @@ def plot_conversion(data, window, projection, group_min_size=0, max_groups=100, 
         pyplot.ylabel('Conversion rate %')
     pyplot.legend()
     pyplot.gca().grid(True)
-    pyplot.tight_layout()
