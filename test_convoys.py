@@ -64,7 +64,7 @@ def test_bootstrapped_exponential_model(c=0.05, lambd=0.1, n=10000):
     assert 0.95*c_hi < y_hi < 1.05 * c_hi
 
 
-def test_plot_cohorts(c=0.05, k=10, lambd=0.1, n=1000):
+def _get_data(c=0.05, k=10, lambd=0.1, n=1000):
     data = []
     now = datetime.datetime(2000, 7, 1)
     for x in range(n):
@@ -78,5 +78,16 @@ def test_plot_cohorts(c=0.05, k=10, lambd=0.1, n=1000):
                 data.append(('foo', date_a, None, now))
         else:
             data.append(('foo', date_a, None, now))
-    convoys.plot_cohorts(data, projection='gamma')
-    convoys.plot_conversion(data, window=datetime.timedelta(days=7), projection='gamma')
+    return data
+
+
+def test_plot_cohorts():
+    convoys.plot_cohorts(_get_data(), projection='gamma')
+
+
+def test_plot_conversion():
+    convoys.plot_conversion(_get_data(), window=datetime.timedelta(days=7), projection='gamma')
+
+
+def test_plot_cohorts_share_params():
+    convoys.plot_cohorts(_get_data(), projection='gamma', share_params=['k'])
