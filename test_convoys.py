@@ -79,3 +79,4 @@ def test_plot_cohorts(c=0.05, k=10, lambd=0.1, n=1000):
         else:
             data.append(('foo', date_a, None, now))
     plot_cohorts(data, projection='gamma')
+    plot_conversion(data, window=datetime.timedelta(days=7), projection='gamma')
