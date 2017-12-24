@@ -1,10 +1,10 @@
 import datetime
 import matplotlib
 import numpy
-import pytz
 import random
 import scipy.stats
 matplotlib.use('Agg')  # Needed for matplotlib to run in Travis
+import convoys
 from convoys import Exponential, Gamma, Weibull, Bootstrapper, plot_cohorts
 
 
@@ -14,7 +14,7 @@ def test_exponential_model(c=0.05, lambd=0.1, n=100000):
     N = numpy.array([100 for converted_at in C])
     B = numpy.array([bool(converted_at > 0) for converted_at in C])
     c = numpy.mean(B)
-    model = Exponential()
+    model = convoys.Exponential()
     model.fit(C, N, B)
     assert 0.95*c < model.params['c'] < 1.05*c
     assert 0.95*lambd < model.params['lambd'] < 1.05*lambd
@@ -25,7 +25,7 @@ def test_gamma_model(c=0.05, lambd=0.1, k=10.0, n=100000):
     N = numpy.array([1000 for converted_at in C])
     B = numpy.array([bool(converted_at > 0) for converted_at in C])
     c = numpy.mean(B)
-    model = Gamma()
+    model = convoys.Gamma()
     model.fit(C, N, B)
     assert 0.95*c < model.params['c'] < 1.05*c
     assert 0.95*lambd < model.params['lambd'] < 1.05*lambd
@@ -41,7 +41,7 @@ def test_weibull_model(c=0.05, lambd=0.1, k=0.5, n=100000):
     C = numpy.array([b and sample_weibull() or 1.0 for b in B])
     N = numpy.array([1000 for b in B])
     c = numpy.mean(B)
-    model = Weibull()
+    model = convoys.Weibull()
     model.fit(C, N, B)
     assert 0.95*c < model.params['c'] < 1.05*c
     # TODO: figure out how to make L-BFGS-B run longer
@@ -54,7 +54,7 @@ def test_bootstrapped_exponential_model(c=0.05, lambd=0.1, n=10000):
     N = numpy.array([100 for converted_at in C])
     B = numpy.array([bool(converted_at > 0) for converted_at in C])
     c = numpy.mean(B)
-    model = Bootstrapper('exponential')
+    model = convoys.Bootstrapper('exponential')
     model.fit(C, N, B)
     y, y_lo, y_hi = model.predict_final(confidence_interval=True)
     c_lo = scipy.stats.beta.ppf(0.05, n*c, n*(1-c))
@@ -66,9 +66,9 @@ def test_bootstrapped_exponential_model(c=0.05, lambd=0.1, n=10000):
 
 def test_plot_cohorts(c=0.05, k=10, lambd=0.1, n=1000):
     data = []
-    now = datetime.datetime(2001, 7, 1, tzinfo=pytz.utc)
+    now = datetime.datetime(2000, 7, 1)
     for x in range(n):
-        date_a = datetime.datetime(2000, 1, 1, tzinfo=pytz.utc) + datetime.timedelta(days=random.random()*100)
+        date_a = datetime.datetime(2000, 1, 1) + datetime.timedelta(days=random.random()*100)
         if random.random() < c:
             delay = scipy.stats.gamma.rvs(a=k, scale=1.0/lambd)
             date_b = date_a + datetime.timedelta(days=delay)
@@ -78,4 +78,5 @@ def test_plot_cohorts(c=0.05, k=10, lambd=0.1, n=1000):
                 data.append(('foo', date_a, None, now))
         else:
             data.append(('foo', date_a, None, now))
-    plot_cohorts(data, projection='gamma')
+    convoys.plot_cohorts(data, projection='gamma')
+    convoys.plot_conversion(data, window=datetime.timedelta(days=7), projection='gamma')
