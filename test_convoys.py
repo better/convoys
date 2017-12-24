@@ -2,7 +2,6 @@ import datetime
 import matplotlib
 import matplotlib.pyplot
 import numpy
-import pytz
 import random
 import scipy.stats
 matplotlib.use('Agg')  # Needed for matplotlib to run in Travis
@@ -69,9 +68,9 @@ def test_bootstrapped_exponential_model(c=0.05, lambd=0.1, n=10000):
 
 def test_plot_cohorts(c=0.05, k=10, lambd=0.1, n=1000):
     data = []
-    now = datetime.datetime(2017, 7, 1, tzinfo=pytz.utc)
+    now = datetime.datetime(2017, 7, 1)
     for x in range(n):
-        date_a = datetime.datetime(2017, 1, 1, tzinfo=pytz.utc) + datetime.timedelta(days=int(random.random()*100))
+        date_a = datetime.datetime(2017, 1, 1) + datetime.timedelta(days=random.random()*100)
         if random.random() < c:
             delay = scipy.stats.gamma.rvs(a=k, scale=1.0/lambd)
             date_b = date_a + datetime.timedelta(days=delay)
