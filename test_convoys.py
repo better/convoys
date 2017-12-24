@@ -1,11 +1,9 @@
 import datetime
 import matplotlib
-import matplotlib.pyplot
 import numpy
 import random
 import scipy.stats
 matplotlib.use('Agg')  # Needed for matplotlib to run in Travis
-matplotlib.pyplot.ion()
 import convoys
 from convoys import Exponential, Gamma, Weibull, Bootstrapper, plot_cohorts
 
