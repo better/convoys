@@ -13,6 +13,8 @@ from autograd.scipy.special import gamma, gammainc
 from autograd.numpy import exp, log, sum
 from matplotlib import pyplot
 
+LOG_EPS = 1e-12  # Used for log likelihood
+
 
 def get_timescale(t):
     if t >= datetime.timedelta(days=1):
@@ -146,7 +148,7 @@ class Exponential(Model):
             c, lambd = x
             likelihood_observed = c * lambd * exp(-lambd*C)
             likelihood_censored = (1 - c) + c * exp(-lambd*N)
-            neg_LL = -sum(log(B * likelihood_observed + (1 - B) * likelihood_censored))
+            neg_LL = -sum(log(B * likelihood_observed + (1 - B) * likelihood_censored + LOG_EPS))
             return neg_LL
 
         c_initial = numpy.mean(B)
@@ -184,7 +186,7 @@ class Gamma(Model):
             likelihood_observed = c * 1/gamma(k) * lambd**k * C**(k-1) * exp(-lambd*C)
             # CDF of gamma: gammainc(k, lambda * t)
             likelihood_censored = (1 - c) + c * (1 - gammainc(k, lambd*N))
-            neg_LL = -sum(log(B * likelihood_observed + (1 - B) * likelihood_censored))
+            neg_LL = -sum(log(B * likelihood_observed + (1 - B) * likelihood_censored + LOG_EPS))
             return neg_LL
 
         c_initial = numpy.mean(B)
@@ -222,7 +224,7 @@ class Weibull(Model):
             likelihood_observed = c * k * lambd * (C * lambd)**(k-1) * exp(-(C*lambd)**k)
             # CDF of Weibull: 1 - exp(-(t * lambda)^k)
             likelihood_censored = (1 - c) + c * exp(-(N*lambd)**k)
-            neg_LL = -sum(log(B * likelihood_observed + (1 - B) * likelihood_censored))
+            neg_LL = -sum(log(B * likelihood_observed + (1 - B) * likelihood_censored + LOG_EPS))
             return neg_LL
 
         c_initial = numpy.mean(B)
