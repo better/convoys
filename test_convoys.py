@@ -44,9 +44,8 @@ def test_weibull_model(c=0.05, lambd=0.1, k=0.5, n=100000):
     model = convoys.Weibull()
     model.fit(C, N, B)
     assert 0.95*c < model.params['c'] < 1.05*c
-    # TODO: figure out how to make L-BFGS-B run longer
-    # assert 0.95*lambd < model.params['lambd'] < 1.05*lambd
-    # assert 0.95*k < model.params['k'] < 1.05*k
+    assert 0.95*lambd < model.params['lambd'] < 1.05*lambd
+    assert 0.95*k < model.params['k'] < 1.05*k
 
 
 def test_bootstrapped_exponential_model(c=0.05, lambd=0.1, n=10000):

@@ -182,14 +182,14 @@ class Gamma(Model):
             neg_LL = 0
             # PDF of gamma: 1.0 / gamma(k) * lambda ^ k * t^(k-1) * exp(-t * lambda)
             likelihood_observed = c * 1/gamma(k) * lambd**k * C**(k-1) * exp(-lambd*C)
-            # CDF of gamma: 1.0 / gamma(k) * gammainc(k, lambda * t)
+            # CDF of gamma: gammainc(k, lambda * t)
             likelihood_censored = (1 - c) + c * (1 - gammainc(k, lambd*N))
             neg_LL = -sum(log(B * likelihood_observed + (1 - B) * likelihood_censored))
             return neg_LL
 
         c_initial = numpy.mean(B)
         lambd_initial = 1.0 / max(C)
-        lambd_max = 30.0 / max(C)
+        lambd_max = 100.0 / max(C)
         k_initial = 10.0
         lambd = self.params.get('lambd')
         k = self.params.get('k')
@@ -227,7 +227,7 @@ class Weibull(Model):
 
         c_initial = numpy.mean(B)
         lambd_initial = 1.0 / max(C)
-        lambd_max = 30.0 / max(C)
+        lambd_max = 300.0 / max(C)
         k_initial = 0.9
         lambd = self.params.get('lambd')
         k = self.params.get('k')
@@ -237,7 +237,7 @@ class Weibull(Model):
             x0=(c_initial, lambd_initial, k_initial),
             bounds=((1e-4, 1-1e-4),
                     (lambd, lambd) if lambd else (1e-4, lambd_max),
-                    (k, k) if k else (0.3, 3.0)),
+                    (k, k) if k else (0.1, 3.0)),
             method='L-BFGS-B')
         c, lambd, k = res.x
         self.params = dict(c=c, lambd=lambd, k=k)
