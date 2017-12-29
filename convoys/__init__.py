@@ -306,6 +306,9 @@ def split_by_group(data, group_min_size, max_groups):
         if converted_at is not None and converted_at < created_at:
             print('created at', created_at, 'but converted at', converted_at)
             continue
+        if now < created_at:
+            print('created at', created_at, 'but now is', now)
+            continue
         js.setdefault(group, []).append((created_at, converted_at, now))
     groups = list(js.keys())
 
