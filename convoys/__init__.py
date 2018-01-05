@@ -138,8 +138,15 @@ class KaplanMeier(Model):
         else:
             return self.ps[-1]
 
-    def predict_time(self):
-        raise NotImplementedError
+    def predict_time(self, confidence_interval=False):
+        # TODO: should not use median here, but mean is no good
+        def median(ps):
+            i = bisect.bisect_left(ps, 0.5)
+            return self.ts[min(i, len(ps)-1)]
+        if confidence_interval:
+            return median(self.ps), median(self.ps_lo), median(self.ps_hi)
+        else:
+            return median(self.ps)
 
 
 class Exponential(Model):
@@ -269,7 +276,7 @@ class Bootstrapper(Model):
 
     def fit(self, C, N, B):
         CNB = list(zip(C, N, B))
-        for model in self.models:
+        for i, model in enumerate(self.models):
             CNB_bootstrapped = [random.choice(CNB) for _ in CNB]
             C_bootstrapped = numpy.array([c for c, n, b in CNB_bootstrapped])
             N_bootstrapped = numpy.array([n for c, n, b in CNB_bootstrapped])
@@ -407,7 +414,7 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
     pyplot.gca().grid(True)
 
 
-def plot_conversion(data, window, projection, group_min_size=0, max_groups=100, window_min_size=1, stride=None, share_params=False, title=None, time=False):
+def plot_timeseries(data, window, model='kaplan-meier', group_min_size=0, max_groups=100, window_min_size=1, stride=None, share_params=False, title=None, time=False):
     if stride is None:
         stride = window
 
@@ -420,10 +427,11 @@ def plot_conversion(data, window, projection, group_min_size=0, max_groups=100, 
     groups, js = split_by_group(data, group_min_size, max_groups)
 
     # Get shared params
-    params = get_params(js, projection, share_params, t_factor)
+    params = get_params(js, model, share_params, t_factor)
 
     # PLOT
     colors = seaborn.color_palette('hls', len(groups))
+    y_max = 0
     for group, color in zip(sorted(groups), colors):
         t1 = t_lo
         ts, ys, y_los, y_his = [], [], [], []
@@ -442,11 +450,13 @@ def plot_conversion(data, window, projection, group_min_size=0, max_groups=100, 
             if sum(B) < window_min_size:
                 continue
 
-            if projection == 'simple-binomial':
+            if model == 'simple-binomial':
                 # TODO: ugly code
                 p = SimpleBinomial()
+            elif model == 'kaplan-meier':
+                p = KaplanMeier()
             else:
-                p = Bootstrapper(projection, params)
+                p = Bootstrapper(model, params)
             p.fit(C, N, B)
 
             if time:
@@ -458,6 +468,7 @@ def plot_conversion(data, window, projection, group_min_size=0, max_groups=100, 
             ys.append(y)
             y_los.append(y_lo)
             y_his.append(y_hi)
+            y_max = max(y_max, 1.1 * y)
 
         if not time:
             ys, y_los, y_his = (100.*numpy.array(x) for x in (ys, y_los, y_his))
@@ -470,5 +481,6 @@ def plot_conversion(data, window, projection, group_min_size=0, max_groups=100, 
         pyplot.ylabel('Average time to conversion (%s)' % t_unit)
     else:
         pyplot.ylabel('Conversion rate %')
+    pyplot.ylim([0, y_max])
     pyplot.legend()
     pyplot.gca().grid(True)
