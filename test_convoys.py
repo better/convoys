@@ -5,7 +5,6 @@ import random
 import scipy.stats
 matplotlib.use('Agg')  # Needed for matplotlib to run in Travis
 import convoys
-from convoys import Exponential, Gamma, Weibull, Bootstrapper, plot_cohorts
 
 
 def test_exponential_model(c=0.05, lambd=0.1, n=100000):
@@ -85,7 +84,7 @@ def test_plot_cohorts():
 
 
 def test_plot_conversion():
-    convoys.plot_conversion(_get_data(), window=datetime.timedelta(days=7), projection='gamma')
+    convoys.plot_timeseries(_get_data(), window=datetime.timedelta(days=7), projection='gamma')
 
 
 def test_plot_cohorts_share_params():

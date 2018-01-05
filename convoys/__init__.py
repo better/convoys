@@ -468,12 +468,12 @@ def plot_timeseries(data, window, model='kaplan-meier', group_min_size=0, max_gr
             ys.append(y)
             y_los.append(y_lo)
             y_his.append(y_hi)
-            y_max = max(y_max, 1.1 * y)
 
         if not time:
             ys, y_los, y_his = (100.*numpy.array(x) for x in (ys, y_los, y_his))
         pyplot.plot(ts, ys, color=color, label='%s (%d)' % (group, len(js[group])))
         pyplot.fill_between(ts, y_los, y_his, color=color, alpha=0.2)
+        y_max = max(y_max, 1.1 * max(ys))
 
     if title:
         pyplot.title(title)
