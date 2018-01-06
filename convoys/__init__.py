@@ -307,6 +307,26 @@ class Bootstrapper(Model):
             return numpy.median(all_ps)
 
 
+def sample_event(model, t, hi=1e3):
+    # We are now at time t. Generate a random event whether the user is going to convert or not
+    # TODO: this is a hacky thing until we have a "invert CDF" method on each model
+    def pred(t):
+        ts = numpy.array([t])
+        return model.predict(ts)[1][-1]
+    y = pred(t)
+    r = y + random.random() * (1 - y)
+    if pred(hi) < r:
+        return None
+    lo = t
+    for j in range(20):
+        mid = (lo + hi) / 2
+        if pred(mid) < r:
+            lo = mid
+        else:
+            hi = mid
+    return (lo + hi)/2
+
+
 def split_by_group(data, group_min_size, max_groups):
     js = {}
     for group, created_at, converted_at, now in data:
