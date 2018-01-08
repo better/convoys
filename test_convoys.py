@@ -84,7 +84,7 @@ def test_plot_cohorts():
 
 
 def test_plot_conversion():
-    convoys.plot_timeseries(_get_data(), window=datetime.timedelta(days=7), projection='gamma')
+    convoys.plot_timeseries(_get_data(), window=datetime.timedelta(days=7), model='gamma')
 
 
 def test_plot_cohorts_share_params():
