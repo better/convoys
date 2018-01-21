@@ -228,10 +228,10 @@ class Weibull(Model):
         def f(x):
             c, lambd, k = x
             # PDF of Weibull: k * lambda * (x * lambda)^(k-1) * exp(-(t * lambda)^k)
-            likelihood_observed = c * k * lambd * (C * lambd)**(k-1) * exp(-(C*lambd)**k)
+            log_likelihood_observed = log(c) + log(k) + log(lambd) + (k-1)*(log(C) + log(lambd)) - (C*lambd)**k
             # CDF of Weibull: 1 - exp(-(t * lambda)^k)
             likelihood_censored = (1 - c) + c * exp(-(N*lambd)**k)
-            neg_LL = -sum(log(B * likelihood_observed + (1 - B) * likelihood_censored + LOG_EPS))
+            neg_LL = -sum(B * log_likelihood_observed + (1 - B) * log(likelihood_censored))
             return neg_LL
 
         c_initial = numpy.mean(B)
