@@ -62,6 +62,23 @@ def test_bootstrapped_exponential_model(c=0.05, lambd=0.1, n=10000):
     assert 0.95*c_hi < y_hi < 1.05 * c_hi
 
 
+def test_exponential_beta_model(c=0.05, lambd=0.1, n=10000):
+    C = numpy.array([random.random() < c and scipy.stats.expon.rvs(scale=1.0/lambd) or 0.0 for x in range(n)])
+    N = numpy.array([100 for converted_at in C])
+    B = numpy.array([bool(converted_at > 0) for converted_at in C])
+    c = numpy.mean(B)
+    model = convoys.ExponentialBeta()
+    model.fit(C, N, B)
+    y = model.predict_final()
+    assert 0.95*c < y < 1.05 * c
+    y, y_lo, y_hi = model.predict_final(confidence_interval=True)
+    c_lo = scipy.stats.beta.ppf(0.05, n*c, n*(1-c))
+    c_hi = scipy.stats.beta.ppf(0.95, n*c, n*(1-c))
+    assert 0.95*c < y < 1.05 * c
+    assert 0.95*c_lo < y_lo < 1.05 * c_lo
+    assert 0.95*c_hi < y_hi < 1.05 * c_hi
+
+
 def _get_data(c=0.05, k=10, lambd=0.1, n=1000):
     data = []
     now = datetime.datetime(2000, 7, 1)

@@ -307,6 +307,52 @@ class Bootstrapper(Model):
             return numpy.median(all_ps)
 
 
+class ExponentialBeta(Model):
+    # Compute the full posterior likelihood when assuming c ~ Beta(a, b)
+    # If this model works, let's replace the bootstrapping
+    def fit(self, C, N, B):
+        def f(x):
+            a, b, lambd = x
+            LL_converted = gammaln(a+1) - gammaln(a+b+1) + gammaln(a+b) - gammaln(a)
+            LL_not_converted = gammaln(b+1) - gammaln(a+b+1) + gammaln(a+b) - gammaln(b)
+            LL_observed = LL_converted + log(lambd) - lambd*C
+            m = max(LL_not_converted, LL_converted)
+            LL_censored = m + log(exp(LL_not_converted - m) + exp(LL_converted - lambd*N - m))
+            neg_LL = -sum(B * LL_observed + (1 - B) * LL_censored)
+            return neg_LL
+
+        c_est = numpy.mean(B)
+        lambd_initial = 1.0 / max(N)
+        lambd_max = 30.0 / max(N)
+        lambd = self.params.get('lambd')
+        res = scipy.optimize.minimize(
+            fun=f,
+            jac=grad(f),
+            x0=(len(C)*c_est, len(C)*(1-c_est), lambd_initial),
+            bounds=((1, None),
+                    (1, None),
+                    (lambd, lambd) if lambd else (1e-4, lambd_max)),
+            method='L-BFGS-B')
+        a, b, lambd = res.x
+        self.params = dict(a=a, b=b, lambd=lambd)
+
+    def predict(self, ts, confidence_interval=False):
+        a, b, lambd = self.params['a'], self.params['b'], self.params['lambd']
+        return ts, a / (a+b) * (1 - exp(-ts * lambd))
+
+    def predict_final(self, confidence_interval=False):
+        a, b = self.params['a'], self.params['b']
+        if not confidence_interval:
+            return a / (a + b)
+        else:
+            return (a / (a + b),
+                    scipy.stats.beta.ppf(0.05, a, b),
+                    scipy.stats.beta.ppf(0.95, a, b))
+
+    def predict_time(self):
+        return 1.0 / self.params['lambd']
+
+
 def sample_event(model, t, hi=1e3):
     # We are now at time t. Generate a random event whether the user is going to convert or not
     # TODO: this is a hacky thing until we have a "invert CDF" method on each model
