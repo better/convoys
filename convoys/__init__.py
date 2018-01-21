@@ -153,9 +153,9 @@ class Exponential(Model):
     def fit(self, C, N, B):
         def f(x):
             c, lambd = x
-            likelihood_observed = c * lambd * exp(-lambd*C)
-            likelihood_censored = (1 - c) + c * exp(-lambd*N)
-            neg_LL = -sum(log(B * likelihood_observed + (1 - B) * likelihood_censored + LOG_EPS))
+            log_likelihood_observed = log(c) + log(lambd) -lambd*C
+            log_likelihood_censored = log((1 - c) + c * exp(-lambd*N))
+            neg_LL = -sum(B * log_likelihood_observed + (1 - B) * log_likelihood_censored)
             return neg_LL
 
         c_initial = numpy.mean(B)
