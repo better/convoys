@@ -7,7 +7,7 @@ matplotlib.use('Agg')  # Needed for matplotlib to run in Travis
 import convoys
 
 
-def test_exponential_model(c=0.05, lambd=0.1, n=100000, cls=convoys.Exponential):
+def test_exponential_model(c=0.3, lambd=0.1, n=100000, cls=convoys.Exponential):
     # With a really long observation window, the rate should converge to the measured
     C = numpy.array([random.random() < c and scipy.stats.expon.rvs(scale=1.0/lambd) or 0.0 for x in range(n)])
     N = numpy.array([100 for converted_at in C])
@@ -23,7 +23,7 @@ def test_exponential_beta_model():
     return test_exponential_model(cls=convoys.ExponentialBeta)
 
 
-def test_gamma_model(c=0.05, lambd=0.1, k=10.0, n=100000, cls=convoys.Gamma):
+def test_gamma_model(c=0.3, lambd=0.1, k=3.0, n=100000, cls=convoys.Gamma):
     C = numpy.array([random.random() < c and scipy.stats.gamma.rvs(a=k, scale=1.0/lambd) or 0.0 for x in range(n)])
     N = numpy.array([1000 for converted_at in C])
     B = numpy.array([bool(converted_at > 0) for converted_at in C])
@@ -39,7 +39,7 @@ def test_gamma_beta_model():
     return test_gamma_model(cls=convoys.GammaBeta)
 
 
-def test_weibull_model(c=0.05, lambd=0.1, k=0.5, n=100000, cls=convoys.Weibull):
+def test_weibull_model(c=0.3, lambd=0.1, k=0.5, n=100000, cls=convoys.Weibull):
     # TODO: remove this one, only run the WeibullBeta
     def sample_weibull():
         # scipy.stats is garbage for this
@@ -60,7 +60,7 @@ def test_weibull_beta_model():
     return test_weibull_model(cls=convoys.WeibullBeta)
 
 
-def test_bootstrapped_exponential_model(c=0.05, lambd=0.1, n=10000):
+def test_bootstrapped_exponential_model(c=0.3, lambd=0.1, n=10000):
     C = numpy.array([random.random() < c and scipy.stats.expon.rvs(scale=1.0/lambd) or 0.0 for x in range(n)])
     N = numpy.array([100 for converted_at in C])
     B = numpy.array([bool(converted_at > 0) for converted_at in C])
@@ -75,7 +75,7 @@ def test_bootstrapped_exponential_model(c=0.05, lambd=0.1, n=10000):
     assert 0.95*c_hi < y_hi < 1.05 * c_hi
 
 
-def test_exponential_beta_model_2(c=0.05, lambd=0.1, n=10000):
+def test_exponential_beta_model_2(c=0.3, lambd=0.1, n=10000):
     C = numpy.array([random.random() < c and scipy.stats.expon.rvs(scale=1.0/lambd) or 0.0 for x in range(n)])
     N = numpy.array([100 for converted_at in C])
     B = numpy.array([bool(converted_at > 0) for converted_at in C])
@@ -92,7 +92,7 @@ def test_exponential_beta_model_2(c=0.05, lambd=0.1, n=10000):
     assert 0.95*c_hi < y_hi < 1.05 * c_hi
 
 
-def _get_data(c=0.05, k=10, lambd=0.1, n=1000):
+def _get_data(c=0.3, k=10, lambd=0.1, n=1000):
     data = []
     now = datetime.datetime(2000, 7, 1)
     for x in range(n):
