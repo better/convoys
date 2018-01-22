@@ -414,14 +414,23 @@ class GammaBeta(Model):
             return neg_LL
 
         c_est = numpy.mean(B)
-        lambd_initial = 1.0 / max(C)
         lambd_max = 100.0 / max(C)
+
+        # Something with L-BFGS-B and Gamma-Beta doesn't jive well and the convergence is super sensitive to starting values.
+        # We do a basic grid search to make sure the starting values are decent.
+        best_x0 = None
+        min_f = float('inf')
+        for lambd_initial in [0.1/numpy.mean(C), 0.3/numpy.mean(C), 1.0/numpy.mean(C), 3.0/numpy.mean(C), 10.0/numpy.mean(C)]:
+            for k_initial in range(2, 20):
+                x0 = (c_est*len(C), (1 - c_est)*len(C), lambd_initial, k_initial)
+                if f(x0) < min_f:
+                    best_x0, min_f = x0, f(x0)
         k_initial = 10.0
         lambd = self.params.get('lambd')
         k = self.params.get('k')
         res = scipy.optimize.minimize(
             fun=f,
-            x0=(c_est*len(C), (1 - c_est)*len(C), lambd_initial, k_initial),
+            x0=best_x0,
             bounds=((1, None),
                     (1, None),
                     (lambd, lambd) if lambd else (1e-4, lambd_max),
