@@ -9,7 +9,7 @@ import seaborn
 import scipy.optimize
 import six
 from autograd import grad
-from autograd.scipy.special import gamma, gammainc, gammaln
+from autograd.scipy.special import gamma, gammainc, gammaincc, gammaln
 from autograd.numpy import exp, log, sum
 from matplotlib import pyplot
 
@@ -395,6 +395,51 @@ class WeibullBeta(Model):
 
     def predict_time(self):
         return gamma(1 + 1./self.params['k']) / self.params['lambd']
+
+
+class GammaBeta(Model):
+    def fit(self, C, N, B):
+        # TODO(erikbern): should compute Jacobian of this one
+        def f(x):
+            a, b, lambd, k = x
+            neg_LL = 0
+            LL_converted = gammaln(a+1) - gammaln(a+b+1) + gammaln(a+b) - gammaln(a)
+            LL_not_converted = gammaln(b+1) - gammaln(a+b+1) + gammaln(a+b) - gammaln(b)
+            # PDF of gamma: 1.0 / gamma(k) * lambda ^ k * t^(k-1) * exp(-t * lambda)
+            LL_observed = LL_converted - gammaln(k) + k*log(lambd) + (k-1)*log(C + LOG_EPS) - lambd*C
+            # CDF of gamma: gammainc(k, lambda * t)
+            m = max(LL_not_converted, LL_converted)
+            LL_censored = m + log(exp(LL_not_converted - m) + exp(LL_converted - m) * gammaincc(k, lambd*N) + LOG_EPS)
+            neg_LL = -sum(B * LL_observed + (1 - B) * LL_censored)
+            return neg_LL
+
+        c_est = numpy.mean(B)
+        lambd_initial = 1.0 / max(C)
+        lambd_max = 100.0 / max(C)
+        k_initial = 10.0
+        lambd = self.params.get('lambd')
+        k = self.params.get('k')
+        res = scipy.optimize.minimize(
+            fun=f,
+            x0=(c_est*len(C), (1 - c_est)*len(C), lambd_initial, k_initial),
+            bounds=((1, None),
+                    (1, None),
+                    (lambd, lambd) if lambd else (1e-4, lambd_max),
+                    (k, k) if k else (1.0, 30.0)),
+            method='L-BFGS-B')
+        a, b, lambd, k = res.x
+        self.params = dict(a=a, b=b, lambd=lambd, k=k)
+
+    def predict(self, ts):
+        a, b, lambd, k = self.params['a'], self.params['b'], self.params['lambd'], self.params['k']
+        return ts, a / (a + b) * gammainc(k, lambd*ts)
+
+    def predict_final(self):
+        a, b = self.params['a'], self.params['b']
+        return a / (a + b)
+
+    def predict_time(self):
+        return self.params['k'] / self.params['lambd']
 
 
 def sample_event(model, t, hi=1e3):
