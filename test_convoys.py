@@ -31,7 +31,8 @@ def test_gamma_model(c=0.05, lambd=0.1, k=10.0, n=100000):
     assert 0.95*k < model.params['k'] < 1.05*k
 
 
-def test_weibull_model(c=0.05, lambd=0.1, k=0.5, n=100000):
+def test_weibull_model(c=0.05, lambd=0.1, k=0.5, n=100000, cls=convoys.Weibull):
+    # TODO: remove this one, only run the WeibullBeta
     def sample_weibull():
         # scipy.stats is garbage for this
         # exp(-(x * lambda)^k) = y
@@ -40,11 +41,15 @@ def test_weibull_model(c=0.05, lambd=0.1, k=0.5, n=100000):
     C = numpy.array([b and sample_weibull() or 1.0 for b in B])
     N = numpy.array([1000 for b in B])
     c = numpy.mean(B)
-    model = convoys.Weibull()
+    model = cls()
     model.fit(C, N, B)
-    assert 0.95*c < model.params['c'] < 1.05*c
+    assert 0.95*c < model.predict_final() < 1.05*c
     assert 0.95*lambd < model.params['lambd'] < 1.05*lambd
     assert 0.95*k < model.params['k'] < 1.05*k
+
+
+def test_weibull_beta_model():
+    return test_weibull_model(cls=convoys.WeibullBeta)
 
 
 def test_bootstrapped_exponential_model(c=0.05, lambd=0.1, n=10000):

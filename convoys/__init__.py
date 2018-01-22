@@ -353,6 +353,50 @@ class ExponentialBeta(Model):
         return 1.0 / self.params['lambd']
 
 
+class WeibullBeta(Model):
+    def fit(self, C, N, B):
+        def f(x):
+            a, b, lambd, k = x
+            LL_converted = gammaln(a+1) - gammaln(a+b+1) + gammaln(a+b) - gammaln(a)
+            LL_not_converted = gammaln(b+1) - gammaln(a+b+1) + gammaln(a+b) - gammaln(b)
+            # PDF of Weibull: k * lambda * (x * lambda)^(k-1) * exp(-(t * lambda)^k)
+            LL_observed = LL_converted + log(k) + log(lambd) + (k-1)*(log(C) + log(lambd)) - (C*lambd)**k
+            # CDF of Weibull: 1 - exp(-(t * lambda)^k)
+            m = max(LL_not_converted, LL_converted)
+            LL_censored = m + log(exp(LL_not_converted - m) + exp(LL_converted - (N*lambd)**k - m))
+            neg_LL = -sum(B * LL_observed + (1 - B) * LL_censored)
+            return neg_LL
+
+        c_est = numpy.mean(B)
+        lambd_initial = 1.0 / max(C)
+        lambd_max = 300.0 / max(C)
+        k_initial = 0.9
+        lambd = self.params.get('lambd')
+        k = self.params.get('k')
+        res = scipy.optimize.minimize(
+            fun=f,
+            jac=grad(f),
+            x0=(c_est*len(B), (1 - c_est)*len(B), lambd_initial, k_initial),
+            bounds=((1, None),
+                    (1, None),
+                    (lambd, lambd) if lambd else (1e-4, lambd_max),
+                    (k, k) if k else (0.1, 3.0)),
+            method='L-BFGS-B')
+        a, b, lambd, k = res.x
+        self.params = dict(a=a, b=b, lambd=lambd, k=k)
+
+    def predict(self, ts):
+        a, b, lambd, k = self.params['a'], self.params['b'], self.params['lambd'], self.params['k']
+        return ts, a / (a + b) * (1 - exp(-(ts*lambd)**k))
+
+    def predict_final(self):
+        a, b = self.params['a'], self.params['b']
+        return a / (a + b)
+
+    def predict_time(self):
+        return gamma(1 + 1./self.params['k']) / self.params['lambd']
+
+
 def sample_event(model, t, hi=1e3):
     # We are now at time t. Generate a random event whether the user is going to convert or not
     # TODO: this is a hacky thing until we have a "invert CDF" method on each model
