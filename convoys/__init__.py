@@ -149,7 +149,7 @@ class KaplanMeier(Model):
             return median(self.ps)
 
 
-class ExponentialBeta(Model):
+class Exponential(Model):
     # Compute the full posterior likelihood when assuming c ~ Beta(a, b)
     # If this model works, let's replace the bootstrapping
     def fit(self, C, N, B):
@@ -195,7 +195,7 @@ class ExponentialBeta(Model):
         return 1.0 / self.params['lambd']
 
 
-class WeibullBeta(Model):
+class Weibull(Model):
     def fit(self, C, N, B):
         def transform(x):
             p, q, r, s = x
@@ -239,7 +239,7 @@ class WeibullBeta(Model):
         return gamma(1 + 1./self.params['k']) / self.params['lambd']
 
 
-class GammaBeta(Model):
+class Gamma(Model):
     def fit(self, C, N, B):
         # TODO(erikbern): should compute Jacobian of this one
         def transform(x):
@@ -339,9 +339,9 @@ _models = {
     'basic': Basic,
     'kaplan-meier': KaplanMeier,
     'simple-binomial': SimpleBinomial,
-    'exponential': ExponentialBeta,
-    'weibull': WeibullBeta,
-    'gamma': GammaBeta,
+    'exponential': Exponential,
+    'weibull': Weibull,
+    'gamma': Gamma,
 }
 
 def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='kaplan-meier', projection=None):

@@ -13,7 +13,7 @@ def test_exponential_model(c=0.3, lambd=0.1, n=100000):
     N = numpy.array([100 for converted_at in C])
     B = numpy.array([bool(converted_at > 0) for converted_at in C])
     c = numpy.mean(B)
-    model = convoys.ExponentialBeta()
+    model = convoys.Exponential()
     model.fit(C, N, B)
     assert 0.95*c < model.predict_final() < 1.05*c
     assert 0.95*lambd < model.params['lambd'] < 1.05*lambd
@@ -32,7 +32,7 @@ def test_gamma_model(c=0.3, lambd=0.1, k=3.0, n=100000):
     N = numpy.array([1000 for converted_at in C])
     B = numpy.array([bool(converted_at > 0) for converted_at in C])
     c = numpy.mean(B)
-    model = convoys.GammaBeta()
+    model = convoys.Gamma()
     model.fit(C, N, B)
     assert 0.95*c < model.predict_final() < 1.05*c
     assert 0.95*lambd < model.params['lambd'] < 1.05*lambd
@@ -48,7 +48,7 @@ def test_weibull_model(c=0.3, lambd=0.1, k=0.5, n=100000):
     C = numpy.array([b and sample_weibull() or 1.0 for b in B])
     N = numpy.array([1000 for b in B])
     c = numpy.mean(B)
-    model = convoys.WeibullBeta()
+    model = convoys.Weibull()
     model.fit(C, N, B)
     assert 0.95*c < model.predict_final() < 1.05*c
     assert 0.95*lambd < model.params['lambd'] < 1.05*lambd
