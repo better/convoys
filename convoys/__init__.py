@@ -311,8 +311,11 @@ class ExponentialBeta(Model):
     # Compute the full posterior likelihood when assuming c ~ Beta(a, b)
     # If this model works, let's replace the bootstrapping
     def fit(self, C, N, B):
+        def transform(x):
+            p, q, r = x
+            return (len(C)*exp(p), len(C)*exp(q), exp(r))
         def f(x):
-            a, b, lambd = x
+            a, b, lambd = transform(x)
             LL_converted = gammaln(a+1) - gammaln(a+b+1) + gammaln(a+b) - gammaln(a)
             LL_not_converted = gammaln(b+1) - gammaln(a+b+1) + gammaln(a+b) - gammaln(b)
             LL_observed = LL_converted + log(lambd) - lambd*C
@@ -321,19 +324,12 @@ class ExponentialBeta(Model):
             neg_LL = -sum(B * LL_observed + (1 - B) * LL_censored)
             return neg_LL
 
-        c_est = numpy.mean(B)
-        lambd_initial = 1.0 / max(N)
-        lambd_max = 30.0 / max(N)
-        lambd = self.params.get('lambd')
         res = scipy.optimize.minimize(
             fun=f,
             jac=grad(f),
-            x0=(len(C)*c_est, len(C)*(1-c_est), lambd_initial),
-            bounds=((1, None),
-                    (1, None),
-                    (lambd, lambd) if lambd else (1e-4, lambd_max)),
-            method='L-BFGS-B')
-        a, b, lambd = res.x
+            x0=(0, 0, 0),
+            method='BFGS')
+        a, b, lambd = transform(res.x)
         self.params = dict(a=a, b=b, lambd=lambd)
 
     def predict(self, ts, confidence_interval=False):
@@ -355,8 +351,11 @@ class ExponentialBeta(Model):
 
 class WeibullBeta(Model):
     def fit(self, C, N, B):
+        def transform(x):
+            p, q, r, s = x
+            return (len(C)*exp(p), len(C)*exp(q), exp(r), log(1 + exp(s)))
         def f(x):
-            a, b, lambd, k = x
+            a, b, lambd, k = transform(x)
             LL_converted = gammaln(a+1) - gammaln(a+b+1) + gammaln(a+b) - gammaln(a)
             LL_not_converted = gammaln(b+1) - gammaln(a+b+1) + gammaln(a+b) - gammaln(b)
             # PDF of Weibull: k * lambda * (x * lambda)^(k-1) * exp(-(t * lambda)^k)
@@ -367,22 +366,12 @@ class WeibullBeta(Model):
             neg_LL = -sum(B * LL_observed + (1 - B) * LL_censored)
             return neg_LL
 
-        c_est = numpy.mean(B)
-        lambd_initial = 1.0 / max(C)
-        lambd_max = 300.0 / max(C)
-        k_initial = 0.9
-        lambd = self.params.get('lambd')
-        k = self.params.get('k')
         res = scipy.optimize.minimize(
             fun=f,
             jac=grad(f),
-            x0=(c_est*len(B), (1 - c_est)*len(B), lambd_initial, k_initial),
-            bounds=((1, None),
-                    (1, None),
-                    (lambd, lambd) if lambd else (1e-4, lambd_max),
-                    (k, k) if k else (0.1, 3.0)),
-            method='L-BFGS-B')
-        a, b, lambd, k = res.x
+            x0=(0, 0, 0, 0),
+            method='BFGS')
+        a, b, lambd, k = transform(res.x)
         self.params = dict(a=a, b=b, lambd=lambd, k=k)
 
     def predict(self, ts):
@@ -400,8 +389,11 @@ class WeibullBeta(Model):
 class GammaBeta(Model):
     def fit(self, C, N, B):
         # TODO(erikbern): should compute Jacobian of this one
+        def transform(x):
+            p, q, r, s = x
+            return (len(C)*exp(p), len(C)*exp(q), exp(r), log(1 + exp(s)))
         def f(x):
-            a, b, lambd, k = x
+            a, b, lambd, k = transform(x)
             neg_LL = 0
             LL_converted = gammaln(a+1) - gammaln(a+b+1) + gammaln(a+b) - gammaln(a)
             LL_not_converted = gammaln(b+1) - gammaln(a+b+1) + gammaln(a+b) - gammaln(b)
@@ -416,27 +408,11 @@ class GammaBeta(Model):
         c_est = numpy.mean(B)
         lambd_max = 100.0 / max(C)
 
-        # Something with L-BFGS-B and Gamma-Beta doesn't jive well and the convergence is super sensitive to starting values.
-        # We do a basic grid search to make sure the starting values are decent.
-        best_x0 = None
-        min_f = float('inf')
-        for lambd_initial in [0.1/numpy.mean(C), 0.3/numpy.mean(C), 1.0/numpy.mean(C), 3.0/numpy.mean(C), 10.0/numpy.mean(C)]:
-            for k_initial in range(2, 20):
-                x0 = (c_est*len(C), (1 - c_est)*len(C), lambd_initial, k_initial)
-                if f(x0) < min_f:
-                    best_x0, min_f = x0, f(x0)
-        k_initial = 10.0
-        lambd = self.params.get('lambd')
-        k = self.params.get('k')
         res = scipy.optimize.minimize(
             fun=f,
-            x0=best_x0,
-            bounds=((1, None),
-                    (1, None),
-                    (lambd, lambd) if lambd else (1e-4, lambd_max),
-                    (k, k) if k else (1.0, 30.0)),
-            method='L-BFGS-B')
-        a, b, lambd, k = res.x
+            x0=(0, 0, 0, 0),
+            method='Nelder-Mead')
+        a, b, lambd, k = transform(res.x)
         self.params = dict(a=a, b=b, lambd=lambd, k=k)
 
     def predict(self, ts):
