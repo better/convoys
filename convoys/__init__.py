@@ -313,7 +313,7 @@ class ExponentialBeta(Model):
     def fit(self, C, N, B):
         def transform(x):
             p, q, r = x
-            return (len(C)*exp(p), len(C)*exp(q), exp(r))
+            return (len(C)*exp(p+q), len(C)*exp(p-q), exp(r))
         def f(x):
             a, b, lambd = transform(x)
             LL_converted = gammaln(a+1) - gammaln(a+b+1) + gammaln(a+b) - gammaln(a)
@@ -334,7 +334,11 @@ class ExponentialBeta(Model):
 
     def predict(self, ts, confidence_interval=False):
         a, b, lambd = self.params['a'], self.params['b'], self.params['lambd']
-        return ts, a / (a+b) * (1 - exp(-ts * lambd))
+        y = 1 - exp(-ts * lambd)
+        if confidence_interval:
+            return ts, a / (a + b) * y, scipy.stats.beta.ppf(0.05, a, b) * y, scipy.stats.beta.ppf(0.95, a, b) * y
+        else:
+            return ts, y
 
     def predict_final(self, confidence_interval=False):
         a, b = self.params['a'], self.params['b']
@@ -353,7 +357,7 @@ class WeibullBeta(Model):
     def fit(self, C, N, B):
         def transform(x):
             p, q, r, s = x
-            return (len(C)*exp(p), len(C)*exp(q), exp(r), log(1 + exp(s)))
+            return (len(C)*exp(p+q), len(C)*exp(p-q), exp(r), log(1 + exp(s)))
         def f(x):
             a, b, lambd, k = transform(x)
             LL_converted = gammaln(a+1) - gammaln(a+b+1) + gammaln(a+b) - gammaln(a)
@@ -374,13 +378,20 @@ class WeibullBeta(Model):
         a, b, lambd, k = transform(res.x)
         self.params = dict(a=a, b=b, lambd=lambd, k=k)
 
-    def predict(self, ts):
+    def predict(self, ts, confidence_interval=False):
         a, b, lambd, k = self.params['a'], self.params['b'], self.params['lambd'], self.params['k']
-        return ts, a / (a + b) * (1 - exp(-(ts*lambd)**k))
+        y = 1 - exp(-(ts*lambd)**k)
+        if confidence_interval:
+            return ts, a / (a + b) * y, scipy.stats.beta.ppf(0.05, a, b) * y, scipy.stats.beta.ppf(0.95, a, b) * y
+        else:
+            return ts, y
 
-    def predict_final(self):
+    def predict_final(self, confidence_interval=False):
         a, b = self.params['a'], self.params['b']
-        return a / (a + b)
+        if confidence_interval:
+            return a / (a + b), scipy.stats.beta.ppf(0.05, a, b), scipy.stats.beta.ppf(0.95, a, b)
+        else:
+            return a / (a + b)
 
     def predict_time(self):
         return gamma(1 + 1./self.params['k']) / self.params['lambd']
@@ -391,7 +402,7 @@ class GammaBeta(Model):
         # TODO(erikbern): should compute Jacobian of this one
         def transform(x):
             p, q, r, s = x
-            return (len(C)*exp(p), len(C)*exp(q), exp(r), log(1 + exp(s)))
+            return (len(C)*exp(p+q), len(C)*exp(p-q), exp(r), log(1 + exp(s)))
         def f(x):
             a, b, lambd, k = transform(x)
             neg_LL = 0
@@ -403,6 +414,7 @@ class GammaBeta(Model):
             m = max(LL_not_converted, LL_converted)
             LL_censored = m + log(exp(LL_not_converted - m) + exp(LL_converted - m) * gammaincc(k, lambd*N) + LOG_EPS)
             neg_LL = -sum(B * LL_observed + (1 - B) * LL_censored)
+            print(a, b, lambd, k, neg_LL)
             return neg_LL
 
         c_est = numpy.mean(B)
@@ -415,13 +427,20 @@ class GammaBeta(Model):
         a, b, lambd, k = transform(res.x)
         self.params = dict(a=a, b=b, lambd=lambd, k=k)
 
-    def predict(self, ts):
+    def predict(self, ts, confidence_interval=False):
         a, b, lambd, k = self.params['a'], self.params['b'], self.params['lambd'], self.params['k']
-        return ts, a / (a + b) * gammainc(k, lambd*ts)
+        y = gammainc(k, lambd*ts)
+        if confidence_interval:
+            return ts, a / (a + b) * y, scipy.stats.beta.ppf(0.05, a, b) * y, scipy.stats.beta.ppf(0.95, a, b) * y
+        else:
+            return ts, y
 
-    def predict_final(self):
+    def predict_final(self, confidence_interval=False):
         a, b = self.params['a'], self.params['b']
-        return a / (a + b)
+        if confidence_interval:
+            return a / (a + b), scipy.stats.beta.ppf(0.05, a, b), scipy.stats.beta.ppf(0.95, a, b)
+        else:
+            return a / (a + b)
 
     def predict_time(self):
         return self.params['k'] / self.params['lambd']
@@ -497,6 +516,15 @@ def get_params(js, projection, share_params, t_factor):
         return {}
 
 
+_models = {
+    'basic': Basic,
+    'kaplan-meier': KaplanMeier,
+    'simple-binomial': SimpleBinomial,
+    'exponential': ExponentialBeta,
+    'weibull': WeibullBeta,
+    'gamma': GammaBeta,
+}
+
 def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='kaplan-meier', projection=None, share_params=False):
     # Set x scale
     if t_max is None:
@@ -507,9 +535,6 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
     # Split data by group
     groups, js = split_by_group(data, group_min_size, max_groups)
 
-    # Get shared params
-    params = get_params(js, projection, share_params, t_factor)
-
     # PLOT
     colors = seaborn.color_palette('hls', len(groups))
     y_max = 0
@@ -517,23 +542,14 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
         C, N, B = get_arrays(js[group], t_factor)
         t = numpy.linspace(0, t_max, 1000)
 
-        if model == 'basic':
-            m = Basic()
-        elif model == 'kaplan-meier':
-            m = KaplanMeier()
-        elif model == 'simple-binomial':
-            m = SimpleBinomial()
+        m = _models[model]()
         m.fit(C, N, B)
 
         label = '%s (n=%.0f, k=%.0f)' % (group, len(B), sum(B))
 
-        if projection is True:
-            p = m
-        elif projection:
-            p = Bootstrapper(projection, params)
-            p.fit(C, N, B)
-
         if projection:
+            p = _models[projection]()
+            p.fit(C, N, B)
             p_t, p_y, p_y_lo, p_y_hi = p.predict(t, confidence_interval=True)
             p_y_final, p_y_lo_final, p_y_hi_final = p.predict_final(confidence_interval=True)
             label += ' projected: %.2f%% (%.2f%% - %.2f%%)' % (100.*p_y_final, 100.*p_y_lo_final, 100.*p_y_hi_final)
@@ -566,9 +582,6 @@ def plot_timeseries(data, window, model='kaplan-meier', group_min_size=0, max_gr
     # Split data by group
     groups, js = split_by_group(data, group_min_size, max_groups)
 
-    # Get shared params
-    params = get_params(js, model, share_params, t_factor)
-
     # PLOT
     colors = seaborn.color_palette('hls', len(groups))
     y_max = 0
@@ -590,13 +603,7 @@ def plot_timeseries(data, window, model='kaplan-meier', group_min_size=0, max_gr
             if sum(B) < window_min_size:
                 continue
 
-            if model == 'simple-binomial':
-                # TODO: ugly code
-                p = SimpleBinomial()
-            elif model == 'kaplan-meier':
-                p = KaplanMeier()
-            else:
-                p = Bootstrapper(model, params)
+            p = _models[model]()
             p.fit(C, N, B)
 
             if time:
