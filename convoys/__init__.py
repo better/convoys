@@ -9,7 +9,7 @@ import seaborn
 import scipy.optimize
 import six
 from autograd import grad
-from autograd.scipy.special import gamma, gammainc, gammaincc, gammaln
+from autograd.scipy.special import expit, gamma, gammainc, gammaincc, gammaln
 from autograd.numpy import exp, log, sum
 from matplotlib import pyplot
 
@@ -150,28 +150,24 @@ class KaplanMeier(Model):
 
 
 class Exponential(Model):
-    # Compute the full posterior likelihood when assuming c ~ Beta(a, b)
-    # If this model works, let's replace the bootstrapping
     def fit(self, C, N, B):
         def transform(x):
-            p, q, r = x
-            return (len(C)*exp(p+q), len(C)*exp(p-q), exp(r))
+            p, q = x
+            return (expit(p), exp(q))
         def f(x):
-            a, b, lambd = transform(x)
-            LL_converted = gammaln(a+1) - gammaln(a+b+1) + gammaln(a+b) - gammaln(a)
-            LL_not_converted = gammaln(b+1) - gammaln(a+b+1) + gammaln(a+b) - gammaln(b)
-            LL_observed = LL_converted + log(lambd) - lambd*C
-            m = max(LL_not_converted, LL_converted)
-            LL_censored = m + log(exp(LL_not_converted - m) + exp(LL_converted - lambd*N - m))
+            c, lambd = transform(x)
+            LL_observed = log(c) + log(lambd) - lambd*C
+            LL_censored = log((1 - c) + c * exp(-lambd*N))
             neg_LL = -sum(B * LL_observed + (1 - B) * LL_censored)
             return neg_LL
 
         res = scipy.optimize.minimize(
             fun=f,
             jac=grad(f),
-            x0=(0, 0, 0),
+            x0=(0, 0),
             method='BFGS')
-        a, b, lambd = transform(res.x)
+        c, lambd = transform(res.x)
+        a, b = len(C) * c, len(C) * (1 - c)
         self.params = dict(a=a, b=b, lambd=lambd)
 
     def predict(self, ts, confidence_interval=False):
@@ -210,13 +206,15 @@ class Weibull(Model):
             m = max(LL_not_converted, LL_converted)
             LL_censored = m + log(exp(LL_not_converted - m) + exp(LL_converted - (N*lambd)**k - m))
             neg_LL = -sum(B * LL_observed + (1 - B) * LL_censored)
+            if type(a) == numpy.float64:
+                print(a, b, lambd, k, neg_LL)
             return neg_LL
 
         res = scipy.optimize.minimize(
             fun=f,
-            jac=grad(f),
+            # jac=grad(f),
             x0=(0, 0, 0, 0),
-            method='BFGS')
+            method='Nelder-Mead')
         a, b, lambd, k = transform(res.x)
         self.params = dict(a=a, b=b, lambd=lambd, k=k)
 
@@ -256,7 +254,6 @@ class Gamma(Model):
             m = max(LL_not_converted, LL_converted)
             LL_censored = m + log(exp(LL_not_converted - m) + exp(LL_converted - m) * gammaincc(k, lambd*N) + LOG_EPS)
             neg_LL = -sum(B * LL_observed + (1 - B) * LL_censored)
-            print(a, b, lambd, k, neg_LL)
             return neg_LL
 
         c_est = numpy.mean(B)
