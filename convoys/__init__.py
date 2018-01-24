@@ -149,25 +149,42 @@ class KaplanMeier(Model):
             return median(self.ps)
 
 
+def fit_beta(c, fc):
+    # Approximate a Beta distribution for c by looking at the second derivative wrt c
+    h = grad(grad(fc))(c)
+    # LL = (a-1)log(c) + (b-1)log(1-c)
+    # dLL = (a-1)/c - (b-1)/(1-c)
+    # ddLL = -(a-1)/c^2 - (b-1)/(1-c)^2 = -h
+    # a(-1/c^2) + b(-1/(1-c)^2) = -h - 1/c^2 - 1/(1-c)^2
+    # we also have that a/(a+b) = c <=> a = c(a+b)
+    # a(1-c) - bc = 0
+    M = numpy.array([[-1/c**2, -1/(1-c)**2],
+                     [(1-c), -c]])
+    q = numpy.array([-h - 1/c**2 - 1/(1-c)**2, 0])
+    return numpy.linalg.solve(M, q)
+
+
 class Exponential(Model):
     def fit(self, C, N, B):
         def transform(x):
             p, q = x
             return (expit(p), exp(q))
         def f(x):
-            c, lambd = transform(x)
+            c, lambd = x
             LL_observed = log(c) + log(lambd) - lambd*C
             LL_censored = log((1 - c) + c * exp(-lambd*N))
             neg_LL = -sum(B * LL_observed + (1 - B) * LL_censored)
             return neg_LL
 
+        g = lambda x: f(transform(x))
         res = scipy.optimize.minimize(
-            fun=f,
-            jac=grad(f),
+            fun=g,
+            jac=grad(g),
             x0=(0, 0),
             method='BFGS')
         c, lambd = transform(res.x)
-        a, b = len(C) * c, len(C) * (1 - c)
+        fc = lambda c: f((c, lambd))
+        a, b = fit_beta(c, fc)
         self.params = dict(a=a, b=b, lambd=lambd)
 
     def predict(self, ts, confidence_interval=False):
@@ -194,28 +211,26 @@ class Exponential(Model):
 class Weibull(Model):
     def fit(self, C, N, B):
         def transform(x):
-            p, q, r, s = x
-            return (len(C)*exp(p+q), len(C)*exp(p-q), exp(r), log(1 + exp(s)))
+            p, q, r = x
+            return (expit(p), exp(q), log(1 + exp(r)))
         def f(x):
-            a, b, lambd, k = transform(x)
-            LL_converted = gammaln(a+1) - gammaln(a+b+1) + gammaln(a+b) - gammaln(a)
-            LL_not_converted = gammaln(b+1) - gammaln(a+b+1) + gammaln(a+b) - gammaln(b)
+            c, lambd, k = x
             # PDF of Weibull: k * lambda * (x * lambda)^(k-1) * exp(-(t * lambda)^k)
-            LL_observed = LL_converted + log(k) + log(lambd) + (k-1)*(log(C) + log(lambd)) - (C*lambd)**k
+            LL_observed = log(c) + log(k) + log(lambd) + (k-1)*(log(C) + log(lambd)) - (C*lambd)**k
             # CDF of Weibull: 1 - exp(-(t * lambda)^k)
-            m = max(LL_not_converted, LL_converted)
-            LL_censored = m + log(exp(LL_not_converted - m) + exp(LL_converted - (N*lambd)**k - m))
+            LL_censored = log((1-c) + c * exp(-(N*lambd)**k))
             neg_LL = -sum(B * LL_observed + (1 - B) * LL_censored)
-            if type(a) == numpy.float64:
-                print(a, b, lambd, k, neg_LL)
             return neg_LL
 
+        g = lambda x: f(transform(x))
         res = scipy.optimize.minimize(
-            fun=f,
-            # jac=grad(f),
-            x0=(0, 0, 0, 0),
-            method='Nelder-Mead')
-        a, b, lambd, k = transform(res.x)
+            fun=g,
+            jac=grad(g),
+            x0=(0, 0, 0),
+            method='BFGS')
+        c, lambd, k = transform(res.x)
+        fc = lambda c: f((c, lambd, k))
+        a, b = fit_beta(c, fc)
         self.params = dict(a=a, b=b, lambd=lambd, k=k)
 
     def predict(self, ts, confidence_interval=False):
@@ -241,29 +256,26 @@ class Gamma(Model):
     def fit(self, C, N, B):
         # TODO(erikbern): should compute Jacobian of this one
         def transform(x):
-            p, q, r, s = x
-            return (len(C)*exp(p+q), len(C)*exp(p-q), exp(r), log(1 + exp(s)))
+            p, q, r = x
+            return (expit(p), exp(q), log(1 + exp(r)))
         def f(x):
-            a, b, lambd, k = transform(x)
+            c, lambd, k = x
             neg_LL = 0
-            LL_converted = gammaln(a+1) - gammaln(a+b+1) + gammaln(a+b) - gammaln(a)
-            LL_not_converted = gammaln(b+1) - gammaln(a+b+1) + gammaln(a+b) - gammaln(b)
             # PDF of gamma: 1.0 / gamma(k) * lambda ^ k * t^(k-1) * exp(-t * lambda)
-            LL_observed = LL_converted - gammaln(k) + k*log(lambd) + (k-1)*log(C + LOG_EPS) - lambd*C
+            LL_observed = log(c) - gammaln(k) + k*log(lambd) + (k-1)*log(C + LOG_EPS) - lambd*C
             # CDF of gamma: gammainc(k, lambda * t)
-            m = max(LL_not_converted, LL_converted)
-            LL_censored = m + log(exp(LL_not_converted - m) + exp(LL_converted - m) * gammaincc(k, lambd*N) + LOG_EPS)
+            LL_censored = log((1-c) + c * gammaincc(k, lambd*N) + LOG_EPS)
             neg_LL = -sum(B * LL_observed + (1 - B) * LL_censored)
             return neg_LL
 
-        c_est = numpy.mean(B)
-        lambd_max = 100.0 / max(C)
-
+        g = lambda x: f(transform(x))
         res = scipy.optimize.minimize(
-            fun=f,
-            x0=(0, 0, 0, 0),
+            fun=g,
+            x0=(0, 0, 0),
             method='Nelder-Mead')
-        a, b, lambd, k = transform(res.x)
+        c, lambd, k = transform(res.x)
+        fc = lambda c: f((c, lambd, k))
+        a, b = fit_beta(c, fc)
         self.params = dict(a=a, b=b, lambd=lambd, k=k)
 
     def predict(self, ts, confidence_interval=False):
