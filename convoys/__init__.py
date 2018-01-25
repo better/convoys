@@ -8,12 +8,18 @@ import random
 import seaborn
 import scipy.optimize
 import six
-from autograd import grad
-from autograd.scipy.special import gamma, gammainc, gammaln
+from autograd import jacobian, hessian, grad
+from autograd.scipy.special import expit, gamma, gammainc, gammaincc, gammaln
 from autograd.numpy import exp, log, sum
 from matplotlib import pyplot
 
 LOG_EPS = 1e-12  # Used for log likelihood
+
+
+def log1pexp(x):
+    # returns log(1 + exp(x))
+    p, q = min(x, 0), max(x, 0)
+    return q + log(exp(p-q) + 1)
 
 
 def get_timescale(t):
@@ -149,162 +155,159 @@ class KaplanMeier(Model):
             return median(self.ps)
 
 
+def fit_beta(c, fc):
+    # Approximate a Beta distribution for c by fitting two things
+    # 1. second derivative wrt c should match the second derivative of a beta
+    #   LL = (a-1)log(c) + (b-1)log(1-c)
+    #   dLL = (a-1)/c - (b-1)/(1-c)
+    #   ddLL = -(a-1)/c^2 - (b-1)/(1-c)^2 = -h
+    #   a(-1/c^2) + b(-1/(1-c)^2) = -h - 1/c^2 - 1/(1-c)^2
+    # 2. mode should match c, i.e. (a-1)/(a+b-2) = c <=> a-1 = c(a+b-2)
+    #   a(1-c) - bc = 1-2c
+    h = grad(grad(fc))(c)
+    M = numpy.array([[-1/c**2, -1/(1-c)**2],
+                     [(1-c), -c]])
+    q = numpy.array([-h - 1/c**2 - 1/(1-c)**2, 1 - 2*c])
+    try:
+        a, b = numpy.linalg.solve(M, q)
+    except numpy.linalg.linalg.LinAlgError:
+        a, b = 1, 1
+    return a, b
+
+
 class Exponential(Model):
     def fit(self, C, N, B):
+        def transform(x):
+            p, q = x
+            return (expit(p), log1pexp(q))
         def f(x):
             c, lambd = x
-            likelihood_observed = c * lambd * exp(-lambd*C)
-            likelihood_censored = (1 - c) + c * exp(-lambd*N)
-            neg_LL = -sum(log(B * likelihood_observed + (1 - B) * likelihood_censored + LOG_EPS))
+            LL_observed = log(c) + log(lambd) - lambd*C
+            LL_censored = log((1 - c) + c * exp(-lambd*N))
+            neg_LL = -sum(B * LL_observed + (1 - B) * LL_censored)
             return neg_LL
 
-        c_initial = numpy.mean(B)
-        lambd_initial = 1.0 / max(N)
-        lambd_max = 30.0 / max(N)
-        lambd = self.params.get('lambd')
+        g = lambda x: f(transform(x))
         res = scipy.optimize.minimize(
-            fun=f,
-            jac=grad(f),
-            x0=(c_initial, lambd_initial),
-            bounds=((1e-4, 1-1e-4),
-                    (lambd, lambd) if lambd else (1e-4, lambd_max)),
-            method='L-BFGS-B')
-        c, lambd = res.x
-        self.params = dict(c=c, lambd=lambd)
+            fun=g,
+            jac=jacobian(g),
+            hess=hessian(g),
+            x0=(0, 0),
+            method='trust-ncg')
+        c, lambd = transform(res.x)
+        fc = lambda c: f((c, lambd))
+        a, b = fit_beta(c, fc)
+        self.params = dict(a=a, b=b, lambd=lambd)
 
-    def predict(self, ts):
-        c, lambd = self.params['c'], self.params['lambd']
-        return ts, c * (1 - exp(-ts * lambd))
+    def predict(self, ts, confidence_interval=False):
+        a, b, lambd = self.params['a'], self.params['b'], self.params['lambd']
+        y = 1 - exp(-ts * lambd)
+        if confidence_interval:
+            return ts, a / (a + b) * y, scipy.stats.beta.ppf(0.05, a, b) * y, scipy.stats.beta.ppf(0.95, a, b) * y
+        else:
+            return ts, y
 
-    def predict_final(self):
-        return self.params['c']
+    def predict_final(self, confidence_interval=False):
+        a, b = self.params['a'], self.params['b']
+        if not confidence_interval:
+            return a / (a + b)
+        else:
+            return (a / (a + b),
+                    scipy.stats.beta.ppf(0.05, a, b),
+                    scipy.stats.beta.ppf(0.95, a, b))
 
     def predict_time(self):
         return 1.0 / self.params['lambd']
 
 
-class Gamma(Model):
-    def fit(self, C, N, B):
-        # TODO(erikbern): should compute Jacobian of this one
-        def f(x):
-            c, lambd, k = x
-            neg_LL = 0
-            # PDF of gamma: 1.0 / gamma(k) * lambda ^ k * t^(k-1) * exp(-t * lambda)
-            log_likelihood_observed = log(c) - gammaln(k) + k*log(lambd) + (k-1)*log(C + LOG_EPS) - lambd*C
-            # CDF of gamma: gammainc(k, lambda * t)
-            log_likelihood_censored = log((1 - c) + c * (1 - gammainc(k, lambd*N)) + LOG_EPS)
-            neg_LL = -sum(B * log_likelihood_observed + (1 - B) * log_likelihood_censored)
-            return neg_LL
-
-        c_initial = numpy.mean(B)
-        lambd_initial = 1.0 / max(C)
-        lambd_max = 100.0 / max(C)
-        k_initial = 10.0
-        lambd = self.params.get('lambd')
-        k = self.params.get('k')
-        res = scipy.optimize.minimize(
-            fun=f,
-            x0=(c_initial, lambd_initial, k_initial),
-            bounds=((1e-4, 1-1e-4),
-                    (lambd, lambd) if lambd else (1e-4, lambd_max),
-                    (k, k) if k else (1.0, 30.0)),
-            method='L-BFGS-B')
-        c, lambd, k = res.x
-        self.params = dict(c=c, lambd=lambd, k=k)
-
-    def predict(self, ts):
-        c, lambd, k = self.params['c'], self.params['lambd'], self.params['k']
-        return ts, c * gammainc(k, lambd*ts)
-
-    def predict_final(self):
-        return self.params['c']
-
-    def predict_time(self):
-        return self.params['k'] / self.params['lambd']
-
-
 class Weibull(Model):
     def fit(self, C, N, B):
+        def transform(x):
+            p, q, r = x
+            return (expit(p), log1pexp(q), log1pexp(r))
         def f(x):
             c, lambd, k = x
             # PDF of Weibull: k * lambda * (x * lambda)^(k-1) * exp(-(t * lambda)^k)
-            likelihood_observed = c * k * lambd * (C * lambd)**(k-1) * exp(-(C*lambd)**k)
+            LL_observed = log(c) + log(k) + log(lambd) + (k-1)*(log(C) + log(lambd)) - (C*lambd)**k
             # CDF of Weibull: 1 - exp(-(t * lambda)^k)
-            likelihood_censored = (1 - c) + c * exp(-(N*lambd)**k)
-            neg_LL = -sum(log(B * likelihood_observed + (1 - B) * likelihood_censored + LOG_EPS))
+            LL_censored = log((1-c) + c * exp(-(N*lambd)**k))
+            neg_LL = -sum(B * LL_observed + (1 - B) * LL_censored)
             return neg_LL
 
-        c_initial = numpy.mean(B)
-        lambd_initial = 1.0 / max(C)
-        lambd_max = 300.0 / max(C)
-        k_initial = 0.9
-        lambd = self.params.get('lambd')
-        k = self.params.get('k')
+        g = lambda x: f(transform(x))
         res = scipy.optimize.minimize(
-            fun=f,
-            jac=grad(f),
-            x0=(c_initial, lambd_initial, k_initial),
-            bounds=((1e-4, 1-1e-4),
-                    (lambd, lambd) if lambd else (1e-4, lambd_max),
-                    (k, k) if k else (0.1, 3.0)),
-            method='L-BFGS-B')
-        c, lambd, k = res.x
-        self.params = dict(c=c, lambd=lambd, k=k)
+            fun=g,
+            jac=jacobian(g),
+            hess=hessian(g),
+            x0=(0, 0, 0),
+            method='trust-ncg')
+        c, lambd, k = transform(res.x)
+        fc = lambda c: f((c, lambd, k))
+        a, b = fit_beta(c, fc)
+        self.params = dict(a=a, b=b, lambd=lambd, k=k)
 
-    def predict(self, ts):
-        c, lambd, k = self.params['c'], self.params['lambd'], self.params['k']
-        return ts, c * (1 - exp(-(ts*lambd)**k))
+    def predict(self, ts, confidence_interval=False):
+        a, b, lambd, k = self.params['a'], self.params['b'], self.params['lambd'], self.params['k']
+        y = 1 - exp(-(ts*lambd)**k)
+        if confidence_interval:
+            return ts, a / (a + b) * y, scipy.stats.beta.ppf(0.05, a, b) * y, scipy.stats.beta.ppf(0.95, a, b) * y
+        else:
+            return ts, y
 
-    def predict_final(self):
-        return self.params['c']
+    def predict_final(self, confidence_interval=False):
+        a, b = self.params['a'], self.params['b']
+        if confidence_interval:
+            return a / (a + b), scipy.stats.beta.ppf(0.05, a, b), scipy.stats.beta.ppf(0.95, a, b)
+        else:
+            return a / (a + b)
 
     def predict_time(self):
         return gamma(1 + 1./self.params['k']) / self.params['lambd']
 
 
-class Bootstrapper(Model):
-    def __init__(self, projection, params={}, n_bootstraps=100):
-        if projection == 'exponential':
-            base_fitter = lambda: Exponential(params=params)
-        elif projection == 'gamma':
-            base_fitter = lambda: Gamma(params=params)
-        elif projection == 'weibull':
-            base_fitter = lambda: Weibull(params=params)
-        else:
-            raise Exception('projection must be exponential/gamma/weibull (was: %s)' % projection)
-        self.models = [base_fitter() for i in range(n_bootstraps)]
-
+class Gamma(Model):
     def fit(self, C, N, B):
-        CNB = list(zip(C, N, B))
-        for i, model in enumerate(self.models):
-            CNB_bootstrapped = [random.choice(CNB) for _ in CNB]
-            C_bootstrapped = numpy.array([c for c, n, b in CNB_bootstrapped])
-            N_bootstrapped = numpy.array([n for c, n, b in CNB_bootstrapped])
-            B_bootstrapped = numpy.array([b for c, n, b in CNB_bootstrapped])
-            model.fit(C_bootstrapped, N_bootstrapped, B_bootstrapped)
+        # TODO(erikbern): should compute Jacobian of this one
+        def transform(x):
+            p, q, r = x
+            return (expit(p), log1pexp(q), log1pexp(r))
+        def f(x):
+            c, lambd, k = x
+            neg_LL = 0
+            # PDF of gamma: 1.0 / gamma(k) * lambda ^ k * t^(k-1) * exp(-t * lambda)
+            LL_observed = log(c) - gammaln(k) + k*log(lambd) + (k-1)*log(C + LOG_EPS) - lambd*C
+            # CDF of gamma: gammainc(k, lambda * t)
+            LL_censored = log((1-c) + c * gammaincc(k, lambd*N) + LOG_EPS)
+            neg_LL = -sum(B * LL_observed + (1 - B) * LL_censored)
+            return neg_LL
+
+        g = lambda x: f(transform(x))
+        res = scipy.optimize.minimize(
+            fun=g,
+            x0=(0, 0, 0),
+            method='Nelder-Mead')
+        c, lambd, k = transform(res.x)
+        fc = lambda c: f((c, lambd, k))
+        a, b = fit_beta(c, fc)
+        self.params = dict(a=a, b=b, lambd=lambd, k=k)
 
     def predict(self, ts, confidence_interval=False):
-        all_ts = numpy.array([model.predict(ts)[1] for model in self.models])
+        a, b, lambd, k = self.params['a'], self.params['b'], self.params['lambd'], self.params['k']
+        y = gammainc(k, lambd*ts)
         if confidence_interval:
-            return (ts, numpy.mean(all_ts, axis=0), numpy.percentile(all_ts, 5, axis=0), numpy.percentile(all_ts, 95, axis=0))
+            return ts, a / (a + b) * y, scipy.stats.beta.ppf(0.05, a, b) * y, scipy.stats.beta.ppf(0.95, a, b) * y
         else:
-            return (ts, numpy.mean(all_ts, axis=0))
+            return ts, y
 
     def predict_final(self, confidence_interval=False):
-        all_ps = numpy.array([model.predict_final() for model in self.models])
+        a, b = self.params['a'], self.params['b']
         if confidence_interval:
-            return (numpy.mean(all_ps), numpy.percentile(all_ps, 5), numpy.percentile(all_ps, 95))
+            return a / (a + b), scipy.stats.beta.ppf(0.05, a, b), scipy.stats.beta.ppf(0.95, a, b)
         else:
-            return numpy.mean(all_ps)
+            return a / (a + b)
 
-    def predict_time(self, confidence_interval=False):
-        # TODO(erikbern): not sure if it makes sense to use median here,
-        # but the mean is problematic because the distribution is so skewed.
-        all_ps = numpy.array([model.predict_time() for model in self.models])
-        if confidence_interval:
-            return (numpy.median(all_ps), numpy.percentile(all_ps, 5), numpy.percentile(all_ps, 95))
-        else:
-            return numpy.median(all_ps)
+    def predict_time(self):
+        return self.params['k'] / self.params['lambd']
 
 
 def sample_event(model, t, hi=1e3):
@@ -354,30 +357,16 @@ def split_by_group(data, group_min_size, max_groups):
     return groups, js
 
 
-def get_params(js, projection, share_params, t_factor):
-    if share_params:
-        if projection == 'exponential':
-            m = Exponential()
-        elif projection == 'gamma':
-            m = Gamma()
-        elif projection == 'weibull':
-            m = Weibull()
-        else:
-            raise Exception('sharing params only works if projection is exponential/gamma/weibull (was: %s)' % projection)
-        pooled_data = []
-        for v in js.values():
-            pooled_data += v
-        C, N, B = get_arrays(pooled_data, t_factor)
-        m.fit(C, N, B)
-        if share_params is True:
-            return {k: m.params[k] for k in ['k', 'lambd'] if k in m.params}
-        else:
-            return {k: m.params[k] for k in share_params if k in m.params}
-    else:
-        return {}
+_models = {
+    'basic': Basic,
+    'kaplan-meier': KaplanMeier,
+    'simple-binomial': SimpleBinomial,
+    'exponential': Exponential,
+    'weibull': Weibull,
+    'gamma': Gamma,
+}
 
-
-def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='kaplan-meier', projection=None, share_params=False):
+def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='kaplan-meier', projection=None):
     # Set x scale
     if t_max is None:
         t_max = max(now - created_at for group, created_at, converted_at, now in data)
@@ -387,9 +376,6 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
     # Split data by group
     groups, js = split_by_group(data, group_min_size, max_groups)
 
-    # Get shared params
-    params = get_params(js, projection, share_params, t_factor)
-
     # PLOT
     colors = seaborn.color_palette('hls', len(groups))
     y_max = 0
@@ -397,23 +383,14 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
         C, N, B = get_arrays(js[group], t_factor)
         t = numpy.linspace(0, t_max, 1000)
 
-        if model == 'basic':
-            m = Basic()
-        elif model == 'kaplan-meier':
-            m = KaplanMeier()
-        elif model == 'simple-binomial':
-            m = SimpleBinomial()
+        m = _models[model]()
         m.fit(C, N, B)
 
         label = '%s (n=%.0f, k=%.0f)' % (group, len(B), sum(B))
 
-        if projection is True:
-            p = m
-        elif projection:
-            p = Bootstrapper(projection, params)
-            p.fit(C, N, B)
-
         if projection:
+            p = _models[projection]()
+            p.fit(C, N, B)
             p_t, p_y, p_y_lo, p_y_hi = p.predict(t, confidence_interval=True)
             p_y_final, p_y_lo_final, p_y_hi_final = p.predict_final(confidence_interval=True)
             label += ' projected: %.2f%% (%.2f%% - %.2f%%)' % (100.*p_y_final, 100.*p_y_lo_final, 100.*p_y_hi_final)
@@ -434,7 +411,7 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
     pyplot.gca().grid(True)
 
 
-def plot_timeseries(data, window, model='kaplan-meier', group_min_size=0, max_groups=100, window_min_size=1, stride=None, share_params=False, title=None, time=False):
+def plot_timeseries(data, window, model='kaplan-meier', group_min_size=0, max_groups=100, window_min_size=1, stride=None, title=None, time=False):
     if stride is None:
         stride = window
 
@@ -445,9 +422,6 @@ def plot_timeseries(data, window, model='kaplan-meier', group_min_size=0, max_gr
 
     # Split data by group
     groups, js = split_by_group(data, group_min_size, max_groups)
-
-    # Get shared params
-    params = get_params(js, model, share_params, t_factor)
 
     # PLOT
     colors = seaborn.color_palette('hls', len(groups))
@@ -470,13 +444,7 @@ def plot_timeseries(data, window, model='kaplan-meier', group_min_size=0, max_gr
             if sum(B) < window_min_size:
                 continue
 
-            if model == 'simple-binomial':
-                # TODO: ugly code
-                p = SimpleBinomial()
-            elif model == 'kaplan-meier':
-                p = KaplanMeier()
-            else:
-                p = Bootstrapper(model, params)
+            p = _models[model]()
             p.fit(C, N, B)
 
             if time:
