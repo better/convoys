@@ -8,12 +8,18 @@ import random
 import seaborn
 import scipy.optimize
 import six
-from autograd import grad
+from autograd import jacobian, hessian, grad
 from autograd.scipy.special import expit, gamma, gammainc, gammaincc, gammaln
 from autograd.numpy import exp, log, sum
 from matplotlib import pyplot
 
 LOG_EPS = 1e-12  # Used for log likelihood
+
+
+def log1pexp(x):
+    # returns log(1 + exp(x))
+    p, q = min(x, 0), max(x, 0)
+    return q + log(exp(p-q) + 1)
 
 
 def get_timescale(t):
@@ -150,25 +156,30 @@ class KaplanMeier(Model):
 
 
 def fit_beta(c, fc):
-    # Approximate a Beta distribution for c by looking at the second derivative wrt c
+    # Approximate a Beta distribution for c by fitting two things
+    # 1. second derivative wrt c should match the second derivative of a beta
+    #   LL = (a-1)log(c) + (b-1)log(1-c)
+    #   dLL = (a-1)/c - (b-1)/(1-c)
+    #   ddLL = -(a-1)/c^2 - (b-1)/(1-c)^2 = -h
+    #   a(-1/c^2) + b(-1/(1-c)^2) = -h - 1/c^2 - 1/(1-c)^2
+    # 2. mode should match c, i.e. (a-1)/(a+b-2) = c <=> a-1 = c(a+b-2)
+    #   a(1-c) - bc = 1-2c
     h = grad(grad(fc))(c)
-    # LL = (a-1)log(c) + (b-1)log(1-c)
-    # dLL = (a-1)/c - (b-1)/(1-c)
-    # ddLL = -(a-1)/c^2 - (b-1)/(1-c)^2 = -h
-    # a(-1/c^2) + b(-1/(1-c)^2) = -h - 1/c^2 - 1/(1-c)^2
-    # we also have that a/(a+b) = c <=> a = c(a+b)
-    # a(1-c) - bc = 0
     M = numpy.array([[-1/c**2, -1/(1-c)**2],
                      [(1-c), -c]])
-    q = numpy.array([-h - 1/c**2 - 1/(1-c)**2, 0])
-    return numpy.linalg.solve(M, q)
+    q = numpy.array([-h - 1/c**2 - 1/(1-c)**2, 1 - 2*c])
+    try:
+        a, b = numpy.linalg.solve(M, q)
+    except numpy.linalg.linalg.LinAlgError:
+        a, b = 1, 1
+    return a, b
 
 
 class Exponential(Model):
     def fit(self, C, N, B):
         def transform(x):
             p, q = x
-            return (expit(p), exp(q))
+            return (expit(p), log1pexp(q))
         def f(x):
             c, lambd = x
             LL_observed = log(c) + log(lambd) - lambd*C
@@ -179,9 +190,10 @@ class Exponential(Model):
         g = lambda x: f(transform(x))
         res = scipy.optimize.minimize(
             fun=g,
-            jac=grad(g),
+            jac=jacobian(g),
+            hess=hessian(g),
             x0=(0, 0),
-            method='BFGS')
+            method='trust-ncg')
         c, lambd = transform(res.x)
         fc = lambda c: f((c, lambd))
         a, b = fit_beta(c, fc)
@@ -212,7 +224,7 @@ class Weibull(Model):
     def fit(self, C, N, B):
         def transform(x):
             p, q, r = x
-            return (expit(p), exp(q), log(1 + exp(r)))
+            return (expit(p), log1pexp(q), log1pexp(r))
         def f(x):
             c, lambd, k = x
             # PDF of Weibull: k * lambda * (x * lambda)^(k-1) * exp(-(t * lambda)^k)
@@ -225,9 +237,10 @@ class Weibull(Model):
         g = lambda x: f(transform(x))
         res = scipy.optimize.minimize(
             fun=g,
-            jac=grad(g),
+            jac=jacobian(g),
+            hess=hessian(g),
             x0=(0, 0, 0),
-            method='BFGS')
+            method='trust-ncg')
         c, lambd, k = transform(res.x)
         fc = lambda c: f((c, lambd, k))
         a, b = fit_beta(c, fc)
@@ -257,7 +270,7 @@ class Gamma(Model):
         # TODO(erikbern): should compute Jacobian of this one
         def transform(x):
             p, q, r = x
-            return (expit(p), exp(q), log(1 + exp(r)))
+            return (expit(p), log1pexp(q), log1pexp(r))
         def f(x):
             c, lambd, k = x
             neg_LL = 0
