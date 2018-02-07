@@ -1,7 +1,6 @@
 import abc
 import bisect
 import datetime
-import lifelines
 import math
 import numpy
 import random
@@ -66,93 +65,52 @@ class Model():
         pass
 
 
-class SimpleBinomial(Model):
+class NonParametric(Model):
     def fit(self, C, N, B):
-        self.params['a'] = len(B)
-        self.params['b'] = sum(B)
+        data = [(c if b else n, b) for c, n, b in zip(C, N, B)]
+        data.sort()
+        def f(c):
+            LL = 0
+            n_conv = len(data) * c
+            p = 1
+            for t, b in data:
+                if b:  # converted
+                    q = 1 / n_conv
+                    p *= 1-q
+                    LL += log(q)
+                    n_conv -= 1
+                else:  # didn't convert
+                    LL += log(1-c + c*p)
+                    n_conv -= c * p
+            return -LL
+
+        min_c = numpy.mean(B)
+        # Let's say p(c) = a/c^k
+        # -log(p(c)) = k*log(c) - log(a)
+        # d/dc -log(p(c)) = k/c
+        k = grad(f)(min_c) * min_c
+
+        # Compute the integral from min_c to 1 of 1/c^k
+        b = -k * (1 - 1/min_c**(k+1))
+
+        # Find c so that the integral from min_c to c = b*z
+        # -k*(1/c**(k+1) - 1/min_c**(k+1)) = b*z
+        # 1/c**(k+1) - 1/min_c**(k+1) = -b*z/k
+        # 1/c**(k+1) = 1/min_c**(k+1) - b*z/k
+        # c = (1/min_c**(k+1) - b*z/k)**(-1/(k+1))
+
+        print(min_c)
+        for z in [0.8, 0.9, 0.95]:
+            print(z, (1/min_c**(k+1) - b*z/k)**(-1/(k+1)))
 
     def predict(self, ts, confidence_interval=False):
-        a, b = self.params['a'], self.params['b']
-        def rep(x):
-            return numpy.ones(len(ts)) * x
-        if confidence_interval:
-            return ts, rep(b/a), rep(scipy.stats.beta.ppf(0.05, b, a-b)), rep(scipy.stats.beta.ppf(0.95, b, a-b))
-        else:
-            return ts, rep(b/a)
+        pass
 
     def predict_final(self, confidence_interval=False):
-        a, b = self.params['a'], self.params['b']
-        if confidence_interval:
-            return b/a, scipy.stats.beta.ppf(0.05, b, a-b), scipy.stats.beta.ppf(0.95, b, a-b)
-        else:
-            return b/a
-
-    def predict_time(self):
-        return 0.0
-
-
-class Basic(Model):
-    def fit(self, C, N, B, n_limit=30):
-        n, k = len(C), 0
-        self.ts = [0]
-        self.ns = [n]
-        self.ks = [k]
-        events = [(c, 1, 0) for c, n, b in zip(C, N, B) if b] + \
-                 [(n, -int(b), -1) for c, n, b in zip(C, N, B)]
-        for t, k_delta, n_delta in sorted(events):
-            k += k_delta
-            n += n_delta
-            self.ts.append(t)
-            self.ks.append(k)
-            self.ns.append(n)
-            if n < n_limit:
-                break
-
-    def predict(self, ts, confidence_interval=False):
-        js = [bisect.bisect_left(self.ts, t) for t in ts]
-        ks = numpy.array([self.ks[j] for j in js if j < len(self.ks)])
-        ns = numpy.array([self.ns[j] for j in js if j < len(self.ns)])
-        ts = numpy.array([ts[j] for j in js if j < len(self.ns)])
-        if confidence_interval:
-            return ts, ks / ns, scipy.stats.beta.ppf(0.05, ks, ns-ks), scipy.stats.beta.ppf(0.95, ks, ns-ks)
-        else:
-            return ts, ks / ns
-
-
-class KaplanMeier(Model):
-    def fit(self, C, N, B):
-        T = [c if b else n for c, n, b in zip(C, N, B)]
-        kmf = lifelines.KaplanMeierFitter()
-        kmf.fit(T, event_observed=B)
-        self.ts = kmf.survival_function_.index.values
-        self.ps = 1.0 - kmf.survival_function_['KM_estimate'].values
-        self.ps_hi = 1.0 - kmf.confidence_interval_['KM_estimate_lower_0.95'].values
-        self.ps_lo = 1.0 - kmf.confidence_interval_['KM_estimate_upper_0.95'].values
-
-    def predict(self, ts, confidence_interval=False):
-        js = [bisect.bisect_left(self.ts, t) for t in ts]
-        def array_lookup(a):
-            return numpy.array([a[j] for j in js if j < len(self.ts)])
-        if confidence_interval:
-            return (array_lookup(self.ts), array_lookup(self.ps), array_lookup(self.ps_lo), array_lookup(self.ps_hi))
-        else:
-            return (array_lookup(self.ts), array_lookup(self.ps))
-
-    def predict_final(self, confidence_interval=False):
-        if confidence_interval:
-            return (self.ps[-1], self.ps_lo[-1], self.ps_hi[-1])
-        else:
-            return self.ps[-1]
+        pass
 
     def predict_time(self, confidence_interval=False):
-        # TODO: should not use median here, but mean is no good
-        def median(ps):
-            i = bisect.bisect_left(ps, 0.5)
-            return self.ts[min(i, len(ps)-1)]
-        if confidence_interval:
-            return median(self.ps), median(self.ps_lo), median(self.ps_hi)
-        else:
-            return median(self.ps)
+        pass
 
 
 def fit_beta(c, fc):
@@ -358,9 +316,6 @@ def split_by_group(data, group_min_size, max_groups):
 
 
 _models = {
-    'basic': Basic,
-    'kaplan-meier': KaplanMeier,
-    'simple-binomial': SimpleBinomial,
     'exponential': Exponential,
     'weibull': Weibull,
     'gamma': Gamma,
