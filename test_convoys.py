@@ -57,7 +57,6 @@ def test_weibull_model(c=0.3, lambd=0.1, k=0.5, n=100000):
     assert 0.95*k < model.params['k'] < 1.05*k
 
 
-@pytest.mark.skip
 def test_weibull_regression_model(cs=[0.3, 0.5, 0.7], lambd=0.1, k=0.5, n=10000):
     def sample_weibull():
         return (-numpy.log(random.random())) ** (1.0/k) / lambd

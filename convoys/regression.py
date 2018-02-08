@@ -1,40 +1,59 @@
 import numpy
-import pymc3
-import random
-from scipy.special import expit
-from pymc3.math import dot, sigmoid, log, exp
+import scipy.optimize
+from autograd import jacobian, hessian, grad
+from autograd.scipy.special import expit, gamma, gammainc, gammaincc, gammaln
+from autograd.numpy import exp, log, sum, dot
 
 from convoys import Model
 
 class WeibullRegression(Model):
+    # This will replace the Weibull model in __init__.py soon.
     def fit(self, X, B, T):
         n, k = X.shape
-        with pymc3.Model() as m:
-            beta_sd = pymc3.Exponential('beta_sd', 1.0)  # Weak prior for the regression coefficients
-            beta = pymc3.Normal('beta', mu=0, sd=beta_sd, shape=(k,))  # Regression coefficients
-            c = sigmoid(dot(X, beta))  # Conversion rates for each example
-            k = pymc3.Lognormal('k', mu=0, sd=1.0)  # Weak prior around k=1
-            lambd = pymc3.Exponential('lambd', 0.1)  # Weak prior
+        X = X.astype(numpy.float32)
+        def f(x):
+            lambd, k = exp(x[0]), exp(x[1])
+            beta = x[2:]
+            c = expit(dot(X, beta.T))  # Conversion rates for each example
 
             # PDF of Weibull: k * lambda * (x * lambda)^(k-1) * exp(-(t * lambda)^k)
             LL_observed = log(c) + log(k) + log(lambd) + (k-1)*(log(T) + log(lambd)) - (T*lambd)**k
             # CDF of Weibull: 1 - exp(-(t * lambda)^k)
             LL_censored = log((1-c) + c * exp(-(T*lambd)**k))
 
-            # We need to implement the likelihood using pymc3.Potential (custom likelihood)
-            # https://github.com/pymc-devs/pymc3/issues/826
-            logp = B * LL_observed + (1 - B) * LL_censored
-            logpvar = pymc3.Potential('logpvar', logp.sum())
+            LL = sum(B * LL_observed + (1 - B) * LL_censored)
+            return -LL
 
-            self.trace = pymc3.sample(n_simulations=500, tune=500, discard_tuned_samples=True, njobs=1)
-            print('done')
-        print('done 2')
+        res = scipy.optimize.minimize(
+            fun=f,
+            jac=jacobian(f),
+            hess=hessian(f),
+            x0=numpy.zeros(k+2),
+            method='trust-ncg')
+        log_lambd, log_k, *beta = res.x
+        # Compute hessian of betas
+        beta_hessian = hessian(f)(res.x)[2:,2:]
+        self.params = dict(
+            lambd=exp(log_lambd),
+            k=exp(log_k),
+            beta=beta,
+            beta_hessian=beta_hessian
+        )
 
     def predict(self):
         pass  # TODO: implement
 
-    def predict_final(self, x):
-        return numpy.mean(expit(numpy.dot(self.trace['beta'], x)))
+    def predict_final(self, x, confidence_interval=False):
+        x = numpy.array(x)
+        def f(x, d=0):
+            return expit(dot(x, self.params['beta']) + d)
+        if confidence_interval:
+            # I have no clue if this math is correct, need to double check
+            inv_sd = dot(dot(x.T, self.params['beta_hessian']), x)
+            lo, hi = (scipy.stats.norm.ppf(p, scale=1./inv_sd) for p in (0.025, 0.975))
+            return f(x), f(x, lo), f(x, hi)
+        else:
+            return f(x)
 
     def predict_time(self):
         pass  # TODO: implement
