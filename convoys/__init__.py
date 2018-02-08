@@ -54,15 +54,15 @@ class Model():
         pass
 
     @abc.abstractmethod
-    def predict(self, ts, confidence_interval=False):
+    def predict(self, ts, ci=None):
         pass
 
     @abc.abstractmethod
-    def predict_final(self, confidence_interval=False):
+    def predict_final(self, ci=None):
         pass
 
     @abc.abstractmethod
-    def predict_time(self, confidence_interval=False):
+    def predict_time(self, ci=None):
         pass
 
 
@@ -71,19 +71,19 @@ class SimpleBinomial(Model):
         self.params['a'] = len(B)
         self.params['b'] = sum(B)
 
-    def predict(self, ts, confidence_interval=False):
+    def predict(self, ts, ci=None):
         a, b = self.params['a'], self.params['b']
         def rep(x):
             return numpy.ones(len(ts)) * x
-        if confidence_interval:
-            return ts, rep(b/a), rep(scipy.stats.beta.ppf(0.05, b, a-b)), rep(scipy.stats.beta.ppf(0.95, b, a-b))
+        if ci is not None:
+            return ts, rep(b/a), rep(scipy.stats.beta.ppf((1 - ci)/2, b, a-b)), rep(scipy.stats.beta.ppf((1 + ci)/2, b, a-b))
         else:
             return ts, rep(b/a)
 
-    def predict_final(self, confidence_interval=False):
+    def predict_final(self, ci=None):
         a, b = self.params['a'], self.params['b']
-        if confidence_interval:
-            return b/a, scipy.stats.beta.ppf(0.05, b, a-b), scipy.stats.beta.ppf(0.95, b, a-b)
+        if ci is not None:
+            return b/a, scipy.stats.beta.ppf((1 - ci)/2, b, a-b), scipy.stats.beta.ppf((1 + ci)/2, b, a-b)
         else:
             return b/a
 
@@ -108,13 +108,13 @@ class Basic(Model):
             if n < n_limit:
                 break
 
-    def predict(self, ts, confidence_interval=False):
+    def predict(self, ts, ci=None):
         js = [bisect.bisect_left(self.ts, t) for t in ts]
         ks = numpy.array([self.ks[j] for j in js if j < len(self.ks)])
         ns = numpy.array([self.ns[j] for j in js if j < len(self.ns)])
         ts = numpy.array([ts[j] for j in js if j < len(self.ns)])
-        if confidence_interval:
-            return ts, ks / ns, scipy.stats.beta.ppf(0.05, ks, ns-ks), scipy.stats.beta.ppf(0.95, ks, ns-ks)
+        if ci is not None:
+            return ts, ks / ns, scipy.stats.beta.ppf((1 - ci)/2, ks, ns-ks), scipy.stats.beta.ppf((1 + ci)/2, ks, ns-ks)
         else:
             return ts, ks / ns
 
@@ -129,27 +129,27 @@ class KaplanMeier(Model):
         self.ps_hi = 1.0 - kmf.confidence_interval_['KM_estimate_lower_0.95'].values
         self.ps_lo = 1.0 - kmf.confidence_interval_['KM_estimate_upper_0.95'].values
 
-    def predict(self, ts, confidence_interval=False):
+    def predict(self, ts, ci=None):
         js = [bisect.bisect_left(self.ts, t) for t in ts]
         def array_lookup(a):
             return numpy.array([a[j] for j in js if j < len(self.ts)])
-        if confidence_interval:
+        if ci is not None:
             return (array_lookup(self.ts), array_lookup(self.ps), array_lookup(self.ps_lo), array_lookup(self.ps_hi))
         else:
             return (array_lookup(self.ts), array_lookup(self.ps))
 
-    def predict_final(self, confidence_interval=False):
-        if confidence_interval:
+    def predict_final(self, ci=None):
+        if ci is not None:
             return (self.ps[-1], self.ps_lo[-1], self.ps_hi[-1])
         else:
             return self.ps[-1]
 
-    def predict_time(self, confidence_interval=False):
+    def predict_time(self, ci=None):
         # TODO: should not use median here, but mean is no good
         def median(ps):
             i = bisect.bisect_left(ps, 0.5)
             return self.ts[min(i, len(ps)-1)]
-        if confidence_interval:
+        if ci is not None:
             return median(self.ps), median(self.ps_lo), median(self.ps_hi)
         else:
             return median(self.ps)
@@ -199,22 +199,22 @@ class Exponential(Model):
         a, b = fit_beta(c, fc)
         self.params = dict(a=a, b=b, lambd=lambd)
 
-    def predict(self, ts, confidence_interval=False):
+    def predict(self, ts, ci=None):
         a, b, lambd = self.params['a'], self.params['b'], self.params['lambd']
         y = 1 - exp(-ts * lambd)
-        if confidence_interval:
-            return ts, a / (a + b) * y, scipy.stats.beta.ppf(0.05, a, b) * y, scipy.stats.beta.ppf(0.95, a, b) * y
+        if ci is not None:
+            return ts, a / (a + b) * y, scipy.stats.beta.ppf((1 - ci)/2, a, b) * y, scipy.stats.beta.ppf((1 + ci)/2, a, b) * y
         else:
             return ts, y
 
-    def predict_final(self, confidence_interval=False):
+    def predict_final(self, ci=None):
         a, b = self.params['a'], self.params['b']
-        if not confidence_interval:
+        if not ci:
             return a / (a + b)
         else:
             return (a / (a + b),
-                    scipy.stats.beta.ppf(0.05, a, b),
-                    scipy.stats.beta.ppf(0.95, a, b))
+                    scipy.stats.beta.ppf((1 - ci)/2, a, b),
+                    scipy.stats.beta.ppf((1 + ci)/2, a, b))
 
     def predict_time(self):
         return 1.0 / self.params['lambd']
@@ -246,18 +246,18 @@ class Weibull(Model):
         a, b = fit_beta(c, fc)
         self.params = dict(a=a, b=b, lambd=lambd, k=k)
 
-    def predict(self, ts, confidence_interval=False):
+    def predict(self, ts, ci=None):
         a, b, lambd, k = self.params['a'], self.params['b'], self.params['lambd'], self.params['k']
         y = 1 - exp(-(ts*lambd)**k)
-        if confidence_interval:
-            return ts, a / (a + b) * y, scipy.stats.beta.ppf(0.05, a, b) * y, scipy.stats.beta.ppf(0.95, a, b) * y
+        if ci is not None:
+            return ts, a / (a + b) * y, scipy.stats.beta.ppf((1 - ci)/2, a, b) * y, scipy.stats.beta.ppf((1 + ci)/2, a, b) * y
         else:
             return ts, y
 
-    def predict_final(self, confidence_interval=False):
+    def predict_final(self, ci=None):
         a, b = self.params['a'], self.params['b']
-        if confidence_interval:
-            return a / (a + b), scipy.stats.beta.ppf(0.05, a, b), scipy.stats.beta.ppf(0.95, a, b)
+        if ci is not None:
+            return a / (a + b), scipy.stats.beta.ppf((1 - ci)/2, a, b), scipy.stats.beta.ppf((1 + ci)/2, a, b)
         else:
             return a / (a + b)
 
@@ -291,18 +291,18 @@ class Gamma(Model):
         a, b = fit_beta(c, fc)
         self.params = dict(a=a, b=b, lambd=lambd, k=k)
 
-    def predict(self, ts, confidence_interval=False):
+    def predict(self, ts, ci=None):
         a, b, lambd, k = self.params['a'], self.params['b'], self.params['lambd'], self.params['k']
         y = gammainc(k, lambd*ts)
-        if confidence_interval:
-            return ts, a / (a + b) * y, scipy.stats.beta.ppf(0.05, a, b) * y, scipy.stats.beta.ppf(0.95, a, b) * y
+        if ci is not None:
+            return ts, a / (a + b) * y, scipy.stats.beta.ppf((1 - ci)/2, a, b) * y, scipy.stats.beta.ppf((1 + ci)/2, a, b) * y
         else:
             return ts, y
 
-    def predict_final(self, confidence_interval=False):
+    def predict_final(self, ci=None):
         a, b = self.params['a'], self.params['b']
-        if confidence_interval:
-            return a / (a + b), scipy.stats.beta.ppf(0.05, a, b), scipy.stats.beta.ppf(0.95, a, b)
+        if ci is not None:
+            return a / (a + b), scipy.stats.beta.ppf((1 - ci)/2, a, b), scipy.stats.beta.ppf((1 + ci)/2, a, b)
         else:
             return a / (a + b)
 
@@ -391,8 +391,8 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
         if projection:
             p = _models[projection]()
             p.fit(C, N, B)
-            p_t, p_y, p_y_lo, p_y_hi = p.predict(t, confidence_interval=True)
-            p_y_final, p_y_lo_final, p_y_hi_final = p.predict_final(confidence_interval=True)
+            p_t, p_y, p_y_lo, p_y_hi = p.predict(t, ci=0.95)
+            p_y_final, p_y_lo_final, p_y_hi_final = p.predict_final(ci=0.95)
             label += ' projected: %.2f%% (%.2f%% - %.2f%%)' % (100.*p_y_final, 100.*p_y_lo_final, 100.*p_y_hi_final)
             pyplot.plot(p_t, 100. * p_y, color=color, linestyle=':', alpha=0.7)
             pyplot.fill_between(p_t, 100. * p_y_lo, 100. * p_y_hi, color=color, alpha=0.2)
@@ -448,9 +448,9 @@ def plot_timeseries(data, window, model='kaplan-meier', group_min_size=0, max_gr
             p.fit(C, N, B)
 
             if time:
-                y, y_lo, y_hi = p.predict_time(confidence_interval=True)
+                y, y_lo, y_hi = p.predict_time(ci=0.95)
             else:
-                y, y_lo, y_hi = p.predict_final(confidence_interval=True)
+                y, y_lo, y_hi = p.predict_final(ci=0.95)
             print('%30s %40s %.4f %.4f %.4f' % (group, t1, y, y_lo, y_hi))
             ts.append(t2)
             ys.append(y)
