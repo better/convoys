@@ -7,6 +7,9 @@ from pymc3.math import dot, sigmoid, log, exp
 from convoys import Model
 
 class WeibullRegression(Model):
+    # This is a super-experimental model that uses pymc3 to sample from the posterior
+    # Unfortunately, it's way too slow to use for any datasets larger than n=1000
+    # I'm keeping it here as a way to double check the results of models
     def fit(self, X, B, T):
         n, k = X.shape
         with pymc3.Model() as m:

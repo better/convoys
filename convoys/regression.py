@@ -30,7 +30,8 @@ class WeibullRegression(Model):
             hess=hessian(f),
             x0=numpy.zeros(k+2),
             method='trust-ncg')
-        log_lambd, log_k, *beta = res.x
+        log_lambd, log_k = res.x[0], res.x[1]
+        beta = res.x[2:]
         # Compute hessian of betas
         beta_hessian = hessian(f)(res.x)[2:,2:]
         self.params = dict(
