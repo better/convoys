@@ -1,10 +1,12 @@
 import datetime
 import matplotlib
 import numpy
+import pytest
 import random
 import scipy.stats
 matplotlib.use('Agg')  # Needed for matplotlib to run in Travis
 import convoys
+import convoys.regression
 
 
 def test_exponential_model(c=0.3, lambd=0.1, n=100000):
@@ -53,6 +55,19 @@ def test_weibull_model(c=0.3, lambd=0.1, k=0.5, n=100000):
     assert 0.95*c < model.predict_final() < 1.05*c
     assert 0.95*lambd < model.params['lambd'] < 1.05*lambd
     assert 0.95*k < model.params['k'] < 1.05*k
+
+
+def test_weibull_regression_model(cs=[0.3, 0.5, 0.7], lambd=0.1, k=0.5, n=10000):
+    def sample_weibull():
+        return (-numpy.log(random.random())) ** (1.0/k) / lambd
+    X = numpy.array([[1] + [r % len(cs) == j for j in range(len(cs))] for r in range(n)])
+    B = numpy.array([bool(random.random() < cs[r % len(cs)]) for r in range(n)])
+    T = numpy.array([b and sample_weibull() or 1000 for b in B])
+    model = convoys.regression.WeibullRegression()
+    model.fit(X, B, T)
+    for r, c in enumerate(cs):
+        x = [1] + [int(r == j) for j in range(len(cs))]
+        assert 0.95 * c < model.predict_final(x) < 1.05 * c
 
 
 def _get_data(c=0.3, k=10, lambd=0.1, n=1000):
