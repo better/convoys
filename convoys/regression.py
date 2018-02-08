@@ -44,14 +44,13 @@ class WeibullRegression(Model):
     def predict(self):
         pass  # TODO: implement
 
-    def predict_final(self, x, confidence_interval=False):
+    def predict_final(self, x, ci=None):
         x = numpy.array(x)
         def f(x, d=0):
             return expit(dot(x, self.params['beta']) + d)
-        if confidence_interval:
-            # I have no clue if this math is correct, need to double check
-            inv_sd = dot(dot(x.T, self.params['beta_hessian']), x)
-            lo, hi = (scipy.stats.norm.ppf(p, scale=1./inv_sd) for p in (0.025, 0.975))
+        if ci:
+            inv_var = dot(dot(x.T, self.params['beta_hessian']), x)
+            lo, hi = (scipy.stats.norm.ppf(p, scale=inv_var**-0.5) for p in ((1 - ci)/2, (1 + ci)/2))
             return f(x), f(x, lo), f(x, hi)
         else:
             return f(x)
