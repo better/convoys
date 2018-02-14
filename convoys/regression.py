@@ -8,6 +8,9 @@ from convoys import Model
 
 class WeibullRegression(Model):
     # This will replace the Weibull model in __init__.py soon.
+    def __init__(self, L2_reg=1.0):
+        self._L2_reg = L2_reg
+
     def fit(self, X, B, T):
         n, k = X.shape
         X = X.astype(numpy.float32)
@@ -21,7 +24,7 @@ class WeibullRegression(Model):
             # CDF of Weibull: 1 - exp(-(t * lambda)^k)
             LL_censored = log((1-c) + c * exp(-(T*lambd)**k))
 
-            LL = sum(B * LL_observed + (1 - B) * LL_censored)
+            LL = sum(B * LL_observed + (1 - B) * LL_censored) - self._L2_reg * dot(beta, beta)
             return -LL
 
         res = scipy.optimize.minimize(
