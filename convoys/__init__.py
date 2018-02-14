@@ -27,7 +27,8 @@ def get_timescale(t):
     def get_timedelta_converter(t_factor):
         return lambda td: td.total_seconds() * t_factor
 
-    if type(t) in (int, float):
+    if type(t) != datetime.timedelta:
+        # Assume numeric type
         return '', lambda x: x
     elif t >= datetime.timedelta(days=1):
         return 'Days', get_timedelta_converter(1./(24*60*60))
