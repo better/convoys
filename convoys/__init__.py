@@ -22,22 +22,27 @@ def log1pexp(x):
     return q + log(exp(p-q) + 1)
 
 
+
 def get_timescale(t):
-    if t >= datetime.timedelta(days=1):
-        t_factor, t_unit = 1./(24*60*60), 'Days'
+    def get_timedelta_converter(t_factor):
+        return lambda td: td.total_seconds() * t_factor
+
+    if type(t) in (int, float):
+        return '', lambda x: x
+    elif t >= datetime.timedelta(days=1):
+        return 'Days', get_timedelta_converter(1./(24*60*60))
     elif t >= datetime.timedelta(hours=1):
-        t_factor, t_unit = 1./(60*60), 'Hours'
+        return 'Hours', get_timedelta_converter(1./(60*60))
     elif t >= datetime.timedelta(minutes=1):
-        t_factor, t_unit = 1./60, 'Minutes'
+        return 'Minutes', get_timedelta_converter(1./60)
     else:
-        t_factor, t_unit = 1, 'Seconds'
-    return t_factor, t_unit
+        return 'Minutes', get_timedelta_converter(1)
 
 
-def get_arrays(data, t_factor):
-    C = [(converted_at - created_at).total_seconds() * t_factor if converted_at is not None else 1.0
+def get_arrays(data, t_converter):
+    C = [t_converter(converted_at - created_at) if converted_at is not None else 1.0
          for created_at, converted_at, now in data]
-    N = [(now - created_at).total_seconds() * t_factor
+    N = [t_converter(now - created_at)
          for created_at, converted_at, now in data]
     B = [bool(converted_at is not None)
          for created_at, converted_at, now in data]
@@ -370,8 +375,8 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
     # Set x scale
     if t_max is None:
         t_max = max(now - created_at for group, created_at, converted_at, now in data)
-    t_factor, t_unit = get_timescale(t_max)
-    t_max = t_max.total_seconds() * t_factor
+    t_unit, t_converter = get_timescale(t_max)
+    t_max = t_converter(t_max)
 
     # Split data by group
     groups, js = split_by_group(data, group_min_size, max_groups)
@@ -380,7 +385,7 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
     colors = seaborn.color_palette('hls', len(groups))
     y_max = 0
     for group, color in zip(sorted(groups), colors):
-        C, N, B = get_arrays(js[group], t_factor)
+        C, N, B = get_arrays(js[group], t_converter)
         t = numpy.linspace(0, t_max, 1000)
 
         m = _models[model]()
@@ -418,7 +423,7 @@ def plot_timeseries(data, window, model='kaplan-meier', group_min_size=0, max_gr
     # Find limits
     t_lo = min(created_at for _, created_at, _, _ in data)
     t_hi = min(now for _, _, _, now in data)
-    t_factor, t_unit = get_timescale(t_hi - t_lo)
+    t_unit, t_converter = get_timescale(t_hi - t_lo)
 
     # Split data by group
     groups, js = split_by_group(data, group_min_size, max_groups)
@@ -440,7 +445,7 @@ def plot_timeseries(data, window, model='kaplan-meier', group_min_size=0, max_gr
             data = js[group][i1:i2]
             t1 += stride
 
-            C, N, B = get_arrays(data, t_factor)
+            C, N, B = get_arrays(data, t_converter)
             if sum(B) < window_min_size:
                 continue
 
