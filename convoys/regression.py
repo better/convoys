@@ -1,58 +1,70 @@
-import numpy
-import scipy.optimize
-from autograd import jacobian, hessian, grad
-from autograd.scipy.special import expit, gamma, gammainc, gammaincc, gammaln
-from autograd.numpy import exp, log, sum, dot
+import numpy # TODO: remove
+from scipy.special import expit  # TODO: remove
+import scipy.stats
+import tensorflow as tf
 
 from convoys import Model
 
-class WeibullRegression(Model):
-    # This will replace the Weibull model in __init__.py soon.
-    def __init__(self, L2_reg=1.0):
+class Regression(Model):
+    # This will replace the model in __init__.py soon.
+    def __init__(self, log_pdf, cdf, extra_params, L2_reg=1.0):
         self._L2_reg = L2_reg
+        self._log_pdf = log_pdf
+        self._cdf = cdf
+        self._extra_params = extra_params
 
     def fit(self, X, B, T):
+        # TODO: should do this in constructor, but the shape of X isn't known at that point
         n, k = X.shape
-        X = X.astype(numpy.float32)
-        def f(x):
-            lambd, k = exp(x[0]), exp(x[1])
-            beta = x[2:]
-            c = expit(dot(X, beta.T))  # Conversion rates for each example
 
-            # PDF of Weibull: k * lambda * (x * lambda)^(k-1) * exp(-(t * lambda)^k)
-            LL_observed = log(c) + log(k) + log(lambd) + (k-1)*(log(T) + log(lambd)) - (T*lambd)**k
-            # CDF of Weibull: 1 - exp(-(t * lambda)^k)
-            LL_censored = log((1-c) + c * exp(-(T*lambd)**k))
+        X_input = tf.placeholder(tf.float32, [None, k])
+        B_input = tf.placeholder(tf.float32, [None])
+        T_input = tf.placeholder(tf.float32, [None])
+        beta = tf.Variable(tf.zeros([k]), 'beta')
 
-            LL = sum(B * LL_observed + (1 - B) * LL_censored) - self._L2_reg * dot(beta, beta)
-            return -LL
+        X_prod_beta = tf.squeeze(tf.matmul(X_input, tf.expand_dims(beta, -1)), 1)
+        c = tf.sigmoid(X_prod_beta)  # Conversion rates for each example
 
-        res = scipy.optimize.minimize(
-            fun=f,
-            jac=jacobian(f),
-            hess=hessian(f),
-            x0=numpy.zeros(k+2),
-            method='trust-ncg')
-        log_lambd, log_k = res.x[0], res.x[1]
-        beta = res.x[2:]
-        # Compute hessian of betas
-        beta_hessian = hessian(f)(res.x)[2:,2:]
+        # PDF of Weibull: k * lambda * (x * lambda)^(k-1) * exp(-(t * lambda)^k)
+        LL_observed = tf.log(c) + self._log_pdf(T_input)
+        # CDF of Weibull: 1 - exp(-(t * lambda)^k)
+        LL_censored = tf.log((1-c) + c * (1 - self._cdf(T_input)))
+
+        LL = tf.reduce_sum(B_input * LL_observed + (1 - B_input) * LL_censored, 0)
+        LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
+
+        learning_rate = 1e-1
+        optimizer = tf.train.AdamOptimizer(learning_rate).minimize(-LL_penalized)
+
+        self._sess = tf.Session()  # TODO: free
+        init = tf.global_variables_initializer()
+        self._sess.run(init)
+
+        for epoch in range(500):
+            feed_dict = {X_input: X, B_input: B, T_input: T}
+            self._sess.run(optimizer, feed_dict=feed_dict)
+            cost = self._sess.run(LL_penalized, feed_dict=feed_dict)
+            print(cost)
+
         self.params = dict(
-            lambd=exp(log_lambd),
-            k=exp(log_k),
-            beta=beta,
-            beta_hessian=beta_hessian
+            beta=self._sess.run(beta),
+            beta_hessian=self._sess.run(
+                -tf.hessians(LL_penalized, [beta])[0],
+                feed_dict=feed_dict,
+            ),
+            **self._extra_params(self._sess)
         )
 
     def predict(self):
         pass  # TODO: implement
 
     def predict_final(self, x, ci=None):
+        # TODO: should take advantage of tensorflow here!!!
         x = numpy.array(x)
         def f(x, d=0):
-            return expit(dot(x, self.params['beta']) + d)
+            return expit(numpy.dot(x, self.params['beta']) + d)
         if ci:
-            inv_var = dot(dot(x.T, self.params['beta_hessian']), x)
+            inv_var = numpy.dot(numpy.dot(x.T, self.params['beta_hessian']), x)
             lo, hi = (scipy.stats.norm.ppf(p, scale=inv_var**-0.5) for p in ((1 - ci)/2, (1 + ci)/2))
             return f(x), f(x, lo), f(x, hi)
         else:
@@ -60,3 +72,60 @@ class WeibullRegression(Model):
 
     def predict_time(self):
         pass  # TODO: implement
+
+
+class ExponentialRegression(Regression):
+    def __init__(self, L2_reg=1.0):
+        log_lambd_var = tf.Variable(tf.zeros([]), 'log_lambd')
+        lambd = tf.exp(log_lambd_var)
+
+        log_pdf = lambda T: -T*lambd
+        cdf = lambda T: 1 - tf.exp(-(T * lambd))
+
+        return super(ExponentialRegression, self).__init__(
+            log_pdf=log_pdf,
+            cdf=cdf,
+            extra_params=lambda sess: dict(lambd=sess.run(lambd)),
+            L2_reg=L2_reg)
+
+
+class WeibullRegression(Regression):
+    def __init__(self, L2_reg=1.0):
+        log_lambd_var = tf.Variable(tf.zeros([]), 'log_lambd')
+        log_k_var = tf.Variable(tf.zeros([]), 'log_k')
+
+        lambd = tf.exp(log_lambd_var)
+        k = tf.exp(log_k_var)
+
+        # PDF of Weibull: k * lambda * (x * lambda)^(k-1) * exp(-(t * lambda)^k)
+        log_pdf = lambda T: tf.log(k) + tf.log(lambd) + (k-1)*(tf.log(T) + tf.log(lambd)) - (T*lambd)**k
+        # CDF of Weibull: 1 - exp(-(t * lambda)^k)
+        cdf = lambda T: 1 - tf.exp(-(T * lambd)**k)
+
+        return super(WeibullRegression, self).__init__(
+            log_pdf=log_pdf,
+            cdf=cdf,
+            extra_params=lambda sess: dict(k=sess.run(k),
+                                           lambd=sess.run(lambd)),
+            L2_reg=L2_reg)
+
+
+class GammaRegression(Regression):
+    def __init__(self, L2_reg=1.0):
+        log_lambd_var = tf.Variable(tf.zeros([]), 'log_lambd')
+        log_k_var = tf.Variable(tf.zeros([]), 'log_k')
+
+        lambd = tf.exp(log_lambd_var)
+        k = tf.exp(log_k_var)
+
+        # PDF of gamma: 1.0 / gamma(k) * lambda ^ k * t^(k-1) * exp(-t * lambda)
+        log_pdf = lambda T: -tf.lgamma(k) + k*tf.log(lambd) + (k-1)*tf.log(T) - lambd*T
+        # CDF of gamma: gammainc(k, lambda * t)
+        cdf = lambda T: tf.igamma(k, lambd * T)
+
+        return super(GammaRegression, self).__init__(
+            log_pdf=log_pdf,
+            cdf=cdf,
+            extra_params=lambda sess: dict(k=sess.run(k),
+                                           lambd=sess.run(lambd)),
+            L2_reg=L2_reg)
