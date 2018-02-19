@@ -70,7 +70,7 @@ def test_weibull_regression_model(cs=[0.3, 0.5, 0.7], lambd=0.1, k=0.5, n=10000)
         assert 0.95 * c < model.predict_final(x) < 1.05 * c
 
 
-def test_weibull_regression_model_ci(c=0.3, lambd=0.1, k=0.5, n=1000):
+def test_weibull_regression_model_ci(c=0.3, lambd=0.1, k=0.5, n=10000):
     X = numpy.ones((n, 1))
     B = numpy.array([bool(random.random() < c) for r in range(n)])
     c = numpy.mean(B)
@@ -84,6 +84,17 @@ def test_weibull_regression_model_ci(c=0.3, lambd=0.1, k=0.5, n=1000):
     assert 0.95*c < y < 1.05 * c
     assert 0.95*c_lo < y_lo < 1.05 * c_lo
     assert 0.95*c_hi < y_hi < 1.05 * c_hi
+
+
+def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=10000):
+    X = numpy.ones((n, 1))
+    B = numpy.array([bool(random.random() < c) for r in range(n)])
+    T = numpy.array([b and scipy.stats.gamma.rvs(a=k, scale=1.0/lambd) or 1000 for b in B])
+    model = convoys.regression.GammaRegression()
+    model.fit(X, B, T)
+    assert 0.95*c < model.predict_final([1]) < 1.05*c
+    assert 0.95*lambd < model.params['lambd'] < 1.05*lambd
+    assert 0.95*k < model.params['k'] < 1.05*k
 
 
 def _get_data(c=0.3, k=10, lambd=0.1, n=1000):

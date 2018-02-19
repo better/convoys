@@ -5,3 +5,4 @@ numpy
 scipy
 seaborn==0.8.1
 six==1.11.0
+tensorflow==1.6.0rc1
