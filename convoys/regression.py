@@ -69,7 +69,6 @@ class Regression(Model):
             ),
             **self._extra_params(self._sess)
         )
-        print(self.params)
 
     def predict(self, x, t, ci=None):
         t = numpy.array(t)
