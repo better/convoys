@@ -69,6 +69,9 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=10000):
     model.fit(X, B, T)
     assert 0.95*c < model.predict_final([1]) < 1.05*c
     assert 0.95*lambd < model.params['lambd'] < 1.05*lambd
+    t = 10
+    d = 1 - numpy.exp(-lambd*t)
+    assert 0.95*c*d < model.predict(t, [1]) < 1.05*c*d
 
     # Check the confidence intervals
     y, y_lo, y_hi = model.predict_final([1], ci=0.95)
