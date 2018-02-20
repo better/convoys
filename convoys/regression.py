@@ -3,7 +3,7 @@ from scipy.special import expit  # TODO: remove
 import scipy.stats
 import tensorflow as tf
 
-from convoys import Model
+from convoys.model import Model
 
 class Regression(Model):
     # This will replace the model in __init__.py soon.

@@ -12,6 +12,7 @@ from autograd import jacobian, hessian, grad
 from autograd.scipy.special import expit, gamma, gammainc, gammaincc, gammaln
 from autograd.numpy import exp, log, sum
 from matplotlib import pyplot
+from convoys.model import Model
 
 LOG_EPS = 1e-12  # Used for log likelihood
 
@@ -48,28 +49,6 @@ def get_arrays(data, t_converter):
     B = [bool(converted_at is not None)
          for created_at, converted_at, now in data]
     return numpy.array(C), numpy.array(N), numpy.array(B)
-
-
-@six.add_metaclass(abc.ABCMeta)
-class Model():
-    def __init__(self, params={}):
-        self.params = params
-
-    @abc.abstractmethod
-    def fit(self, C, N, B):
-        pass
-
-    @abc.abstractmethod
-    def predict(self, ts, ci=None):
-        pass
-
-    @abc.abstractmethod
-    def predict_final(self, ci=None):
-        pass
-
-    @abc.abstractmethod
-    def predict_time(self, ci=None):
-        pass
 
 
 class KaplanMeier(Model):
