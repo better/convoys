@@ -4,21 +4,18 @@ import six
 
 @six.add_metaclass(abc.ABCMeta)
 class Model():
-    def __init__(self, params={}):
-        self.params = params
-
     @abc.abstractmethod
-    def fit(self, C, N, B):
+    def fit(self, X, B, T):
         pass
 
     @abc.abstractmethod
-    def predict(self, ts, ci=None):
+    def predict(self, x, ts, ci=None):
         pass
 
     @abc.abstractmethod
-    def predict_final(self, ci=None):
+    def predict_final(self, x, ci=None):
         pass
 
     @abc.abstractmethod
-    def predict_time(self, ci=None):
+    def predict_time(self, x, ci=None):
         pass

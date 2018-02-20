@@ -14,9 +14,11 @@ class Regression(Model):
         self._extra_params = extra_params
         self._sess = tf.Session()
 
-        # TODO: this assumes scalar inputs... should figure out a way to support arbitrary shapes
-        T_input = tf.placeholder(tf.float32, [])
-        self._cdf_f = lambda t: self._sess.run(cdf(T_input), feed_dict={T_input: t})
+        # TODO: this seems a bit dumb... is there no better way to support arbitrary number of dims?
+        T_scalar_input = tf.placeholder(tf.float32, [])
+        self._cdf_scalar_f = lambda t: self._sess.run(cdf(T_scalar_input), feed_dict={T_scalar_input: t})
+        T_vector_input = tf.placeholder(tf.float32, [None])
+        self._cdf_vector_f = lambda t: self._sess.run(cdf(T_vector_input), feed_dict={T_vector_input: t})
 
     def __del__(self):
         self._sess.close()
@@ -69,14 +71,18 @@ class Regression(Model):
         )
         print(self.params)
 
-    def predict(self, t, x, ci=None):
-        z = self._cdf_f(t)
+    def predict(self, x, t, ci=None):
+        t = numpy.array(t)
+        if len(t.shape) == 0:
+            z = self._cdf_scalar_f(t)
+        elif len(t.shape) == 1:
+            z = self._cdf_vector_f(t)
         if ci:
             c, c_lo, c_hi = self.predict_final(x, ci)
-            return (c*z, c_lo*z, c_hi*z)
+            return (t, c*z, c_lo*z, c_hi*z)
         else:
             c = self.predict_final(x)
-            return c*z
+            return (t, c*z)
 
     def predict_final(self, x, ci=None):
         # TODO: should take advantage of tensorflow here!!!

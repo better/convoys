@@ -13,15 +13,7 @@ from autograd.scipy.special import expit, gamma, gammainc, gammaincc, gammaln
 from autograd.numpy import exp, log, sum
 from matplotlib import pyplot
 from convoys.model import Model
-
-LOG_EPS = 1e-12  # Used for log likelihood
-
-
-def log1pexp(x):
-    # returns log(1 + exp(x))
-    p, q = min(x, 0), max(x, 0)
-    return q + log(exp(p-q) + 1)
-
+from convoys.regression import ExponentialRegression, WeibullRegression, GammaRegression
 
 
 def get_timescale(t):
@@ -42,18 +34,16 @@ def get_timescale(t):
 
 
 def get_arrays(data, t_converter):
-    C = [t_converter(converted_at - created_at) if converted_at is not None else 1.0
-         for created_at, converted_at, now in data]
-    N = [t_converter(now - created_at)
-         for created_at, converted_at, now in data]
+    X = numpy.ones((len(data), 1))
     B = [bool(converted_at is not None)
          for created_at, converted_at, now in data]
-    return numpy.array(C), numpy.array(N), numpy.array(B)
+    T = [t_converter(converted_at - created_at) if converted_at is not None else t_converter(now - created_at)
+         for created_at, converted_at, now in data]
+    return X, numpy.array(B), numpy.array(T)
 
 
 class KaplanMeier(Model):
-    def fit(self, C, N, B):
-        T = [c if b else n for c, n, b in zip(C, N, B)]
+    def fit(self, X, B, T):
         kmf = lifelines.KaplanMeierFitter()
         kmf.fit(T, event_observed=B)
         self.ts = kmf.survival_function_.index.values
@@ -61,7 +51,7 @@ class KaplanMeier(Model):
         self.ps_hi = 1.0 - kmf.confidence_interval_['KM_estimate_lower_0.95'].values
         self.ps_lo = 1.0 - kmf.confidence_interval_['KM_estimate_upper_0.95'].values
 
-    def predict(self, ts, ci=None):
+    def predict(self, x, ts, ci=None):
         js = [bisect.bisect_left(self.ts, t) for t in ts]
         def array_lookup(a):
             return numpy.array([a[j] for j in js if j < len(self.ts)])
@@ -70,13 +60,13 @@ class KaplanMeier(Model):
         else:
             return (array_lookup(self.ts), array_lookup(self.ps))
 
-    def predict_final(self, ci=None):
+    def predict_final(self, x, ci=None):
         if ci is not None:
             return (self.ps[-1], self.ps_lo[-1], self.ps_hi[-1])
         else:
             return self.ps[-1]
 
-    def predict_time(self, ci=None):
+    def predict_time(self, x, ci=None):
         # TODO: should not use median here, but mean is no good
         def median(ps):
             i = bisect.bisect_left(ps, 0.5)
@@ -87,167 +77,12 @@ class KaplanMeier(Model):
             return median(self.ps)
 
 
-def fit_beta(c, fc):
-    # Approximate a Beta distribution for c by fitting two things
-    # 1. second derivative wrt c should match the second derivative of a beta
-    #   LL = (a-1)log(c) + (b-1)log(1-c)
-    #   dLL = (a-1)/c - (b-1)/(1-c)
-    #   ddLL = -(a-1)/c^2 - (b-1)/(1-c)^2 = -h
-    #   a(-1/c^2) + b(-1/(1-c)^2) = -h - 1/c^2 - 1/(1-c)^2
-    # 2. mode should match c, i.e. (a-1)/(a+b-2) = c <=> a-1 = c(a+b-2)
-    #   a(1-c) - bc = 1-2c
-    h = grad(grad(fc))(c)
-    M = numpy.array([[-1/c**2, -1/(1-c)**2],
-                     [(1-c), -c]])
-    q = numpy.array([-h - 1/c**2 - 1/(1-c)**2, 1 - 2*c])
-    try:
-        a, b = numpy.linalg.solve(M, q)
-    except numpy.linalg.linalg.LinAlgError:
-        a, b = 1, 1
-    return a, b
-
-
-class Exponential(Model):
-    def fit(self, C, N, B):
-        def transform(x):
-            p, q = x
-            return (expit(p), log1pexp(q))
-        def f(x):
-            c, lambd = x
-            LL_observed = log(c) + log(lambd) - lambd*C
-            LL_censored = log((1 - c) + c * exp(-lambd*N))
-            neg_LL = -sum(B * LL_observed + (1 - B) * LL_censored)
-            return neg_LL
-
-        g = lambda x: f(transform(x))
-        res = scipy.optimize.minimize(
-            fun=g,
-            jac=jacobian(g),
-            hess=hessian(g),
-            x0=(0, 0),
-            method='trust-ncg')
-        c, lambd = transform(res.x)
-        fc = lambda c: f((c, lambd))
-        a, b = fit_beta(c, fc)
-        self.params = dict(a=a, b=b, lambd=lambd)
-
-    def predict(self, ts, ci=None):
-        a, b, lambd = self.params['a'], self.params['b'], self.params['lambd']
-        y = 1 - exp(-ts * lambd)
-        if ci is not None:
-            return ts, a / (a + b) * y, scipy.stats.beta.ppf((1 - ci)/2, a, b) * y, scipy.stats.beta.ppf((1 + ci)/2, a, b) * y
-        else:
-            return ts, y
-
-    def predict_final(self, ci=None):
-        a, b = self.params['a'], self.params['b']
-        if not ci:
-            return a / (a + b)
-        else:
-            return (a / (a + b),
-                    scipy.stats.beta.ppf((1 - ci)/2, a, b),
-                    scipy.stats.beta.ppf((1 + ci)/2, a, b))
-
-    def predict_time(self):
-        return 1.0 / self.params['lambd']
-
-
-class Weibull(Model):
-    def fit(self, C, N, B):
-        def transform(x):
-            p, q, r = x
-            return (expit(p), log1pexp(q), log1pexp(r))
-        def f(x):
-            c, lambd, k = x
-            # PDF of Weibull: k * lambda * (x * lambda)^(k-1) * exp(-(t * lambda)^k)
-            LL_observed = log(c) + log(k) + log(lambd) + (k-1)*(log(C) + log(lambd)) - (C*lambd)**k
-            # CDF of Weibull: 1 - exp(-(t * lambda)^k)
-            LL_censored = log((1-c) + c * exp(-(N*lambd)**k))
-            neg_LL = -sum(B * LL_observed + (1 - B) * LL_censored)
-            return neg_LL
-
-        g = lambda x: f(transform(x))
-        res = scipy.optimize.minimize(
-            fun=g,
-            jac=jacobian(g),
-            hess=hessian(g),
-            x0=(0, 0, 0),
-            method='trust-ncg')
-        c, lambd, k = transform(res.x)
-        fc = lambda c: f((c, lambd, k))
-        a, b = fit_beta(c, fc)
-        self.params = dict(a=a, b=b, lambd=lambd, k=k)
-
-    def predict(self, ts, ci=None):
-        a, b, lambd, k = self.params['a'], self.params['b'], self.params['lambd'], self.params['k']
-        y = 1 - exp(-(ts*lambd)**k)
-        if ci is not None:
-            return ts, a / (a + b) * y, scipy.stats.beta.ppf((1 - ci)/2, a, b) * y, scipy.stats.beta.ppf((1 + ci)/2, a, b) * y
-        else:
-            return ts, y
-
-    def predict_final(self, ci=None):
-        a, b = self.params['a'], self.params['b']
-        if ci is not None:
-            return a / (a + b), scipy.stats.beta.ppf((1 - ci)/2, a, b), scipy.stats.beta.ppf((1 + ci)/2, a, b)
-        else:
-            return a / (a + b)
-
-    def predict_time(self):
-        return gamma(1 + 1./self.params['k']) / self.params['lambd']
-
-
-class Gamma(Model):
-    def fit(self, C, N, B):
-        # TODO(erikbern): should compute Jacobian of this one
-        def transform(x):
-            p, q, r = x
-            return (expit(p), log1pexp(q), log1pexp(r))
-        def f(x):
-            c, lambd, k = x
-            neg_LL = 0
-            # PDF of gamma: 1.0 / gamma(k) * lambda ^ k * t^(k-1) * exp(-t * lambda)
-            LL_observed = log(c) - gammaln(k) + k*log(lambd) + (k-1)*log(C + LOG_EPS) - lambd*C
-            # CDF of gamma: gammainc(k, lambda * t)
-            LL_censored = log((1-c) + c * gammaincc(k, lambd*N) + LOG_EPS)
-            neg_LL = -sum(B * LL_observed + (1 - B) * LL_censored)
-            return neg_LL
-
-        g = lambda x: f(transform(x))
-        res = scipy.optimize.minimize(
-            fun=g,
-            x0=(0, 0, 0),
-            method='Nelder-Mead')
-        c, lambd, k = transform(res.x)
-        fc = lambda c: f((c, lambd, k))
-        a, b = fit_beta(c, fc)
-        self.params = dict(a=a, b=b, lambd=lambd, k=k)
-
-    def predict(self, ts, ci=None):
-        a, b, lambd, k = self.params['a'], self.params['b'], self.params['lambd'], self.params['k']
-        y = gammainc(k, lambd*ts)
-        if ci is not None:
-            return ts, a / (a + b) * y, scipy.stats.beta.ppf((1 - ci)/2, a, b) * y, scipy.stats.beta.ppf((1 + ci)/2, a, b) * y
-        else:
-            return ts, y
-
-    def predict_final(self, ci=None):
-        a, b = self.params['a'], self.params['b']
-        if ci is not None:
-            return a / (a + b), scipy.stats.beta.ppf((1 - ci)/2, a, b), scipy.stats.beta.ppf((1 + ci)/2, a, b)
-        else:
-            return a / (a + b)
-
-    def predict_time(self):
-        return self.params['k'] / self.params['lambd']
-
-
-def sample_event(model, t, hi=1e3):
+def sample_event(model, x, t, hi=1e3):
     # We are now at time t. Generate a random event whether the user is going to convert or not
     # TODO: this is a hacky thing until we have a "invert CDF" method on each model
     def pred(t):
         ts = numpy.array([t])
-        return model.predict(ts)[1][-1]
+        return model.predict(x, ts)[1][-1]
     y = pred(t)
     r = y + random.random() * (1 - y)
     if pred(hi) < r:
@@ -291,9 +126,9 @@ def split_by_group(data, group_min_size, max_groups):
 
 _models = {
     'kaplan-meier': KaplanMeier,
-    'exponential': Exponential,
-    'weibull': Weibull,
-    'gamma': Gamma,
+    'exponential': ExponentialRegression,
+    'weibull': WeibullRegression,
+    'gamma': GammaRegression,
 }
 
 def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='kaplan-meier', projection=None):
@@ -310,24 +145,24 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
     colors = seaborn.color_palette('hls', len(groups))
     y_max = 0
     for group, color in zip(sorted(groups), colors):
-        C, N, B = get_arrays(js[group], t_converter)
+        X, B, T = get_arrays(js[group], t_converter)
         t = numpy.linspace(0, t_max, 1000)
 
         m = _models[model]()
-        m.fit(C, N, B)
+        m.fit(X, B, T)
 
         label = '%s (n=%.0f, k=%.0f)' % (group, len(B), sum(B))
 
         if projection:
             p = _models[projection]()
-            p.fit(C, N, B)
-            p_t, p_y, p_y_lo, p_y_hi = p.predict(t, ci=0.95)
-            p_y_final, p_y_lo_final, p_y_hi_final = p.predict_final(ci=0.95)
+            p.fit(X, B, T)
+            p_t, p_y, p_y_lo, p_y_hi = p.predict([1], t, ci=0.95)
+            p_y_final, p_y_lo_final, p_y_hi_final = p.predict_final([1], ci=0.95)
             label += ' projected: %.2f%% (%.2f%% - %.2f%%)' % (100.*p_y_final, 100.*p_y_lo_final, 100.*p_y_hi_final)
             pyplot.plot(p_t, 100. * p_y, color=color, linestyle=':', alpha=0.7)
             pyplot.fill_between(p_t, 100. * p_y_lo, 100. * p_y_hi, color=color, alpha=0.2)
 
-        m_t, m_y = m.predict(t)
+        m_t, m_y = m.predict([1], t)
         pyplot.plot(m_t, 100. * m_y, color=color, label=label)
         y_max = max(y_max, 110. * max(m_y))
 
@@ -370,17 +205,17 @@ def plot_timeseries(data, window, model='kaplan-meier', group_min_size=0, max_gr
             data = js[group][i1:i2]
             t1 += stride
 
-            C, N, B = get_arrays(data, t_converter)
+            X, B, T = get_arrays(data, t_converter)
             if sum(B) < window_min_size:
                 continue
 
             p = _models[model]()
-            p.fit(C, N, B)
+            p.fit(X, B, T)
 
             if time:
-                y, y_lo, y_hi = p.predict_time(ci=0.95)
+                y, y_lo, y_hi = p.predict_time([1], ci=0.95)
             else:
-                y, y_lo, y_hi = p.predict_final(ci=0.95)
+                y, y_lo, y_hi = p.predict_final([1], ci=0.95)
             print('%30s %40s %.4f %.4f %.4f' % (group, t1, y, y_lo, y_hi))
             ts.append(t2)
             ys.append(y)
