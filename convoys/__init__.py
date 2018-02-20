@@ -72,59 +72,6 @@ class Model():
         pass
 
 
-class SimpleBinomial(Model):
-    def fit(self, C, N, B):
-        self.params['a'] = len(B)
-        self.params['b'] = sum(B)
-
-    def predict(self, ts, ci=None):
-        a, b = self.params['a'], self.params['b']
-        def rep(x):
-            return numpy.ones(len(ts)) * x
-        if ci is not None:
-            return ts, rep(b/a), rep(scipy.stats.beta.ppf((1 - ci)/2, b, a-b)), rep(scipy.stats.beta.ppf((1 + ci)/2, b, a-b))
-        else:
-            return ts, rep(b/a)
-
-    def predict_final(self, ci=None):
-        a, b = self.params['a'], self.params['b']
-        if ci is not None:
-            return b/a, scipy.stats.beta.ppf((1 - ci)/2, b, a-b), scipy.stats.beta.ppf((1 + ci)/2, b, a-b)
-        else:
-            return b/a
-
-    def predict_time(self):
-        return 0.0
-
-
-class Basic(Model):
-    def fit(self, C, N, B, n_limit=30):
-        n, k = len(C), 0
-        self.ts = [0]
-        self.ns = [n]
-        self.ks = [k]
-        events = [(c, 1, 0) for c, n, b in zip(C, N, B) if b] + \
-                 [(n, -int(b), -1) for c, n, b in zip(C, N, B)]
-        for t, k_delta, n_delta in sorted(events):
-            k += k_delta
-            n += n_delta
-            self.ts.append(t)
-            self.ks.append(k)
-            self.ns.append(n)
-            if n < n_limit:
-                break
-
-    def predict(self, ts, ci=None):
-        js = [bisect.bisect_left(self.ts, t) for t in ts]
-        ks = numpy.array([self.ks[j] for j in js if j < len(self.ks)])
-        ns = numpy.array([self.ns[j] for j in js if j < len(self.ns)])
-        ts = numpy.array([ts[j] for j in js if j < len(self.ns)])
-        if ci is not None:
-            return ts, ks / ns, scipy.stats.beta.ppf((1 - ci)/2, ks, ns-ks), scipy.stats.beta.ppf((1 + ci)/2, ks, ns-ks)
-        else:
-            return ts, ks / ns
-
-
 class KaplanMeier(Model):
     def fit(self, C, N, B):
         T = [c if b else n for c, n, b in zip(C, N, B)]
@@ -364,9 +311,7 @@ def split_by_group(data, group_min_size, max_groups):
 
 
 _models = {
-    'basic': Basic,
     'kaplan-meier': KaplanMeier,
-    'simple-binomial': SimpleBinomial,
     'exponential': Exponential,
     'weibull': Weibull,
     'gamma': Gamma,
