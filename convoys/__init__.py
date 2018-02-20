@@ -6,11 +6,7 @@ import math
 import numpy
 import random
 import seaborn
-import scipy.optimize
 import six
-from autograd import jacobian, hessian, grad
-from autograd.scipy.special import expit, gamma, gammainc, gammaincc, gammaln
-from autograd.numpy import exp, log, sum
 from matplotlib import pyplot
 from convoys.model import Model
 from convoys.regression import ExponentialRegression, WeibullRegression, GammaRegression
