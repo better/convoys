@@ -29,9 +29,7 @@ class Regression(Model):
         X_prod_beta = tf.squeeze(tf.matmul(X_input, tf.expand_dims(beta, -1)), 1)
         c = tf.sigmoid(X_prod_beta)  # Conversion rates for each example
 
-        # PDF of Weibull: k * lambda * (x * lambda)^(k-1) * exp(-(t * lambda)^k)
         LL_observed = tf.log(c) + self._log_pdf(T_input)
-        # CDF of Weibull: 1 - exp(-(t * lambda)^k)
         LL_censored = tf.log((1-c) + c * (1 - self._cdf(T_input)))
 
         LL = tf.reduce_sum(B_input * LL_observed + (1 - B_input) * LL_censored, 0)
@@ -90,7 +88,7 @@ class ExponentialRegression(Regression):
         log_lambd_var = tf.Variable(tf.zeros([]), 'log_lambd')
         lambd = tf.exp(log_lambd_var)
 
-        log_pdf = lambda T: -T*lambd
+        log_pdf = lambda T: tf.log(lambd) - T*lambd
         cdf = lambda T: 1 - tf.exp(-(T * lambd))
 
         return super(ExponentialRegression, self).__init__(

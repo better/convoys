@@ -59,6 +59,26 @@ def test_weibull_model(c=0.3, lambd=0.1, k=0.5, n=100000):
     assert 0.95*k < model.params['k'] < 1.05*k
 
 
+def test_exponential_regression_model(c=0.3, lambd=0.1, n=10000):
+    # With a really long observation window, the rate should converge to the measured
+    X = numpy.ones((n, 1))
+    B = numpy.array([bool(random.random() < c) for x in range(n)])
+    T = numpy.array([scipy.stats.expon.rvs(scale=1.0/lambd) if b else 1000.0 for b in B])
+    c = numpy.mean(B)
+    model = convoys.regression.ExponentialRegression()
+    model.fit(X, B, T)
+    assert 0.95*c < model.predict_final([1]) < 1.05*c
+    assert 0.95*lambd < model.params['lambd'] < 1.05*lambd
+
+    # Check the confidence intervals
+    y, y_lo, y_hi = model.predict_final([1], ci=0.95)
+    c_lo = scipy.stats.beta.ppf(0.025, n*c, n*(1-c))
+    c_hi = scipy.stats.beta.ppf(0.975, n*c, n*(1-c))
+    assert 0.95*c < y < 1.05 * c
+    assert 0.95*c_lo < y_lo < 1.05 * c_lo
+    assert 0.95*c_hi < y_hi < 1.05 * c_hi
+
+
 def test_weibull_regression_model(cs=[0.3, 0.5, 0.7], lambd=0.1, k=0.5, n=10000):
     X = numpy.array([[1] + [r % len(cs) == j for j in range(len(cs))] for r in range(n)])
     B = numpy.array([bool(random.random() < cs[r % len(cs)]) for r in range(n)])
