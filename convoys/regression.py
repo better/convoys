@@ -3,7 +3,7 @@ from scipy.special import expit  # TODO: remove
 import scipy.stats
 import tensorflow as tf
 
-from convoys import Model
+from convoys.model import Model
 
 class Regression(Model):
     # This will replace the model in __init__.py soon.
@@ -14,9 +14,11 @@ class Regression(Model):
         self._extra_params = extra_params
         self._sess = tf.Session()
 
-        # TODO: this assumes scalar inputs... should figure out a way to support arbitrary shapes
-        T_input = tf.placeholder(tf.float32, [])
-        self._cdf_f = lambda t: self._sess.run(cdf(T_input), feed_dict={T_input: t})
+        # TODO: this seems a bit dumb... is there no better way to support arbitrary number of dims?
+        T_scalar_input = tf.placeholder(tf.float32, [])
+        self._cdf_scalar_f = lambda t: self._sess.run(cdf(T_scalar_input), feed_dict={T_scalar_input: t})
+        T_vector_input = tf.placeholder(tf.float32, [None])
+        self._cdf_vector_f = lambda t: self._sess.run(cdf(T_vector_input), feed_dict={T_vector_input: t})
 
     def __del__(self):
         self._sess.close()
@@ -39,25 +41,28 @@ class Regression(Model):
         LL = tf.reduce_sum(B_input * LL_observed + (1 - B_input) * LL_censored, 0)
         LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
 
-        step_var = tf.Variable(0, trainable=False)
-        learning_rate = tf.train.exponential_decay(0.03, step_var, 1, 0.999)
-        optimizer = tf.train.AdamOptimizer(learning_rate).minimize(-LL_penalized, global_step=step_var)
+        learning_rate_input = tf.placeholder(tf.float32, [])
+        optimizer = tf.train.AdamOptimizer(learning_rate_input).minimize(-LL_penalized)
 
         # TODO(erikbern): this is going to add more and more variables every time we run this
         self._sess.run(tf.global_variables_initializer())
 
         best_cost, best_step, step = float('-inf'), 0, 0
+        learning_rate = 0.1
         while True:
-            feed_dict = {X_input: X, B_input: B, T_input: T}
+            feed_dict = {X_input: X, B_input: B, T_input: T, learning_rate_input: learning_rate}
             self._sess.run(optimizer, feed_dict=feed_dict)
             cost = self._sess.run(LL_penalized, feed_dict=feed_dict)
             if cost > best_cost:
                 best_cost, best_step = cost, step
             if step - best_step > 100:
+                learning_rate /= 10
+                best_cost = float('-inf')
+            if learning_rate < 1e-6:
                 break
             step += 1
             if step % 100 == 0:
-                print(step, cost, self._sess.run(learning_rate))
+                print('step %6d (lr %6.6f): %9.2f' % (step, learning_rate, cost))
 
         self.params = dict(
             beta=self._sess.run(beta),
@@ -67,16 +72,19 @@ class Regression(Model):
             ),
             **self._extra_params(self._sess)
         )
-        print(self.params)
 
-    def predict(self, t, x, ci=None):
-        z = self._cdf_f(t)
+    def predict(self, x, t, ci=None):
+        t = numpy.array(t)
+        if len(t.shape) == 0:
+            z = self._cdf_scalar_f(t)
+        elif len(t.shape) == 1:
+            z = self._cdf_vector_f(t)
         if ci:
             c, c_lo, c_hi = self.predict_final(x, ci)
-            return (c*z, c_lo*z, c_hi*z)
+            return (t, c*z, c_lo*z, c_hi*z)
         else:
             c = self.predict_final(x)
-            return c*z
+            return (t, c*z)
 
     def predict_final(self, x, ci=None):
         # TODO: should take advantage of tensorflow here!!!
