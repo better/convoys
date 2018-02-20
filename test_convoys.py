@@ -15,7 +15,7 @@ def sample_weibull(k, lambd):
     return (-numpy.log(random.random())) ** (1.0/k) / lambd
 
 
-def test_exponential_regression_model(c=0.3, lambd=0.1, n=10000):
+def test_exponential_regression_model(c=0.3, lambd=0.1, n=100000):
     # With a really long observation window, the rate should converge to the measured
     X = numpy.ones((n, 1))
     B = numpy.array([bool(random.random() < c) for x in range(n)])
@@ -38,7 +38,7 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=10000):
     assert 0.95*c_hi < y_hi < 1.05 * c_hi
 
 
-def test_weibull_regression_model(cs=[0.3, 0.5, 0.7], lambd=0.1, k=0.5, n=10000):
+def test_weibull_regression_model(cs=[0.3, 0.5, 0.7], lambd=0.1, k=0.5, n=100000):
     X = numpy.array([[1] + [r % len(cs) == j for j in range(len(cs))] for r in range(n)])
     B = numpy.array([bool(random.random() < cs[r % len(cs)]) for r in range(n)])
     T = numpy.array([b and sample_weibull(k, lambd) or 1000 for b in B])
@@ -49,7 +49,7 @@ def test_weibull_regression_model(cs=[0.3, 0.5, 0.7], lambd=0.1, k=0.5, n=10000)
         assert 0.95 * c < model.predict_final(x) < 1.05 * c
 
 
-def test_weibull_regression_model_ci(c=0.3, lambd=0.1, k=0.5, n=10000):
+def test_weibull_regression_model_ci(c=0.3, lambd=0.1, k=0.5, n=100000):
     X = numpy.ones((n, 1))
     B = numpy.array([bool(random.random() < c) for r in range(n)])
     c = numpy.mean(B)
@@ -61,11 +61,10 @@ def test_weibull_regression_model_ci(c=0.3, lambd=0.1, k=0.5, n=10000):
     c_lo = scipy.stats.beta.ppf(0.025, n*c, n*(1-c))
     c_hi = scipy.stats.beta.ppf(0.975, n*c, n*(1-c))
     assert 0.95*c < y < 1.05 * c
-    assert 0.95*c_lo < y_lo < 1.05 * c_lo
-    assert 0.95*c_hi < y_hi < 1.05 * c_hi
+    assert 0.95*(c_hi-c_lo) < (y_hi-y_lo) < 1.05 * (c_hi-c_lo)
 
 
-def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=10000):
+def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=100000):
     X = numpy.ones((n, 1))
     B = numpy.array([bool(random.random() < c) for r in range(n)])
     T = numpy.array([b and scipy.stats.gamma.rvs(a=k, scale=1.0/lambd) or 1000 for b in B])

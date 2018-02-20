@@ -41,25 +41,28 @@ class Regression(Model):
         LL = tf.reduce_sum(B_input * LL_observed + (1 - B_input) * LL_censored, 0)
         LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
 
-        step_var = tf.Variable(0, trainable=False)
-        learning_rate = tf.train.exponential_decay(0.03, step_var, 1, 0.999)
-        optimizer = tf.train.AdamOptimizer(learning_rate).minimize(-LL_penalized, global_step=step_var)
+        learning_rate_input = tf.placeholder(tf.float32, [])
+        optimizer = tf.train.AdamOptimizer(learning_rate_input).minimize(-LL_penalized)
 
         # TODO(erikbern): this is going to add more and more variables every time we run this
         self._sess.run(tf.global_variables_initializer())
 
         best_cost, best_step, step = float('-inf'), 0, 0
+        learning_rate = 0.1
         while True:
-            feed_dict = {X_input: X, B_input: B, T_input: T}
+            feed_dict = {X_input: X, B_input: B, T_input: T, learning_rate_input: learning_rate}
             self._sess.run(optimizer, feed_dict=feed_dict)
             cost = self._sess.run(LL_penalized, feed_dict=feed_dict)
             if cost > best_cost:
                 best_cost, best_step = cost, step
             if step - best_step > 100:
+                learning_rate /= 10
+                best_cost = float('-inf')
+            if learning_rate < 1e-6:
                 break
             step += 1
             if step % 100 == 0:
-                print(step, cost, self._sess.run(learning_rate))
+                print('step %6d (lr %6.6f): %9.2f' % (step, learning_rate, cost))
 
         self.params = dict(
             beta=self._sess.run(beta),
