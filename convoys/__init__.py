@@ -29,48 +29,40 @@ def get_timescale(t):
         return 'Minutes', get_timedelta_converter(1)
 
 
-def get_arrays(data, t_converter):
-    X = numpy.ones((len(data), 1))
-    B = [bool(converted_at is not None)
-         for created_at, converted_at, now in data]
-    T = [t_converter(converted_at - created_at) if converted_at is not None else t_converter(now - created_at)
-         for created_at, converted_at, now in data]
-    return X, numpy.array(B), numpy.array(T)
-
-
 class KaplanMeier(Model):
+    # TODO: This model really isn't built for regression so right now we fake it
     def fit(self, X, B, T):
-        kmf = lifelines.KaplanMeierFitter()
-        kmf.fit(T, event_observed=B)
-        self.ts = kmf.survival_function_.index.values
-        self.ps = 1.0 - kmf.survival_function_['KM_estimate'].values
-        self.ps_hi = 1.0 - kmf.confidence_interval_['KM_estimate_lower_0.95'].values
-        self.ps_lo = 1.0 - kmf.confidence_interval_['KM_estimate_upper_0.95'].values
+        self.ts = []
+        self.ps = []
+        self.ps_hi = []
+        self.ps_lo = []
+        for i in range(X.shape[1]):
+            kmf = lifelines.KaplanMeierFitter()
+            kmf.fit([t for x, t in zip(X, T) if x[i]], event_observed=[b for x, b in zip(X, B) if x[i]])
+            self.ts.append(kmf.survival_function_.index.values)
+            self.ps.append(1.0 - kmf.survival_function_['KM_estimate'].values)
+            self.ps_hi.append(1.0 - kmf.confidence_interval_['KM_estimate_lower_0.95'].values)
+            self.ps_lo.append(1.0 - kmf.confidence_interval_['KM_estimate_upper_0.95'].values)
 
     def predict(self, x, ts, ci=None):
-        js = [bisect.bisect_left(self.ts, t) for t in ts]
+        i = next(i for i, z in enumerate(x) if i > 0 and z > 0)  # TODO: this is terrible
+        js = [bisect.bisect_left(self.ts[i], t) for t in ts]
         def array_lookup(a):
-            return numpy.array([a[j] for j in js if j < len(self.ts)])
+            return numpy.array([a[j] for j in js if j < len(self.ts[i])])
         if ci is not None:
-            return (array_lookup(self.ts), array_lookup(self.ps), array_lookup(self.ps_lo), array_lookup(self.ps_hi))
+            return (array_lookup(self.ts[i]), array_lookup(self.ps[i]), array_lookup(self.ps_lo[i]), array_lookup(self.ps_hi[i]))
         else:
-            return (array_lookup(self.ts), array_lookup(self.ps))
+            return (array_lookup(self.ts[i]), array_lookup(self.ps[i]))
 
     def predict_final(self, x, ci=None):
+        i = next(i for i, z in enumerate(x) if i > 0 and z > 0)  # TODO: this is terrible
         if ci is not None:
-            return (self.ps[-1], self.ps_lo[-1], self.ps_hi[-1])
+            return (self.ps[i][-1], self.ps_lo[i][-1], self.ps_hi[i][-1])
         else:
-            return self.ps[-1]
+            return self.ps[i][-1]
 
     def predict_time(self, x, ci=None):
-        # TODO: should not use median here, but mean is no good
-        def median(ps):
-            i = bisect.bisect_left(ps, 0.5)
-            return self.ts[min(i, len(ps)-1)]
-        if ci is not None:
-            return median(self.ps), median(self.ps_lo), median(self.ps_hi)
-        else:
-            return median(self.ps)
+        raise
 
 
 def sample_event(model, x, t, hi=1e3):
@@ -93,8 +85,8 @@ def sample_event(model, x, t, hi=1e3):
     return (lo + hi)/2
 
 
-def split_by_group(data, group_min_size, max_groups):
-    js = {}
+def split_by_group(data, group_min_size, max_groups, t_converter):
+    data_by_group = {}
     for group, created_at, converted_at, now in data:
         if converted_at is not None and converted_at < created_at:
             print('created at', created_at, 'but converted at', converted_at)
@@ -102,22 +94,43 @@ def split_by_group(data, group_min_size, max_groups):
         if now < created_at:
             print('created at', created_at, 'but now is', now)
             continue
-        js.setdefault(group, []).append((created_at, converted_at, now))
-    groups = list(js.keys())
+        data_by_group.setdefault(group, []).append((
+            bool(converted_at is not None),
+            t_converter(converted_at - created_at) if converted_at is not None else t_converter(now - created_at)
+        ))
+    groups = list(data_by_group.keys())
 
     # Remove groups with too few data points
-    groups = [group for group in groups if len(js[group]) >= group_min_size]
+    groups = [group for group in groups if len(data_by_group[group]) >= group_min_size]
 
     # Require at least one conversion per group
-    groups = [group for group in groups if any(converted_at for _, converted_at, _ in js[group]) > 0]
+    groups = [group for group in groups if any(b for t, b in data_by_group[group])]
 
     # Pick the top groups
-    groups = sorted(groups, key=lambda group: len(js[group]), reverse=True)[:max_groups]
+    groups = sorted(groups, key=lambda group: len(data_by_group[group]), reverse=True)[:max_groups]
 
     # Sort groups lexicographically
     groups = sorted(groups)
 
-    return groups, js
+    # Build dummy one hot vectors
+    one_hots = []
+    for i, group in enumerate(groups):
+        one_hots.append(numpy.array([1] + [int(j == i) for j in range(len(groups))]))
+
+    # Build matrices
+    XBT = []
+    ns, ks = [], []
+    for i, group in enumerate(groups):
+        for b, t in data_by_group[group]:
+            XBT.append((one_hots[i], b, t))
+        ns.append(len(data_by_group[group]))
+        ks.append(sum(b for b, t in data_by_group[group]))
+    random.shuffle(XBT)  # Just in case
+    X = numpy.array([x for x, b, t in XBT])
+    B = numpy.array([b for x, b, t in XBT])
+    T = numpy.array([t for x, b, t in XBT])
+
+    return groups, one_hots, X, B, T, ns, ks
 
 
 _models = {
@@ -134,31 +147,31 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
     t_unit, t_converter = get_timescale(t_max)
     t_max = t_converter(t_max)
 
-    # Split data by group
-    groups, js = split_by_group(data, group_min_size, max_groups)
+    # Split data by group and get matrices
+    groups, one_hots, X, B, T, ns, ks = split_by_group(data, group_min_size, max_groups, t_converter)
+
+    # Fit models
+    m = _models[model]()
+    m.fit(X, B, T)
+    if projection:
+        p = _models[projection]()
+        p.fit(X, B, T)
 
     # PLOT
     colors = seaborn.color_palette('hls', len(groups))
     y_max = 0
-    for group, color in zip(sorted(groups), colors):
-        X, B, T = get_arrays(js[group], t_converter)
-        t = numpy.linspace(0, t_max, 1000)
-
-        m = _models[model]()
-        m.fit(X, B, T)
-
-        label = '%s (n=%.0f, k=%.0f)' % (group, len(B), sum(B))
+    t = numpy.linspace(0, t_max, 1000)
+    for group, color, x, n, k in zip(groups, colors, one_hots, ns, ks):
+        label = '%s (n=%.0f, k=%.0f)' % (group, n, k)
 
         if projection:
-            p = _models[projection]()
-            p.fit(X, B, T)
-            p_t, p_y, p_y_lo, p_y_hi = p.predict([1], t, ci=0.95)
-            p_y_final, p_y_lo_final, p_y_hi_final = p.predict_final([1], ci=0.95)
+            p_t, p_y, p_y_lo, p_y_hi = p.predict(x, t, ci=0.95)
+            p_y_final, p_y_lo_final, p_y_hi_final = p.predict_final(x, ci=0.95)
             label += ' projected: %.2f%% (%.2f%% - %.2f%%)' % (100.*p_y_final, 100.*p_y_lo_final, 100.*p_y_hi_final)
             pyplot.plot(p_t, 100. * p_y, color=color, linestyle=':', alpha=0.7)
             pyplot.fill_between(p_t, 100. * p_y_lo, 100. * p_y_hi, color=color, alpha=0.2)
 
-        m_t, m_y = m.predict([1], t)
+        m_t, m_y = m.predict(x, t)
         pyplot.plot(m_t, 100. * m_y, color=color, label=label)
         y_max = max(y_max, 110. * max(m_y))
 
