@@ -152,11 +152,11 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
         if projection:
             p = _models[projection]()
             p.fit(X, B, T)
-            p_t, p_y, p_y_lo, p_y_hi = p.predict([1], t, ci=0.95)
+            p_y, p_y_lo, p_y_hi = p.predict([1], t, ci=0.95)
             p_y_final, p_y_lo_final, p_y_hi_final = p.predict_final([1], ci=0.95)
             label += ' projected: %.2f%% (%.2f%% - %.2f%%)' % (100.*p_y_final, 100.*p_y_lo_final, 100.*p_y_hi_final)
-            pyplot.plot(p_t, 100. * p_y, color=color, linestyle=':', alpha=0.7)
-            pyplot.fill_between(p_t, 100. * p_y_lo, 100. * p_y_hi, color=color, alpha=0.2)
+            pyplot.plot(t, 100. * p_y, color=color, linestyle=':', alpha=0.7)
+            pyplot.fill_between(t, 100. * p_y_lo, 100. * p_y_hi, color=color, alpha=0.2)
 
         m_t, m_y = m.predict([1], t)
         pyplot.plot(m_t, 100. * m_y, color=color, label=label)

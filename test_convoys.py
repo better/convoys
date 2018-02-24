@@ -24,10 +24,9 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=100000):
     model = convoys.regression.ExponentialRegression()
     model.fit(X, B, T)
     assert 0.95*c < model.predict_final([1]) < 1.05*c
-    assert 0.95*lambd < model.params['lambd'] < 1.05*lambd
     t = 10
     d = 1 - numpy.exp(-lambd*t)
-    assert 0.95*c*d < model.predict([1], t)[1] < 1.05*c*d
+    assert 0.95*c*d < model.predict([1], t) < 1.05*c*d
 
     # Check the confidence intervals
     y, y_lo, y_hi = model.predict_final([1], ci=0.95)
@@ -71,7 +70,6 @@ def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=100000):
     model = convoys.regression.GammaRegression()
     model.fit(X, B, T)
     assert 0.95*c < model.predict_final([1]) < 1.05*c
-    assert 0.95*lambd < model.params['lambd'] < 1.05*lambd
     assert 0.95*k < model.params['k'] < 1.05*k
 
 

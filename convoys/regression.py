@@ -1,9 +1,12 @@
 import numpy # TODO: remove
-from scipy.special import expit  # TODO: remove
+from scipy.special import expit, gammainc  # TODO: remove
 import scipy.stats
 import tensorflow as tf
 
 from convoys.model import Model
+
+
+tf.logging.set_verbosity(2)
 
 def _get_placeholders(n, k):
     return (
@@ -42,36 +45,42 @@ def _get_params(sess, params):
     return {key: sess.run(param) for key, param in params.items()}
 
 
+def _get_hessian(sess, f, param, feed_dict):
+    return sess.run(tf.hessians(-f, [param]), feed_dict=feed_dict)[0]
+
+
+def _fix_t(t):
+    # TODO: this is stupid, should at least have tests for it
+    t = numpy.array(t)
+    if len(t.shape) == 0:
+        return t
+    elif len(t.shape) == 1:
+        return numpy.array([[z] for z in t])
+    else:
+        return t
+
+
+def _sample_hessian(x, value, hessian, n, ci):
+    if ci is None:
+        return numpy.dot(x, value)
+    else:
+        x = numpy.array(x)
+        inv_var = numpy.dot(numpy.dot(x.T, hessian), x)
+        return numpy.dot(x, value) + scipy.stats.norm.rvs(scale=inv_var**-0.5, size=(1, n))
+
+
+def _predict(func_values, ci):
+    if ci is None:
+        return func_values
+    else:
+        axis = len(func_values.shape)-1
+        return numpy.mean(func_values, axis=axis), numpy.percentile(func_values, (1-ci)*50, axis=axis), numpy.percentile(func_values, (1+ci)*50, axis=axis)
+
+
+
 class Regression(Model):
     def __init__(self, L2_reg=1.0):
         self._L2_reg = L2_reg
-        self._sess = tf.Session()
-
-    def __del__(self):
-        self._sess.close()
-
-    def predict(self, x, t, ci=None):
-        t = numpy.array(t)
-        z = self._cdf(x, t)
-        if ci:
-            c, c_lo, c_hi = self.predict_final(x, ci)
-            return (t, c*z, c_lo*z, c_hi*z)
-        else:
-            c = self.predict_final(x)
-            return (t, c*z)
-
-    def predict_final(self, x, ci=None):
-        # TODO: should take advantage of tensorflow here!!!
-        x = numpy.array(x)
-        def f(x, d=0):
-            return expit(numpy.dot(x, self.params['beta']) + d)
-        if ci:
-            # inv_var = numpy.dot(numpy.dot(x.T, self.params['beta_hessian']), x)
-            # lo, hi = (scipy.stats.norm.ppf(p, scale=inv_var**-0.5) for p in ((1 - ci)/2, (1 + ci)/2))
-            lo, hi = 0, 0
-            return f(x), f(x, lo), f(x, hi)
-        else:
-            return f(x)
 
     def predict_time(self):
         pass  # TODO: implement
@@ -98,9 +107,22 @@ class ExponentialRegression(Regression):
         LL = tf.reduce_sum(B_input * LL_observed + (1 - B_input) * LL_censored, 0)
         LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
 
-        _optimize(self._sess, LL_penalized, {X_input: X, B_input: B, T_input: T})
-        self.params = _get_params(self._sess, {'beta': beta, 'alpha': alpha})
-        self._cdf = lambda x, T: 1 - numpy.exp(-T * numpy.exp(numpy.dot(x, self.params['alpha'])))
+        with tf.Session() as sess:
+            feed_dict = {X_input: X, B_input: B, T_input: T}
+            _optimize(sess, LL_penalized, feed_dict)
+            self.params = _get_params(sess, {'beta': beta, 'alpha': alpha})
+            self.params['alpha_hessian'] = _get_hessian(sess, LL_penalized, alpha, feed_dict)
+            self.params['beta_hessian'] = _get_hessian(sess, LL_penalized, beta, feed_dict)
+
+    def predict(self, x, t, ci=None, n=1000):
+        t = _fix_t(t)
+        kappa = _sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
+        lambd = _sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
+        return _predict(expit(kappa) * (1 - numpy.exp(-t * numpy.exp(lambd))), ci)
+
+    def predict_final(self, x, ci=None, n=1000):
+        kappa = _sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
+        return _predict(expit(kappa), ci)
 
 
 class WeibullRegression(Regression):
@@ -128,10 +150,22 @@ class WeibullRegression(Regression):
         LL = tf.reduce_sum(B_input * LL_observed + (1 - B_input) * LL_censored, 0)
         LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
 
-        _optimize(self._sess, LL_penalized, {X_input: X, B_input: B, T_input: T})
-        self.params = _get_params(self._sess, {'beta': beta, 'alpha': alpha, 'k': k})
-        self._cdf = lambda x, T: 1 - numpy.exp(-(T * numpy.exp(numpy.dot(x, self.params['alpha'])))**self.params['k'])
-        print(self.params)
+        with tf.Session() as sess:
+            feed_dict = {X_input: X, B_input: B, T_input: T}
+            _optimize(sess, LL_penalized, feed_dict)
+            self.params = _get_params(sess, {'beta': beta, 'alpha': alpha, 'k': k})
+            self.params['alpha_hessian'] = _get_hessian(sess, LL_penalized, alpha, feed_dict)
+            self.params['beta_hessian'] = _get_hessian(sess, LL_penalized, beta, feed_dict)
+
+    def predict(self, x, t, ci=None, n=1000):
+        t = _fix_t(t)
+        kappa = _sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
+        lambd = _sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
+        return _predict(expit(kappa) * (1 - numpy.exp(-(t * numpy.exp(lambd))**self.params['k'])), ci)
+
+    def predict_final(self, x, ci=None, n=1000):
+        kappa = _sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
+        return _predict(expit(kappa), ci)
 
 
 class GammaRegression(Regression):
@@ -159,6 +193,19 @@ class GammaRegression(Regression):
         LL = tf.reduce_sum(B_input * LL_observed + (1 - B_input) * LL_censored, 0)
         LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
 
-        _optimize(self._sess, LL_penalized, {X_input: X, B_input: B, T_input: T})
-        self.params = _get_params(self._sess, {'beta': beta, 'alpha': alpha, 'k': k})
-        self._cdf = lambda x, T: 1 - numpy.igamma(self.params['k'], T * numpy.exp(numpy.dot(x, self.params['alpha'])))
+        with tf.Session() as sess:
+            feed_dict = {X_input: X, B_input: B, T_input: T}
+            _optimize(sess, LL_penalized, feed_dict)
+            self.params = _get_params(sess, {'beta': beta, 'alpha': alpha, 'k': k})
+            self.params['alpha_hessian'] = _get_hessian(sess, LL_penalized, alpha, feed_dict)
+            self.params['beta_hessian'] = _get_hessian(sess, LL_penalized, beta, feed_dict)
+
+    def predict(self, x, t, ci=None, n=1000):
+        t = _fix_t(t)
+        kappa = _sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
+        lambd = _sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
+        return _predict(expit(kappa) * (1 - gammainc(self.params['k'], t * numpy.exp(lambd))), ci)
+
+    def predict_final(self, x, ci=None, n=1000):
+        kappa = _sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
+        return _predict(expit(kappa), ci)
