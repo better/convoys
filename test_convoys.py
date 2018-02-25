@@ -94,5 +94,6 @@ def test_plot_cohorts():
     convoys.plot_cohorts(_get_data(), projection='gamma')
 
 
+@pytest.mark.skip
 def test_plot_conversion():
     convoys.plot_timeseries(_get_data(), window=datetime.timedelta(days=7), model='gamma')
