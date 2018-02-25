@@ -2,6 +2,7 @@ import numpy # TODO: remove
 from scipy.special import expit, gammainc  # TODO: remove
 import scipy.stats
 import tensorflow as tf
+import sys
 
 from convoys.model import Model
 
@@ -37,8 +38,9 @@ def _optimize(sess, target, feed_dict):
         if learning_rate < 1e-6:
             break
         step += 1
-        if step % 100 == 0:
-            print('step %6d (lr %6.6f): %9.2f' % (step, learning_rate, cost))
+        sys.stdout.write('step %6d (lr %6.6f): %12.4f' % (step, learning_rate, cost))
+        sys.stdout.write('\n' if step % 100 == 0 else '\r')
+        sys.stdout.flush()
 
 
 def _get_params(sess, params):
