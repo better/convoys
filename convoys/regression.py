@@ -17,24 +17,30 @@ def _get_placeholders(n, k):
     )
 
 
-def _optimize(sess, target, feed_dict):
+def _optimize(sess, target, feed_dict, variables):
     learning_rate_input = tf.placeholder(tf.float32, [])
     optimizer = tf.train.AdamOptimizer(learning_rate_input).minimize(-target)
 
     # TODO(erikbern): this is going to add more and more variables every time we run this
     sess.run(tf.global_variables_initializer())
 
-    best_cost, best_step, step = float('-inf'), 0, 0
-    learning_rate = 0.1
+    best_step, step = 0, 0
+    learning_rate = 1.0
+    best_state = sess.run(variables)
+    best_cost = sess.run(target, feed_dict=feed_dict)
+
     while True:
         feed_dict[learning_rate_input] = learning_rate
         sess.run(optimizer, feed_dict=feed_dict)
         cost = sess.run(target, feed_dict=feed_dict)
         if cost > best_cost:
             best_cost, best_step = cost, step
+            best_state = sess.run(variables)
         if step - best_step > 40:
             learning_rate /= 10
-            best_cost = float('-inf')
+            best_step = step
+            for variable, value in zip(variables, best_state):
+                sess.run(tf.assign(variable, value))
         if learning_rate < 1e-6:
             break
         step += 1
@@ -111,7 +117,7 @@ class ExponentialRegression(Regression):
 
         with tf.Session() as sess:
             feed_dict = {X_input: X, B_input: B, T_input: T}
-            _optimize(sess, LL_penalized, feed_dict)
+            _optimize(sess, LL_penalized, feed_dict, (alpha, beta))
             self.params = _get_params(sess, {'beta': beta, 'alpha': alpha})
             self.params['alpha_hessian'] = _get_hessian(sess, LL_penalized, alpha, feed_dict)
             self.params['beta_hessian'] = _get_hessian(sess, LL_penalized, beta, feed_dict)
@@ -154,7 +160,7 @@ class WeibullRegression(Regression):
 
         with tf.Session() as sess:
             feed_dict = {X_input: X, B_input: B, T_input: T}
-            _optimize(sess, LL_penalized, feed_dict)
+            _optimize(sess, LL_penalized, feed_dict, (alpha, beta, log_k_var))
             self.params = _get_params(sess, {'beta': beta, 'alpha': alpha, 'k': k})
             self.params['alpha_hessian'] = _get_hessian(sess, LL_penalized, alpha, feed_dict)
             self.params['beta_hessian'] = _get_hessian(sess, LL_penalized, beta, feed_dict)
@@ -197,7 +203,7 @@ class GammaRegression(Regression):
 
         with tf.Session() as sess:
             feed_dict = {X_input: X, B_input: B, T_input: T}
-            _optimize(sess, LL_penalized, feed_dict)
+            _optimize(sess, LL_penalized, feed_dict, (alpha, beta, log_k_var))
             self.params = _get_params(sess, {'beta': beta, 'alpha': alpha, 'k': k})
             self.params['alpha_hessian'] = _get_hessian(sess, LL_penalized, alpha, feed_dict)
             self.params['beta_hessian'] = _get_hessian(sess, LL_penalized, beta, feed_dict)
