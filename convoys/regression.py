@@ -19,13 +19,13 @@ def _get_placeholders(n, k):
 
 def _optimize(sess, target, feed_dict, variables):
     learning_rate_input = tf.placeholder(tf.float32, [])
-    optimizer = tf.train.AdamOptimizer(learning_rate_input).minimize(-target)
+    optimizer = tf.train.GradientDescentOptimizer(learning_rate_input).minimize(-target)
 
-    # TODO(erikbern): this is going to add more and more variables every time we run this
-    sess.run(tf.global_variables_initializer())
+    for variable in variables:
+        sess.run(tf.assign(variable, tf.zeros(tf.shape(variable))))
 
     best_step, step = 0, 0
-    learning_rate = 1.0
+    learning_rate = 1e-6
     best_state = sess.run(variables)
     best_cost = sess.run(target, feed_dict=feed_dict)
 
@@ -41,11 +41,11 @@ def _optimize(sess, target, feed_dict, variables):
             best_step = step
             for variable, value in zip(variables, best_state):
                 sess.run(tf.assign(variable, value))
-        if learning_rate < 1e-6:
+        if learning_rate < 1e-9:
             sys.stdout.write('\n')
             break
         step += 1
-        sys.stdout.write('step %6d (lr %6.6f): %12.4f' % (step, learning_rate, cost))
+        sys.stdout.write('step %6d (lr %9.9f): %14.3f' % (step, learning_rate, cost))
         sys.stdout.write('\n' if step % 100 == 0 else '\r')
         sys.stdout.flush()
 
