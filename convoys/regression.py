@@ -42,6 +42,7 @@ def _optimize(sess, target, feed_dict, variables):
             for variable, value in zip(variables, best_state):
                 sess.run(tf.assign(variable, value))
         if learning_rate < 1e-6:
+            sys.stdout.write('\n')
             break
         step += 1
         sys.stdout.write('step %6d (lr %6.6f): %12.4f' % (step, learning_rate, cost))
@@ -106,11 +107,11 @@ class ExponentialRegression(Regression):
         lambd = tf.exp(X_prod_alpha)
         c = tf.sigmoid(X_prod_beta)
 
-        log_pdf = lambda T: tf.log(lambd) - T*lambd
-        cdf = lambda T: 1 - tf.exp(-(T * lambd))
+        log_pdf = tf.log(lambd) - T_input*lambd
+        cdf = 1 - tf.exp(-(T_input * lambd))
 
-        LL_observed = tf.log(c) + log_pdf(T_input)
-        LL_censored = tf.log((1-c) + c * (1 - cdf(T_input)))
+        LL_observed = tf.log(c) + log_pdf
+        LL_censored = tf.log((1-c) + c * (1 - cdf))
 
         LL = tf.reduce_sum(B_input * LL_observed + (1 - B_input) * LL_censored, 0)
         LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
@@ -148,12 +149,12 @@ class WeibullRegression(Regression):
         c = tf.sigmoid(X_prod_beta)
 
         # PDF of Weibull: k * lambda * (x * lambda)^(k-1) * exp(-(t * lambda)^k)
-        log_pdf = lambda T: tf.log(k) + tf.log(lambd) + (k-1)*(tf.log(T) + tf.log(lambd)) - (T*lambd)**k
+        log_pdf = tf.log(k) + tf.log(lambd) + (k-1)*(tf.log(T_input) + tf.log(lambd)) - (T_input*lambd)**k
         # CDF of Weibull: 1 - exp(-(t * lambda)^k)
-        cdf = lambda T: 1 - tf.exp(-(T * lambd)**k)
+        cdf = 1 - tf.exp(-(T_input * lambd)**k)
 
-        LL_observed = tf.log(c) + log_pdf(T_input)
-        LL_censored = tf.log((1-c) + c * (1 - cdf(T_input)))
+        LL_observed = tf.log(c) + log_pdf
+        LL_censored = tf.log((1-c) + c * (1 - cdf))
 
         LL = tf.reduce_sum(B_input * LL_observed + (1 - B_input) * LL_censored, 0)
         LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
@@ -191,12 +192,12 @@ class GammaRegression(Regression):
         c = tf.sigmoid(X_prod_beta)
 
         # PDF of gamma: 1.0 / gamma(k) * lambda ^ k * t^(k-1) * exp(-t * lambda)
-        log_pdf = lambda T: -tf.lgamma(k) + k*tf.log(lambd) + (k-1)*tf.log(T) - lambd*T
+        log_pdf = -tf.lgamma(k) + k*tf.log(lambd) + (k-1)*tf.log(T_input) - lambd*T_input
         # CDF of gamma: gammainc(k, lambda * t)
-        cdf = lambda T: tf.igamma(k, lambd * T)
+        cdf = tf.igamma(k, lambd * T_input)
 
-        LL_observed = tf.log(c) + log_pdf(T_input)
-        LL_censored = tf.log((1-c) + c * (1 - cdf(T_input)))
+        LL_observed = tf.log(c) + log_pdf
+        LL_censored = tf.log((1-c) + c * (1 - cdf))
 
         LL = tf.reduce_sum(B_input * LL_observed + (1 - B_input) * LL_censored, 0)
         LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
