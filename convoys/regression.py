@@ -20,12 +20,14 @@ def _get_placeholders(n, k):
 def _optimize(sess, target, feed_dict, variables):
     learning_rate_input = tf.placeholder(tf.float32, [])
     optimizer = tf.train.AdamOptimizer(learning_rate_input).minimize(-target)
+
+    best_state_variables = [tf.Variable(tf.zeros(v.shape)) for v in variables]
+    store_best_state = [tf.assign(v, u) for (u, v) in zip(variables, best_state_variables)]
+    restore_best_state = [tf.assign(u, v) for (u, v) in zip(variables, best_state_variables)]
     sess.run(tf.global_variables_initializer())
 
     best_step, step = 0, 0
     learning_rate = 1.0
-    values = sess.run(variables)
-    best_state = sess.run(variables)
     best_cost = sess.run(target, feed_dict=feed_dict)
     any_var_is_nan = tf.is_nan(tf.add_n([tf.reduce_sum(v) for v in variables]))
 
@@ -38,11 +40,9 @@ def _optimize(sess, target, feed_dict, variables):
             cost = sess.run(target, feed_dict=feed_dict)
         if cost > best_cost:
             best_cost, best_step = cost, step
-            values = sess.run(variables)
-            best_state = sess.run(variables)
+            sess.run(store_best_state)
         else:
-            for variable, value in zip(variables, best_state):
-                sess.run(tf.assign(variable, value))
+            sess.run(restore_best_state)
             if step - best_step > 10:
                 learning_rate /= 10
                 best_step = step
