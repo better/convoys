@@ -19,33 +19,38 @@ def _get_placeholders(n, k):
 
 def _optimize(sess, target, feed_dict, variables):
     learning_rate_input = tf.placeholder(tf.float32, [])
-    optimizer = tf.train.GradientDescentOptimizer(learning_rate_input).minimize(-target)
-
-    for variable in variables:
-        sess.run(tf.assign(variable, tf.zeros(tf.shape(variable))))
+    optimizer = tf.train.AdamOptimizer(learning_rate_input).minimize(-target)
+    sess.run(tf.global_variables_initializer())
 
     best_step, step = 0, 0
-    learning_rate = 1e-6
+    learning_rate = 1.0
+    values = sess.run(variables)
     best_state = sess.run(variables)
     best_cost = sess.run(target, feed_dict=feed_dict)
+    any_var_is_nan = tf.is_nan(tf.add_n([tf.reduce_sum(v) for v in variables]))
 
     while True:
         feed_dict[learning_rate_input] = learning_rate
         sess.run(optimizer, feed_dict=feed_dict)
-        cost = sess.run(target, feed_dict=feed_dict)
+        if sess.run(any_var_is_nan):
+            cost = float('-inf')
+        else:
+            cost = sess.run(target, feed_dict=feed_dict)
         if cost > best_cost:
             best_cost, best_step = cost, step
+            values = sess.run(variables)
             best_state = sess.run(variables)
-        if step - best_step > 40:
-            learning_rate /= 10
-            best_step = step
+        else:
             for variable, value in zip(variables, best_state):
                 sess.run(tf.assign(variable, value))
-        if learning_rate < 1e-9:
+            if step - best_step > 10:
+                learning_rate /= 10
+                best_step = step
+        if learning_rate < 1e-6:
             sys.stdout.write('\n')
             break
         step += 1
-        sys.stdout.write('step %6d (lr %9.9f): %14.3f' % (step, learning_rate, cost))
+        sys.stdout.write('step %6d (lr %6.6f): %14.3f%30s' % (step, learning_rate, cost, ''))
         sys.stdout.write('\n' if step % 100 == 0 else '\r')
         sys.stdout.flush()
 
