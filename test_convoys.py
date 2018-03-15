@@ -86,27 +86,27 @@ def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=100000):
     assert 0.90*lambd < numpy.exp(model.params['alpha']) < 1.10*lambd
 
 
-def _get_data(c=0.3, k=10, lambd=0.1, n=1000):
+def test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=2.0, lambd=0.1, n=100000):
+    C = numpy.array([bool(random.random() < cs[r % len(cs)]) for r in range(n)])
+    N = scipy.stats.uniform.rvs(scale=5./lambd, size=(n,))
+    E = numpy.array([sample_weibull(k, lambd) for r in range(n)])
+    B, T = generate_censored_data(N, E, C)
     data = []
-    now = datetime.datetime(2000, 7, 1)
-    for x in range(n):
-        date_a = datetime.datetime(2000, 1, 1) + datetime.timedelta(days=random.random()*100)
-        if random.random() < c:
-            delay = scipy.stats.gamma.rvs(a=k, scale=1.0/lambd)
-            date_b = date_a + datetime.timedelta(days=delay)
-            if date_b < now:
-                data.append(('foo', date_a, date_b, now))
-            else:
-                data.append(('foo', date_a, None, now))
-        else:
-            data.append(('foo', date_a, None, now))
-    return data
+    x2t = lambda x: datetime.datetime(2000, 1, 1) + datetime.timedelta(days=x)
+    for i, (b, t, n) in enumerate(zip(B, T, N)):
+        data.append(('Group %d' % (i % len(cs)),  # group name
+                     x2t(0),  # created at
+                     x2t(t) if b else None,  # converted at
+                     x2t(n)))  # now
 
-
-def test_plot_cohorts():
-    convoys.plot_cohorts(_get_data(), projection='gamma')
-
-
-@pytest.mark.skip
-def test_plot_conversion():
-    convoys.plot_timeseries(_get_data(), window=datetime.timedelta(days=7), model='gamma')
+    result = convoys.plot_cohorts(data, projection='weibull')
+    group, y, y_lo, y_hi = result[0]
+    print(y, y_lo, y_hi)
+    c = cs[0]
+    k = n/len(cs)
+    c_lo = scipy.stats.beta.ppf(0.025, k*c, k*(1-c))
+    c_hi = scipy.stats.beta.ppf(0.975, k*c, k*(1-c))
+    print(c, c_lo, c_hi)
+    assert group == 'Group 0'
+    assert 0.95*c < y < 1.05 * c
+    assert 0.70*(c_hi-c_lo) < (y_hi-y_lo) < 1.30*(c_hi-c_lo)
