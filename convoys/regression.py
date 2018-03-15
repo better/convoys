@@ -7,7 +7,7 @@ import sys
 from convoys.model import Model
 
 
-tf.logging.set_verbosity(2)
+tf.logging.set_verbosity(3)
 
 def _get_placeholders(n, k):
     return (
