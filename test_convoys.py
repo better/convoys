@@ -15,7 +15,7 @@ def sample_weibull(k, lambd):
     return (-numpy.log(random.random())) ** (1.0/k) / lambd
 
 def generate_censored_data(N, E, C):
-    B = numpy.array([random.random() < c and e < n for n, e, c in zip(N, E, C)])
+    B = numpy.array([c and e < n for n, e, c in zip(N, E, C)])
     T = numpy.array([e if b else n for e, b, n in zip(E, B, N)])
     return B, T
 
@@ -72,18 +72,18 @@ def test_weibull_regression_model_ci(c=0.3, lambd=0.1, k=0.5, n=100000):
 
 
 def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=100000):
-    # Something is a bit wacky with this one.
-    # If I replace N with a smaller observation window, it breaks.
+    # TODO: this one seems very sensitive to large values for N (i.e. less censoring)
     X = numpy.ones((n, 1))
     C = scipy.stats.bernoulli.rvs(c, size=(n,))
-    N = numpy.ones((n,)) * 1000.
+    N = scipy.stats.uniform.rvs(scale=20./lambd, size=(n,))
     E = scipy.stats.gamma.rvs(a=k, scale=1.0/lambd, size=(n,))
     B, T = generate_censored_data(N, E, C)
 
     model = convoys.regression.GammaRegression()
     model.fit(X, B, T)
     assert 0.95*c < model.predict_final([1]) < 1.05*c
-    assert 0.95*k < model.params['k'] < 1.05*k
+    assert 0.90*k < model.params['k'] < 1.10*k
+    assert 0.90*lambd < numpy.exp(model.params['alpha']) < 1.10*lambd
 
 
 def _get_data(c=0.3, k=10, lambd=0.1, n=1000):
