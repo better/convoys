@@ -1,5 +1,5 @@
 import numpy # TODO: remove
-from scipy.special import expit, gammainc  # TODO: remove
+from scipy.special import expit, gamma, gammainc  # TODO: remove
 import scipy.stats
 import tensorflow as tf
 import sys
@@ -91,13 +91,9 @@ def _predict(func_values, ci):
         return numpy.mean(func_values, axis=axis), numpy.percentile(func_values, (1-ci)*50, axis=axis), numpy.percentile(func_values, (1+ci)*50, axis=axis)
 
 
-
 class Regression(Model):
     def __init__(self, L2_reg=1.0):
         self._L2_reg = L2_reg
-
-    def predict_time(self):
-        pass  # TODO: implement
 
 
 class ExponentialRegression(Regression):
@@ -130,13 +126,17 @@ class ExponentialRegression(Regression):
 
     def predict(self, x, t, ci=None, n=1000):
         t = _fix_t(t)
-        kappa = _sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
-        lambd = _sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
-        return _predict(expit(kappa) * (1 - numpy.exp(-t * numpy.exp(lambd))), ci)
+        x_prod_alpha = _sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
+        x_prod_beta = _sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
+        return _predict(expit(x_prod_beta) * (1 - numpy.exp(-t * numpy.exp(x_prod_alpha))), ci)
 
     def predict_final(self, x, ci=None, n=1000):
-        kappa = _sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
-        return _predict(expit(kappa), ci)
+        x_prod_beta = _sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
+        return _predict(expit(x_prod_beta), ci)
+
+    def predict_time(self, x, ci=None, n=1000):
+        x_prod_alpha = _sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
+        return _predict(1./numpy.exp(x_prod_alpha), ci)
 
 
 class WeibullRegression(Regression):
@@ -173,13 +173,17 @@ class WeibullRegression(Regression):
 
     def predict(self, x, t, ci=None, n=1000):
         t = _fix_t(t)
-        kappa = _sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
-        lambd = _sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
-        return _predict(expit(kappa) * (1 - numpy.exp(-(t * numpy.exp(lambd))**self.params['k'])), ci)
+        x_prod_alpha = _sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
+        x_prod_beta = _sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
+        return _predict(expit(x_prod_beta) * (1 - numpy.exp(-(t * numpy.exp(x_prod_alpha))**self.params['k'])), ci)
 
     def predict_final(self, x, ci=None, n=1000):
-        kappa = _sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
-        return _predict(expit(kappa), ci)
+        x_prod_beta = _sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
+        return _predict(expit(x_prod_beta), ci)
+
+    def predict_time(self, x, ci=None, n=1000):
+        x_prod_alpha = _sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
+        return _predict(1./numpy.exp(x_prod_alpha) * gamma(1 + 1./self.params['k']), ci)
 
 
 class GammaRegression(Regression):
@@ -216,10 +220,14 @@ class GammaRegression(Regression):
 
     def predict(self, x, t, ci=None, n=1000):
         t = _fix_t(t)
-        kappa = _sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
-        lambd = _sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
-        return _predict(expit(kappa) * (1 - gammainc(self.params['k'], t * numpy.exp(lambd))), ci)
+        x_prod_alpha = _sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
+        x_prod_beta = _sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
+        return _predict(expit(x_prod_beta) * (1 - gammainc(self.params['k'], t * numpy.exp(x_prod_alpha))), ci)
 
     def predict_final(self, x, ci=None, n=1000):
-        kappa = _sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
-        return _predict(expit(kappa), ci)
+        x_prod_beta = _sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
+        return _predict(expit(x_prod_beta), ci)
+
+    def predict_time(self, x, ci=None, n=1000):
+        x_prod_alpha = _sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
+        return _predict(self.params['k']/numpy.exp(x_prod_alpha), ci)
