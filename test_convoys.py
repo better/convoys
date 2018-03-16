@@ -101,12 +101,10 @@ def test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=2.0, lambd=0.1, n=100000):
 
     result = convoys.plot_cohorts(data, projection='weibull')
     group, y, y_lo, y_hi = result[0]
-    print(y, y_lo, y_hi)
     c = cs[0]
-    k = n/len(cs)
+    k = len(data)/len(cs)
     c_lo = scipy.stats.beta.ppf(0.025, k*c, k*(1-c))
     c_hi = scipy.stats.beta.ppf(0.975, k*c, k*(1-c))
-    print(c, c_lo, c_hi)
     assert group == 'Group 0'
     assert 0.95*c < y < 1.05 * c
     assert 0.70*(c_hi-c_lo) < (y_hi-y_lo) < 1.30*(c_hi-c_lo)
