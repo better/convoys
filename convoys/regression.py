@@ -33,6 +33,8 @@ def _optimize(sess, target, feed_dict, variables):
 
     while True:
         feed_dict[learning_rate_input] = learning_rate
+        if step < 100:
+            feed_dict[learning_rate_input] = min(learning_rate, 1e-6 * 10**(step//10))
         sess.run(optimizer, feed_dict=feed_dict)
         if sess.run(any_var_is_nan):
             cost = float('-inf')
@@ -50,7 +52,7 @@ def _optimize(sess, target, feed_dict, variables):
             sys.stdout.write('\n')
             break
         step += 1
-        sys.stdout.write('step %6d (lr %6.6f): %14.3f%30s' % (step, learning_rate, cost, ''))
+        sys.stdout.write('step %6d (lr %6.6f): %14.3f%30s' % (step, feed_dict[learning_rate_input], cost, ''))
         sys.stdout.write('\n' if step % 100 == 0 else '\r')
         sys.stdout.flush()
 
