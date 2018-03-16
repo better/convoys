@@ -30,7 +30,7 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=100000):
     model = convoys.regression.ExponentialRegression()
     model.fit(X, B, T)
     assert 0.95*c < model.predict_final([1]) < 1.05*c
-    assert 0.95/lambd < model.predict_time([1]) < 1.05/lambd
+    assert 0.90/lambd < model.predict_time([1]) < 1.10/lambd
     t = 10
     d = 1 - numpy.exp(-lambd*t)
     assert 0.95*c*d < model.predict([1], t) < 1.05*c*d
@@ -56,7 +56,7 @@ def test_weibull_regression_model(cs=[0.3, 0.5, 0.7], lambd=0.1, k=0.5, n=100000
         x = [1] + [int(r == j) for j in range(len(cs))]
         assert 0.95 * c < model.predict_final(x) < 1.05 * c
         expected_time = 1./lambd * scipy.special.gamma(1 + 1/k)
-        assert 0.95*expected_time < model.predict_time(x) < 1.05*expected_time
+        assert 0.90*expected_time < model.predict_time(x) < 1.10*expected_time
 
 
 def test_weibull_regression_model_ci(c=0.3, lambd=0.1, k=0.5, n=100000):
@@ -88,7 +88,7 @@ def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=100000):
     assert 0.95*c < model.predict_final([1]) < 1.05*c
     assert 0.90*k < model.params['k'] < 1.10*k
     assert 0.90*lambd < numpy.exp(model.params['alpha']) < 1.10*lambd
-    assert 0.95*k/lambd < model.predict_time([1]) < 1.05*k/lambd
+    assert 0.90*k/lambd < model.predict_time([1]) < 1.10*k/lambd
 
 
 def test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=2.0, lambd=0.1, n=100000):
