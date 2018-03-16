@@ -140,6 +140,7 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
     # PLOT
     colors = seaborn.color_palette('hls', len(groups))
     y_max = 0
+    result = []
     for group, color in zip(sorted(groups), colors):
         X, B, T = get_arrays(js[group], t_converter)
         t = numpy.linspace(0, t_max, 1000)
@@ -157,6 +158,7 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
             label += ' projected: %.2f%% (%.2f%% - %.2f%%)' % (100.*p_y_final, 100.*p_y_lo_final, 100.*p_y_hi_final)
             pyplot.plot(t, 100. * p_y, color=color, linestyle=':', alpha=0.7)
             pyplot.fill_between(t, 100. * p_y_lo, 100. * p_y_hi, color=color, alpha=0.2)
+            result.append((group, p_y_final, p_y_lo_final, p_y_hi_final))
 
         m_t, m_y = m.predict([1], t)
         pyplot.plot(m_t, 100. * m_y, color=color, label=label)
@@ -170,6 +172,7 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
     pyplot.ylabel('Conversion rate %')
     pyplot.legend()
     pyplot.gca().grid(True)
+    return result
 
 
 def plot_timeseries(data, window, model='kaplan-meier', group_min_size=0, max_groups=100, window_min_size=1, stride=None, title=None, time=False):
