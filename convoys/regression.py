@@ -9,15 +9,11 @@ from convoys.model import Model
 
 tf.logging.set_verbosity(3)
 
-def _get_placeholders(n, k):
-    return (
-        tf.placeholder(tf.float32, [n, k]),
-        tf.placeholder(tf.float32, [n]),
-        tf.placeholder(tf.float32, [n])
-    )
+def _get_constants(args):
+    return (tf.constant(arg.astype(numpy.float32)) for arg in args)
 
 
-def _optimize(sess, target, feed_dict, variables):
+def _optimize(sess, target, variables):
     learning_rate_input = tf.placeholder(tf.float32, [])
     optimizer = tf.train.AdamOptimizer(learning_rate_input).minimize(-target)
 
@@ -27,32 +23,30 @@ def _optimize(sess, target, feed_dict, variables):
     sess.run(tf.global_variables_initializer())
 
     best_step, step = 0, 0
-    learning_rate = 1.0
-    best_cost = sess.run(target, feed_dict=feed_dict)
+    dec_learning_rate = 1.0
+    best_cost = sess.run(target)
     any_var_is_nan = tf.is_nan(tf.add_n([tf.reduce_sum(v) for v in variables]))
 
     while True:
-        feed_dict[learning_rate_input] = learning_rate
-        if step < 120:
-            feed_dict[learning_rate_input] = min(learning_rate, 10**(step//20-6))
-        sess.run(optimizer, feed_dict=feed_dict)
+        inc_learning_rate = 10**(min(step, 240)//40-6)
+        learning_rate = min(inc_learning_rate, dec_learning_rate)
+        sess.run(optimizer, feed_dict={learning_rate_input: learning_rate})
         if sess.run(any_var_is_nan):
             cost = float('-inf')
         else:
-            cost = sess.run(target, feed_dict=feed_dict)
+            cost = sess.run(target)
         if cost > best_cost:
             best_cost, best_step = cost, step
             sess.run(store_best_state)
-        else:
-            if step - best_step > 40:
-                sess.run(restore_best_state)
-                learning_rate /= 10
-                best_step = step
+        elif str(cost) in ('-inf', 'nan') or step - best_step > 40:
+            sess.run(restore_best_state)
+            dec_learning_rate = learning_rate / 10
+            best_step = step
         if learning_rate < 1e-6:
             sys.stdout.write('\n')
             break
         step += 1
-        sys.stdout.write('step %6d (lr %6.6f): %14.3f%30s' % (step, feed_dict[learning_rate_input], cost, ''))
+        sys.stdout.write('step %6d (lr %6.6f): %14.3f%30s' % (step, learning_rate, cost, ''))
         sys.stdout.write('\n' if step % 100 == 0 else '\r')
         sys.stdout.flush()
 
@@ -61,8 +55,8 @@ def _get_params(sess, params):
     return {key: sess.run(param) for key, param in params.items()}
 
 
-def _get_hessian(sess, f, param, feed_dict):
-    return sess.run(tf.hessians(-f, [param]), feed_dict=feed_dict)[0]
+def _get_hessian(sess, f, param):
+    return sess.run(tf.hessians(-f, [param]))[0]
 
 
 def _fix_t(t):
@@ -101,7 +95,7 @@ class Regression(Model):
 class ExponentialRegression(Regression):
     def fit(self, X, B, T):
         n, k = X.shape
-        X_input, B_input, T_input = _get_placeholders(n, k)
+        X_input, B_input, T_input = _get_constants((X, B, T))
 
         alpha = tf.Variable(tf.zeros([k]), 'alpha')
         beta = tf.Variable(tf.zeros([k]), 'beta')
@@ -120,11 +114,10 @@ class ExponentialRegression(Regression):
         LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
 
         with tf.Session() as sess:
-            feed_dict = {X_input: X, B_input: B, T_input: T}
-            _optimize(sess, LL_penalized, feed_dict, (alpha, beta))
+            _optimize(sess, LL_penalized, (alpha, beta))
             self.params = _get_params(sess, {'beta': beta, 'alpha': alpha})
-            self.params['alpha_hessian'] = _get_hessian(sess, LL_penalized, alpha, feed_dict)
-            self.params['beta_hessian'] = _get_hessian(sess, LL_penalized, beta, feed_dict)
+            self.params['alpha_hessian'] = _get_hessian(sess, LL_penalized, alpha)
+            self.params['beta_hessian'] = _get_hessian(sess, LL_penalized, beta)
 
     def predict(self, x, t, ci=None, n=1000):
         t = _fix_t(t)
@@ -144,7 +137,7 @@ class ExponentialRegression(Regression):
 class WeibullRegression(Regression):
     def fit(self, X, B, T):
         n, k = X.shape
-        X_input, B_input, T_input = _get_placeholders(n, k)
+        X_input, B_input, T_input = _get_constants((X, B, T))
 
         alpha = tf.Variable(tf.zeros([k]), 'alpha')
         beta = tf.Variable(tf.zeros([k]), 'beta')
@@ -167,11 +160,10 @@ class WeibullRegression(Regression):
         LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
 
         with tf.Session() as sess:
-            feed_dict = {X_input: X, B_input: B, T_input: T}
-            _optimize(sess, LL_penalized, feed_dict, (alpha, beta, log_k_var))
+            _optimize(sess, LL_penalized, (alpha, beta, log_k_var))
             self.params = _get_params(sess, {'beta': beta, 'alpha': alpha, 'k': k})
-            self.params['alpha_hessian'] = _get_hessian(sess, LL_penalized, alpha, feed_dict)
-            self.params['beta_hessian'] = _get_hessian(sess, LL_penalized, beta, feed_dict)
+            self.params['alpha_hessian'] = _get_hessian(sess, LL_penalized, alpha)
+            self.params['beta_hessian'] = _get_hessian(sess, LL_penalized, beta)
 
     def predict(self, x, t, ci=None, n=1000):
         t = _fix_t(t)
@@ -191,7 +183,7 @@ class WeibullRegression(Regression):
 class GammaRegression(Regression):
     def fit(self, X, B, T):
         n, k = X.shape
-        X_input, B_input, T_input = _get_placeholders(n, k)
+        X_input, B_input, T_input = _get_constants((X, B, T))
 
         alpha = tf.Variable(tf.zeros([k]), 'alpha')
         beta = tf.Variable(tf.zeros([k]), 'beta')
@@ -214,11 +206,10 @@ class GammaRegression(Regression):
         LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
 
         with tf.Session() as sess:
-            feed_dict = {X_input: X, B_input: B, T_input: T}
-            _optimize(sess, LL_penalized, feed_dict, (alpha, beta, log_k_var))
+            _optimize(sess, LL_penalized, (alpha, beta, log_k_var))
             self.params = _get_params(sess, {'beta': beta, 'alpha': alpha, 'k': k})
-            self.params['alpha_hessian'] = _get_hessian(sess, LL_penalized, alpha, feed_dict)
-            self.params['beta_hessian'] = _get_hessian(sess, LL_penalized, beta, feed_dict)
+            self.params['alpha_hessian'] = _get_hessian(sess, LL_penalized, alpha)
+            self.params['beta_hessian'] = _get_hessian(sess, LL_penalized, beta)
 
     def predict(self, x, t, ci=None, n=1000):
         t = _fix_t(t)
