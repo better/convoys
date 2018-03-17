@@ -44,8 +44,8 @@ def _optimize(sess, target, feed_dict, variables):
             best_cost, best_step = cost, step
             sess.run(store_best_state)
         else:
-            sess.run(restore_best_state)
-            if step - best_step > 10:
+            if step - best_step > 40:
+                sess.run(restore_best_state)
                 learning_rate /= 10
                 best_step = step
         if learning_rate < 1e-6:
