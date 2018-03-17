@@ -6,7 +6,6 @@ import math
 import numpy
 import random
 import seaborn
-import six
 from matplotlib import pyplot
 from convoys.model import Model
 from convoys.regression import ExponentialRegression, WeibullRegression, GammaRegression
