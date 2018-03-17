@@ -7,7 +7,6 @@ import numpy
 import random
 import seaborn
 from matplotlib import pyplot
-from convoys.model import Model
 from convoys.regression import ExponentialRegression, WeibullRegression, GammaRegression
 
 
@@ -37,7 +36,7 @@ def get_arrays(data, t_converter):
     return X, numpy.array(B), numpy.array(T)
 
 
-class KaplanMeier(Model):
+class KaplanMeier:
     def fit(self, X, B, T):
         kmf = lifelines.KaplanMeierFitter()
         kmf.fit(T, event_observed=B)

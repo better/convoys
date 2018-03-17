@@ -4,8 +4,6 @@ import scipy.stats
 import tensorflow as tf
 import sys
 
-from convoys.model import Model
-
 
 tf.logging.set_verbosity(3)
 
