@@ -23,15 +23,14 @@ def _optimize(sess, target, variables):
     sess.run(tf.global_variables_initializer())
 
     best_step, step = 0, 0
-    learning_rate = 1.0
+    dec_learning_rate = 1.0
     best_cost = sess.run(target)
     any_var_is_nan = tf.is_nan(tf.add_n([tf.reduce_sum(v) for v in variables]))
 
     while True:
-        feed_dict = {learning_rate_input: learning_rate}
-        if step < 120:
-            feed_dict[learning_rate_input] = min(learning_rate, 10**(step//20-6))
-        sess.run(optimizer, feed_dict=feed_dict)
+        inc_learning_rate = 10**(min(step, 200)//20-6)
+        learning_rate = min(inc_learning_rate, dec_learning_rate)
+        sess.run(optimizer, feed_dict={learning_rate_input: learning_rate})
         if sess.run(any_var_is_nan):
             cost = float('-inf')
         else:
@@ -39,16 +38,15 @@ def _optimize(sess, target, variables):
         if cost > best_cost:
             best_cost, best_step = cost, step
             sess.run(store_best_state)
-        else:
-            if step - best_step > 40:
-                sess.run(restore_best_state)
-                learning_rate /= 10
-                best_step = step
+        elif str(cost) in ('-inf', 'nan') or step - best_step > 20:
+            sess.run(restore_best_state)
+            dec_learning_rate = learning_rate / 10
+            best_step = step
         if learning_rate < 1e-6:
             sys.stdout.write('\n')
             break
         step += 1
-        sys.stdout.write('step %6d (lr %6.6f): %14.3f%30s' % (step, feed_dict[learning_rate_input], cost, ''))
+        sys.stdout.write('step %6d (lr %6.6f): %14.3f%30s' % (step, learning_rate, cost, ''))
         sys.stdout.write('\n' if step % 100 == 0 else '\r')
         sys.stdout.flush()
 
