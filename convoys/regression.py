@@ -28,7 +28,7 @@ def _optimize(sess, target, variables):
     any_var_is_nan = tf.is_nan(tf.add_n([tf.reduce_sum(v) for v in variables]))
 
     while True:
-        inc_learning_rate = 10**(min(step, 200)//20-6)
+        inc_learning_rate = 10**(min(step, 240)//40-6)
         learning_rate = min(inc_learning_rate, dec_learning_rate)
         sess.run(optimizer, feed_dict={learning_rate_input: learning_rate})
         if sess.run(any_var_is_nan):
@@ -38,7 +38,7 @@ def _optimize(sess, target, variables):
         if cost > best_cost:
             best_cost, best_step = cost, step
             sess.run(store_best_state)
-        elif str(cost) in ('-inf', 'nan') or step - best_step > 20:
+        elif str(cost) in ('-inf', 'nan') or step - best_step > 40:
             sess.run(restore_best_state)
             dec_learning_rate = learning_rate / 10
             best_step = step
