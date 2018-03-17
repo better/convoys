@@ -4,8 +4,6 @@ import scipy.stats
 import tensorflow as tf
 import sys
 
-from convoys.model import Model
-
 
 tf.logging.set_verbosity(3)
 
@@ -87,12 +85,12 @@ def _predict(func_values, ci):
         return numpy.mean(func_values, axis=axis), numpy.percentile(func_values, (1-ci)*50, axis=axis), numpy.percentile(func_values, (1+ci)*50, axis=axis)
 
 
-class Regression(Model):
+class RegressionModel:
     def __init__(self, L2_reg=1.0):
         self._L2_reg = L2_reg
 
 
-class ExponentialRegression(Regression):
+class ExponentialRegression(RegressionModel):
     def fit(self, X, B, T):
         n, k = X.shape
         X_input, B_input, T_input = _get_constants((X, B, T))
@@ -134,7 +132,7 @@ class ExponentialRegression(Regression):
         return _predict(1./numpy.exp(x_prod_alpha), ci)
 
 
-class WeibullRegression(Regression):
+class WeibullRegression(RegressionModel):
     def fit(self, X, B, T):
         n, k = X.shape
         X_input, B_input, T_input = _get_constants((X, B, T))
@@ -180,7 +178,7 @@ class WeibullRegression(Regression):
         return _predict(1./numpy.exp(x_prod_alpha) * gamma(1 + 1./self.params['k']), ci)
 
 
-class GammaRegression(Regression):
+class GammaRegression(RegressionModel):
     def fit(self, X, B, T):
         n, k = X.shape
         X_input, B_input, T_input = _get_constants((X, B, T))

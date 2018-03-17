@@ -113,3 +113,6 @@ def test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=2.0, lambd=0.1, n=100000):
     assert group == 'Group 0'
     assert 0.95*c < y < 1.05 * c
     assert 0.70*(c_hi-c_lo) < (y_hi-y_lo) < 1.30*(c_hi-c_lo)
+
+    # Also plot with default arguments (TODO: add assertions)
+    convoys.plot_cohorts(data)
