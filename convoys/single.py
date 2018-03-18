@@ -2,8 +2,13 @@ import bisect
 import lifelines
 import numpy
 
-class KaplanMeier:
-    def fit(self, X, B, T):
+
+class SingleModel:
+    pass  # TODO
+
+
+class KaplanMeier(SingleModel):
+    def fit(self, B, T):
         kmf = lifelines.KaplanMeierFitter()
         kmf.fit(T, event_observed=B)
         self.ts = kmf.survival_function_.index.values
@@ -11,22 +16,23 @@ class KaplanMeier:
         self.ps_hi = 1.0 - kmf.confidence_interval_['KM_estimate_lower_0.95'].values
         self.ps_lo = 1.0 - kmf.confidence_interval_['KM_estimate_upper_0.95'].values
 
-    def predict(self, x, ts, ci=None):
+    def predict(self, ts, ci=None):
+        # TODO: should also handle scalars
         js = [bisect.bisect_left(self.ts, t) for t in ts]
         def array_lookup(a):
-            return numpy.array([a[j] for j in js if j < len(self.ts)])
+            return numpy.array([a[min(j, len(self.ts)-1)] for j in js])
         if ci is not None:
-            return (array_lookup(self.ts), array_lookup(self.ps), array_lookup(self.ps_lo), array_lookup(self.ps_hi))
+            return (array_lookup(self.ps), array_lookup(self.ps_lo), array_lookup(self.ps_hi))
         else:
-            return (array_lookup(self.ts), array_lookup(self.ps))
+            return array_lookup(self.ps)
 
-    def predict_final(self, x, ci=None):
+    def predict_final(self, ci=None):
         if ci is not None:
             return (self.ps[-1], self.ps_lo[-1], self.ps_hi[-1])
         else:
             return self.ps[-1]
 
-    def predict_time(self, x, ci=None):
+    def predict_time(self, ci=None):
         # TODO: should not use median here, but mean is no good
         def median(ps):
             i = bisect.bisect_left(ps, 0.5)
