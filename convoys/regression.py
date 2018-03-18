@@ -90,7 +90,7 @@ class RegressionModel:
         self._L2_reg = L2_reg
 
 
-class ExponentialRegression(RegressionModel):
+class Exponential(RegressionModel):
     def fit(self, X, B, T):
         n, k = X.shape
         X_input, B_input, T_input = _get_constants((X, B, T))
@@ -132,7 +132,7 @@ class ExponentialRegression(RegressionModel):
         return _predict(1./numpy.exp(x_prod_alpha), ci)
 
 
-class WeibullRegression(RegressionModel):
+class Weibull(RegressionModel):
     def fit(self, X, B, T):
         n, k = X.shape
         X_input, B_input, T_input = _get_constants((X, B, T))
@@ -178,7 +178,7 @@ class WeibullRegression(RegressionModel):
         return _predict(1./numpy.exp(x_prod_alpha) * gamma(1 + 1./self.params['k']), ci)
 
 
-class GammaRegression(RegressionModel):
+class Gamma(RegressionModel):
     def fit(self, X, B, T):
         n, k = X.shape
         X_input, B_input, T_input = _get_constants((X, B, T))

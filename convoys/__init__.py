@@ -6,8 +6,7 @@ import numpy
 import random
 import seaborn
 from matplotlib import pyplot
-from convoys.regression import ExponentialRegression, WeibullRegression, GammaRegression
-from convoys.single import KaplanMeier
+from convoys.multi import Exponential, Weibull, Gamma, KaplanMeier
 
 
 def get_timescale(t):
@@ -27,13 +26,21 @@ def get_timescale(t):
         return 'Minutes', get_timedelta_converter(1)
 
 
-def get_arrays(data, t_converter):
-    X = numpy.ones((len(data), 1))
-    B = [bool(converted_at is not None)
-         for created_at, converted_at, now in data]
-    T = [t_converter(converted_at - created_at) if converted_at is not None else t_converter(now - created_at)
-         for created_at, converted_at, now in data]
-    return X, numpy.array(B), numpy.array(T)
+def get_arrays(groups, data, t_converter):
+    G, B, T = [], [], []
+    group2j = dict((group, j) for j, group in enumerate(groups))
+    for group, created_at, converted_at, now in data:
+        if converted_at is not None and converted_at < created_at:
+            print('created at', created_at, 'but converted at', converted_at)
+            continue
+        if now < created_at:
+            print('created at', created_at, 'but now is', now)
+            continue
+        if group in group2j:
+            G.append(group2j[group])
+            B.append(converted_at is not None)
+            T.append(t_converter(converted_at - created_at) if converted_at is not None else t_converter(now - created_at))
+    return numpy.array(G), numpy.array(B), numpy.array(T)
 
 
 def sample_event(model, x, t, hi=1e3):
@@ -56,76 +63,58 @@ def sample_event(model, x, t, hi=1e3):
     return (lo + hi)/2
 
 
-def split_by_group(data, group_min_size, max_groups):
-    js = {}
+def get_groups(data, group_min_size, max_groups):
+    group2count = {}
     for group, created_at, converted_at, now in data:
-        if converted_at is not None and converted_at < created_at:
-            print('created at', created_at, 'but converted at', converted_at)
-            continue
-        if now < created_at:
-            print('created at', created_at, 'but now is', now)
-            continue
-        js.setdefault(group, []).append((created_at, converted_at, now))
-    groups = list(js.keys())
+        group2count[group] = group2count.get(group, 0) + 1
 
     # Remove groups with too few data points
-    groups = [group for group in groups if len(js[group]) >= group_min_size]
-
-    # Require at least one conversion per group
-    groups = [group for group in groups if any(converted_at for _, converted_at, _ in js[group]) > 0]
-
     # Pick the top groups
-    groups = sorted(groups, key=lambda group: len(js[group]), reverse=True)[:max_groups]
-
     # Sort groups lexicographically
-    groups = sorted(groups)
-
-    return groups, js
+    groups = [group for group, count in group2count.items() if count >= group_min_size]
+    groups = sorted(groups, key=group2count.get, reverse=True)[:max_groups]
+    return sorted(groups)
 
 
 _models = {
     'kaplan-meier': KaplanMeier,
-    'exponential': ExponentialRegression,
-    'weibull': WeibullRegression,
-    'gamma': GammaRegression,
+    'exponential': Exponential,
+    'weibull': Weibull,
+    'gamma': Gamma,
 }
 
-def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='kaplan-meier', projection=None):
+
+def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='kaplan-meier'):
     # Set x scale
     if t_max is None:
         t_max = max(now - created_at for group, created_at, converted_at, now in data)
     t_unit, t_converter = get_timescale(t_max)
     t_max = t_converter(t_max)
 
-    # Split data by group
-    groups, js = split_by_group(data, group_min_size, max_groups)
+    # Split data by group and get data
+    groups = get_groups(data, group_min_size, max_groups)
+    G, B, T = get_arrays(groups, data, t_converter)
 
-    # PLOT
+    # Fit model
+    m = _models[model]()
+    m.fit(G, B, T)
+
+    # Plot
     colors = seaborn.color_palette('hls', len(groups))
+    t = numpy.linspace(0, t_max, 1000)
     y_max = 0
     result = []
-    for group, color in zip(sorted(groups), colors):
-        X, B, T = get_arrays(js[group], t_converter)
-        t = numpy.linspace(0, t_max, 1000)
-
-        m = _models[model]()
-        m.fit(X, B, T)
-
-        label = '%s (n=%.0f, k=%.0f)' % (group, len(B), sum(B))
-
-        if projection:
-            p = _models[projection]()
-            p.fit(X, B, T)
-            p_y, p_y_lo, p_y_hi = p.predict([1], t, ci=0.95)
-            p_y_final, p_y_lo_final, p_y_hi_final = p.predict_final([1], ci=0.95)
-            label += ' projected: %.2f%% (%.2f%% - %.2f%%)' % (100.*p_y_final, 100.*p_y_lo_final, 100.*p_y_hi_final)
-            pyplot.plot(t, 100. * p_y, color=color, linestyle=':', alpha=0.7)
-            pyplot.fill_between(t, 100. * p_y_lo, 100. * p_y_hi, color=color, alpha=0.2)
-            result.append((group, p_y_final, p_y_lo_final, p_y_hi_final))
-
-        m_t, m_y = m.predict([1], t)
-        pyplot.plot(m_t, 100. * m_y, color=color, label=label)
-        y_max = max(y_max, 110. * max(m_y))
+    for j, (group, color) in enumerate(zip(groups, colors)):
+        n = sum(1 for g in G if g == j)  # TODO: slow
+        k = sum(1 for g, b in zip(G, B) if g == j and b)  # TODO: slow
+        label = '%s (n=%.0f, k=%.0f)' % (group, n, k)
+        p_y, p_y_lo, p_y_hi = m.predict(j, t, ci=0.95)
+        p_y_final, p_y_lo_final, p_y_hi_final = m.predict_final(j, ci=0.95)
+        label += ' projected: %.2f%% (%.2f%% - %.2f%%)' % (100.*p_y_final, 100.*p_y_lo_final, 100.*p_y_hi_final)
+        pyplot.plot(t, 100. * p_y, color=color, linestyle=':', alpha=0.7, label=label)
+        pyplot.fill_between(t, 100. * p_y_lo, 100. * p_y_hi, color=color, alpha=0.2)
+        result.append((group, p_y_final, p_y_lo_final, p_y_hi_final))
+        y_max = max(y_max, 110. * max(p_y))
 
     if title:
         pyplot.title(title)

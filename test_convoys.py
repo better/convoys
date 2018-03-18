@@ -91,7 +91,7 @@ def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=100000):
     assert 0.80*k/lambd < model.predict_time([1]) < 1.20*k/lambd
 
 
-def test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=2.0, lambd=0.1, n=100000):
+def test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=2.0, lambd=0.1, n=10000):
     C = numpy.array([bool(random.random() < cs[r % len(cs)]) for r in range(n)])
     N = scipy.stats.uniform.rvs(scale=5./lambd, size=(n,))
     E = numpy.array([sample_weibull(k, lambd) for r in range(n)])
@@ -104,15 +104,19 @@ def test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=2.0, lambd=0.1, n=100000):
                      x2t(t) if b else None,  # converted at
                      x2t(n)))  # now
 
-    result = convoys.plot_cohorts(data, projection='weibull')
+    matplotlib.pyplot.clf()
+    result = convoys.plot_cohorts(data, model='weibull')
+    matplotlib.pyplot.savefig('weibull.png')
     group, y, y_lo, y_hi = result[0]
     c = cs[0]
-    k = len(data)/len(cs)
-    c_lo = scipy.stats.beta.ppf(0.025, k*c, k*(1-c))
-    c_hi = scipy.stats.beta.ppf(0.975, k*c, k*(1-c))
     assert group == 'Group 0'
     assert 0.95*c < y < 1.05 * c
-    assert 0.70*(c_hi-c_lo) < (y_hi-y_lo) < 1.30*(c_hi-c_lo)
 
-    # Also plot with default arguments (TODO: add assertions)
+    # Also plot with default arguments
+    matplotlib.pyplot.clf()
     convoys.plot_cohorts(data)
+    matplotlib.pyplot.savefig('kaplan-meier.png')
+    group, y, y_lo, y_hi = result[0]
+    c = cs[0]
+    assert group == 'Group 0'
+    assert 0.95*c < y < 1.05 * c
