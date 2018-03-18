@@ -27,7 +27,7 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=100000):
     N = scipy.stats.uniform.rvs(scale=5./lambd, size=(n,))  # time now
     E = scipy.stats.expon.rvs(scale=1./lambd, size=(n,))  # time of event
     B, T = generate_censored_data(N, E, C)
-    model = convoys.regression.ExponentialRegression()
+    model = convoys.regression.Exponential()
     model.fit(X, B, T)
     assert 0.95*c < model.predict_final([1]) < 1.05*c
     assert 0.80/lambd < model.predict_time([1]) < 1.20/lambd
@@ -50,7 +50,7 @@ def test_weibull_regression_model(cs=[0.3, 0.5, 0.7], lambd=0.1, k=0.5, n=100000
     E = numpy.array([sample_weibull(k, lambd) for r in range(n)])
     B, T = generate_censored_data(N, E, C)
 
-    model = convoys.regression.WeibullRegression()
+    model = convoys.regression.Weibull()
     model.fit(X, B, T)
     for r, c in enumerate(cs):
         x = [1] + [int(r == j) for j in range(len(cs))]
@@ -66,7 +66,7 @@ def test_weibull_regression_model_ci(c=0.3, lambd=0.1, k=0.5, n=100000):
     E = numpy.array([sample_weibull(k, lambd) for r in range(n)])
     B, T = generate_censored_data(N, E, C)
 
-    model = convoys.regression.WeibullRegression()
+    model = convoys.regression.Weibull()
     model.fit(X, B, T)
     y, y_lo, y_hi = model.predict_final([1], ci=0.95)
     c_lo = scipy.stats.beta.ppf(0.025, n*c, n*(1-c))
@@ -83,7 +83,7 @@ def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=100000):
     E = scipy.stats.gamma.rvs(a=k, scale=1.0/lambd, size=(n,))
     B, T = generate_censored_data(N, E, C)
 
-    model = convoys.regression.GammaRegression()
+    model = convoys.regression.Gamma()
     model.fit(X, B, T)
     assert 0.95*c < model.predict_final([1]) < 1.05*c
     assert 0.90*k < model.params['k'] < 1.10*k
