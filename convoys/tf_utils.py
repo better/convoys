@@ -1,3 +1,5 @@
+import numpy
+import scipy.stats
 import sys
 import tensorflow as tf
 
@@ -42,4 +44,32 @@ def optimize(sess, target, variables):
         sys.stdout.write('step %6d (lr %6.6f): %14.3f%30s' % (step, learning_rate, cost, ''))
         sys.stdout.write('\n' if step % 100 == 0 else '\r')
         sys.stdout.flush()
+
+
+def fix_t(t):
+    # TODO: this is stupid, should at least have tests for it
+    t = numpy.array(t)
+    if len(t.shape) == 0:
+        return t
+    elif len(t.shape) == 1:
+        return numpy.array([[z] for z in t])
+    else:
+        return t
+
+
+def sample_hessian(x, value, hessian, n, ci):
+    if ci is None:
+        return numpy.dot(x, value)
+    else:
+        x = numpy.array(x)
+        inv_var = numpy.dot(numpy.dot(x.T, hessian), x)
+        return numpy.dot(x, value) + scipy.stats.norm.rvs(scale=inv_var**-0.5, size=(1, n))
+
+
+def predict(func_values, ci):
+    if ci is None:
+        return func_values
+    else:
+        axis = len(func_values.shape)-1
+        return numpy.mean(func_values, axis=axis), numpy.percentile(func_values, (1-ci)*50, axis=axis), numpy.percentile(func_values, (1+ci)*50, axis=axis)
 

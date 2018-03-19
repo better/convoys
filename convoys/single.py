@@ -92,3 +92,9 @@ class Nonparametric(SingleModel):
                 'z_hessian': tf_utils.get_hessian(sess, LL, z),
             }
             print(self.params)
+
+    def predict(self, x, t, ci=None, n=1000):
+        t = _fix_t(t)
+        x_prod_alpha = _sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
+        x_prod_beta = _sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
+        return tf_utils.predict(expit(x_prod_beta) * (1 - numpy.exp(-t * numpy.exp(x_prod_alpha))), ci)
