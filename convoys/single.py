@@ -46,7 +46,7 @@ class KaplanMeier(SingleModel):
 
 
 class Nonparametric(SingleModel):
-    def fit(self, B, T, n=3):
+    def fit(self, B, T, n=100):
         # We're going to fit c and p_0, p_1, ...
         # so that the probability of conversion at time i is c * (1 - p_0) * ... p_i
         # What's the total likelihood
@@ -57,12 +57,9 @@ class Nonparametric(SingleModel):
         # Need to sum up the log of that
         # We also replace the p_i's with sigmoids just to make the problem unconstrained (and note that 1-s(z) = s(-z))
         all_ts = list(sorted(t for b, t in zip(B, T) if b))
-        print('len(all_ts):', len(all_ts))
         n = min(n, len(all_ts))
         js = [int(round(1.0 * len(all_ts) * (z + 1) / n - 1)) for z in range(n)]
-        print('js:', js)
         ts = [all_ts[j] for j in js]
-        print('len(ts):', len(ts))
         count_observed = numpy.zeros((n,), dtype=numpy.float32)
         count_unobserved = numpy.zeros((n,), dtype=numpy.float32)
         for i, (b, t) in enumerate(zip(B, T)):
@@ -88,16 +85,10 @@ class Nonparametric(SingleModel):
 
         with tf.Session() as sess:
             tf_utils.optimize(sess, LL, (z, beta))
-
-            print('sum of probabilities of conversion:', sess.run(tf.exp(log_survived_until + log_observed)))
-
-            print('survival rates', sess.run(tf.log(tf.sigmoid(-z))))
-            print('log survived', sess.run(log_survived_until))
-            print('log survived + endpoint', sess.run(log_survived_after))
-            print('LL_observed', sess.run(LL_observed))
-            print('LL_unobserved', sess.run(LL_unobserved))
-            print('c:', sess.run(c))
-            w = sess.run(c * (1 - tf.exp(log_survived_until)))
-            from matplotlib import pyplot
-            pyplot.plot([0] + ts, w)
-            pyplot.savefig('nonparametric.png')
+            self.params = {
+                'beta': sess.run(beta),
+                'z': sess.run(z),
+                'beta_hessian': tf_utils.get_hessian(sess, LL, beta),
+                'z_hessian': tf_utils.get_hessian(sess, LL, z),
+            }
+            print(self.params)
