@@ -4,9 +4,6 @@ import tensorflow as tf
 from convoys import tf_utils
 
 
-tf.logging.set_verbosity(3)
-
-
 class RegressionModel:
     def __init__(self, L2_reg=1.0):
         self._L2_reg = L2_reg

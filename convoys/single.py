@@ -1,6 +1,7 @@
 import bisect
 import lifelines
 import numpy
+from scipy.special import expit
 import tensorflow as tf
 from convoys import tf_utils
 
@@ -46,7 +47,7 @@ class KaplanMeier(SingleModel):
 
 
 class Nonparametric(SingleModel):
-    def fit(self, B, T, n=100):
+    def fit(self, B, T, n=2):
         # We're going to fit c and p_0, p_1, ...
         # so that the probability of conversion at time i is c * (1 - p_0) * ... p_i
         # What's the total likelihood
@@ -59,12 +60,12 @@ class Nonparametric(SingleModel):
         all_ts = list(sorted(t for b, t in zip(B, T) if b))
         n = min(n, len(all_ts))
         js = [int(round(1.0 * len(all_ts) * (z + 1) / n - 1)) for z in range(n)]
-        ts = [all_ts[j] for j in js]
+        self.ts = [all_ts[j] for j in js]
+        self.get_j = numpy.vectorize(lambda t: min(bisect.bisect_left(self.ts, t), n-1))
         count_observed = numpy.zeros((n,), dtype=numpy.float32)
         count_unobserved = numpy.zeros((n,), dtype=numpy.float32)
         for i, (b, t) in enumerate(zip(B, T)):
-            j = bisect.bisect_left(ts, t)
-            j = min(j, n-1)
+            j = self.get_j(t)
             if b:
                 count_observed[j] += 1
             else:
@@ -88,13 +89,22 @@ class Nonparametric(SingleModel):
             self.params = {
                 'beta': sess.run(beta),
                 'z': sess.run(z),
-                'beta_hessian': tf_utils.get_hessian(sess, LL, beta),
-                'z_hessian': tf_utils.get_hessian(sess, LL, z),
+                'beta_cov': 1. / tf_utils.get_hessian(sess, LL, beta),
+                'z_cov': numpy.linalg.inv(tf_utils.get_hessian(sess, LL, z)),
             }
-            print(self.params)
 
-    def predict(self, x, t, ci=None, n=1000):
-        t = _fix_t(t)
-        x_prod_alpha = _sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
-        x_prod_beta = _sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
-        return tf_utils.predict(expit(x_prod_beta) * (1 - numpy.exp(-t * numpy.exp(x_prod_alpha))), ci)
+    def predict(self, t, ci=None, n=1000):
+        t = tf_utils.fix_t(t)
+        if ci:
+            betas = numpy.random.normal(self.params['beta'], self.params['beta_cov'], n)
+            zs = numpy.random.multivariate_normal(self.params['z'], self.params['z_cov'], n).T
+        else:
+            betas = self.params['beta']
+            zs = self.params['z']
+
+        c = expit(betas)
+        log_survived_until = numpy.cumsum(numpy.log(expit(-zs)), axis=0)  # todo: should use exclusive=True I think?
+        f = c * (1 - numpy.exp(log_survived_until))
+        p = tf_utils.predict(f, ci)
+        j = self.get_j(t)
+        print(j)

@@ -3,6 +3,8 @@ import scipy.stats
 import sys
 import tensorflow as tf
 
+tf.logging.set_verbosity(3)
+
 
 def get_hessian(sess, f, param):
     return sess.run(tf.hessians(-f, [param]))[0]
@@ -72,4 +74,3 @@ def predict(func_values, ci):
     else:
         axis = len(func_values.shape)-1
         return numpy.mean(func_values, axis=axis), numpy.percentile(func_values, (1-ci)*50, axis=axis), numpy.percentile(func_values, (1+ci)*50, axis=axis)
-
