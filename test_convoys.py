@@ -8,6 +8,7 @@ import scipy.stats
 matplotlib.use('Agg')  # Needed for matplotlib to run in Travis
 import convoys
 import convoys.regression
+import convoys.single
 
 
 def sample_weibull(k, lambd):
@@ -120,3 +121,13 @@ def test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=2.0, lambd=0.1, n=10000):
     c = cs[0]
     assert group == 'Group 0'
     assert 0.95*c < y < 1.05 * c
+
+
+def test_nonparametric_model(c=0.3, lambd=0.1, k=0.5, n=100000):
+    C = scipy.stats.bernoulli.rvs(c, size=(n,))
+    N = scipy.stats.uniform.rvs(scale=5./lambd, size=(n,))
+    E = numpy.array([sample_weibull(k, lambd) for r in range(n)])
+    B, T = generate_censored_data(N, E, C)
+
+    m = convoys.single.Nonparametric()
+    m.fit(B, T)
