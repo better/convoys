@@ -15,10 +15,6 @@ def _get_params(sess, params):
     return {key: sess.run(param) for key, param in params.items()}
 
 
-def _get_hessian(sess, f, param):
-    return sess.run(tf.hessians(-f, [param]))[0]
-
-
 def _fix_t(t):
     # TODO: this is stupid, should at least have tests for it
     t = numpy.array(t)
@@ -76,8 +72,8 @@ class Exponential(RegressionModel):
         with tf.Session() as sess:
             tf_utils.optimize(sess, LL_penalized, (alpha, beta))
             self.params = _get_params(sess, {'beta': beta, 'alpha': alpha})
-            self.params['alpha_hessian'] = _get_hessian(sess, LL_penalized, alpha)
-            self.params['beta_hessian'] = _get_hessian(sess, LL_penalized, beta)
+            self.params['alpha_hessian'] = tf_utils.get_hessian(sess, LL_penalized, alpha)
+            self.params['beta_hessian'] = tf_utils.get_hessian(sess, LL_penalized, beta)
 
     def predict(self, x, t, ci=None, n=1000):
         t = _fix_t(t)
@@ -122,8 +118,8 @@ class Weibull(RegressionModel):
         with tf.Session() as sess:
             tf_utils.optimize(sess, LL_penalized, (alpha, beta, log_k_var))
             self.params = _get_params(sess, {'beta': beta, 'alpha': alpha, 'k': k})
-            self.params['alpha_hessian'] = _get_hessian(sess, LL_penalized, alpha)
-            self.params['beta_hessian'] = _get_hessian(sess, LL_penalized, beta)
+            self.params['alpha_hessian'] = tf_utils.get_hessian(sess, LL_penalized, alpha)
+            self.params['beta_hessian'] = tf_utils.get_hessian(sess, LL_penalized, beta)
 
     def predict(self, x, t, ci=None, n=1000):
         t = _fix_t(t)
@@ -168,8 +164,8 @@ class Gamma(RegressionModel):
         with tf.Session() as sess:
             tf_utils.optimize(sess, LL_penalized, (alpha, beta, log_k_var))
             self.params = _get_params(sess, {'beta': beta, 'alpha': alpha, 'k': k})
-            self.params['alpha_hessian'] = _get_hessian(sess, LL_penalized, alpha)
-            self.params['beta_hessian'] = _get_hessian(sess, LL_penalized, beta)
+            self.params['alpha_hessian'] = tf_utils.get_hessian(sess, LL_penalized, alpha)
+            self.params['beta_hessian'] = tf_utils.get_hessian(sess, LL_penalized, beta)
 
     def predict(self, x, t, ci=None, n=1000):
         t = _fix_t(t)

@@ -1,6 +1,11 @@
 import sys
 import tensorflow as tf
 
+
+def get_hessian(sess, f, param):
+    return sess.run(tf.hessians(-f, [param]))[0]
+
+
 def optimize(sess, target, variables):
     learning_rate_input = tf.placeholder(tf.float32, [])
     optimizer = tf.train.AdamOptimizer(learning_rate_input).minimize(-target)
