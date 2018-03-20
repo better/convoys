@@ -6,7 +6,7 @@ import numpy
 import random
 import seaborn
 from matplotlib import pyplot
-from convoys.multi import Exponential, Weibull, Gamma, KaplanMeier
+from convoys.multi import Exponential, Weibull, Gamma, KaplanMeier, Nonparametric
 
 
 def get_timescale(t):
@@ -78,6 +78,7 @@ def get_groups(data, group_min_size, max_groups):
 
 _models = {
     'kaplan-meier': KaplanMeier,
+    'nonparametric': Nonparametric,
     'exponential': Exponential,
     'weibull': Weibull,
     'gamma': Gamma,
@@ -108,7 +109,7 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
         n = sum(1 for g in G if g == j)  # TODO: slow
         k = sum(1 for g, b in zip(G, B) if g == j and b)  # TODO: slow
         label = '%s (n=%.0f, k=%.0f)' % (group, n, k)
-        p_y, p_y_lo, p_y_hi = m.predict(j, t, ci=0.95)
+        p_y, p_y_lo, p_y_hi = m.predict(j, t, ci=0.95).T
         p_y_final, p_y_lo_final, p_y_hi_final = m.predict_final(j, ci=0.95)
         label += ' projected: %.2f%% (%.2f%% - %.2f%%)' % (100.*p_y_final, 100.*p_y_lo_final, 100.*p_y_hi_final)
         pyplot.plot(t, 100. * p_y, color=color, linestyle=':', alpha=0.7, label=label)
