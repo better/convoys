@@ -1,4 +1,5 @@
 import datetime
+import flaky
 import matplotlib
 import numpy
 import pytest
@@ -22,6 +23,7 @@ def generate_censored_data(N, E, C):
     return B, T
 
 
+@flaky.flaky
 def test_exponential_regression_model(c=0.3, lambd=0.1, n=100000):
     X = numpy.ones((n, 1))
     C = scipy.stats.bernoulli.rvs(c, size=(n,))  # did it convert
@@ -49,6 +51,7 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=100000):
     assert 0.70*(c_hi-c_lo) < (y_hi-y_lo) < 1.30*(c_hi-c_lo)
 
 
+@flaky.flaky
 def test_weibull_regression_model(cs=[0.3, 0.5, 0.7], lambd=0.1, k=0.5, n=100000):
     X = numpy.array([[1] + [r % len(cs) == j for j in range(len(cs))] for r in range(n)])
     C = numpy.array([bool(random.random() < cs[r % len(cs)]) for r in range(n)])
@@ -76,6 +79,7 @@ def test_weibull_regression_model(cs=[0.3, 0.5, 0.7], lambd=0.1, k=0.5, n=100000
         assert 0.80*expected_time < model.predict_time(x) < 1.20*expected_time
 
 
+@flaky.flaky
 def test_weibull_regression_model_ci(c=0.3, lambd=0.1, k=0.5, n=100000):
     X = numpy.ones((n, 1))
     C = scipy.stats.bernoulli.rvs(c, size=(n,))
@@ -92,6 +96,7 @@ def test_weibull_regression_model_ci(c=0.3, lambd=0.1, k=0.5, n=100000):
     assert 0.70*(c_hi-c_lo) < (y_hi-y_lo) < 1.30*(c_hi-c_lo)
 
 
+@flaky.flaky
 def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=100000):
     # TODO: this one seems very sensitive to large values for N (i.e. less censoring)
     X = numpy.ones((n, 1))
@@ -108,6 +113,7 @@ def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=100000):
     assert 0.80*k/lambd < model.predict_time([1]) < 1.20*k/lambd
 
 
+@flaky.flaky
 def test_nonparametric_model(c=0.3, lambd=0.1, k=0.5, n=10000):
     C = scipy.stats.bernoulli.rvs(c, size=(n,))
     N = scipy.stats.uniform.rvs(scale=30./lambd, size=(n,))
@@ -150,9 +156,11 @@ def _test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=10000, model='wei
     assert 0.90*c < y < 1.10 * c
 
 
+@flaky.flaky
 def test_plot_cohorts_weibull():
     _test_plot_cohorts(model='weibull')
 
 
+@flaky.flaky
 def test_plot_cohorts_nonparametric():
     _test_plot_cohorts(model='nonparametric')
