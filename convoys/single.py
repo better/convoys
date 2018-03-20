@@ -47,7 +47,7 @@ class KaplanMeier(SingleModel):
 
 
 class Nonparametric(SingleModel):
-    def fit(self, B, T, n=1000):
+    def fit(self, B, T, n=100):
         # We're going to fit c and p_0, p_1, ...
         # so that the probability of conversion at time i is c * (1 - p_0) * ... p_i
         # What's the total likelihood
@@ -88,20 +88,22 @@ class Nonparametric(SingleModel):
 
         with tf.Session() as sess:
             tf_utils.optimize(sess, LL, (z, beta))
+            # Note: we only store the diagonal of the Hessian, since empirically, off-diagonal
+            # elements are almost zero, and working with the full covariance matrix causes
+            # numpy.random.multivariate_normal to break.
             self.params = {
                 'beta': sess.run(beta),
                 'z': sess.run(z),
                 'beta_std': tf_utils.get_hessian(sess, LL, beta) ** -0.5,
-                'z_cov': numpy.linalg.inv(tf_utils.get_hessian(sess, LL, z)),
+                'z_std': numpy.diag(tf_utils.get_hessian(sess, LL, z)) ** -0.5,  # TODO: seems inefficient
             }
-            # TODO: on synthetic data, z_cov is extremely close to diagonal
-            # Would be much faster/easier to just compute & store a diagonal matrix
 
     def predict(self, t, ci=None, n=1000):
         t = numpy.array(t)
         if ci:
             betas = numpy.random.normal(self.params['beta'], self.params['beta_std'], n)
-            zs = numpy.random.multivariate_normal(self.params['z'], self.params['z_cov'], n).T
+            zs = numpy.random.normal(self.params['z'], self.params['z_std'], size=(n,) + self.params['z'].shape).T
+            zs = numpy.clip(zs, -10, 10)  # Fix crazy outliers
         else:
             betas = self.params['beta']
             zs = self.params['z']
