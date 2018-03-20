@@ -6,7 +6,7 @@ import numpy
 import random
 import seaborn
 from matplotlib import pyplot
-from convoys.multi import Exponential, Weibull, Gamma, KaplanMeier
+from convoys.multi import Exponential, Weibull, Gamma, KaplanMeier, Nonparametric
 
 
 def get_timescale(t):
@@ -78,6 +78,7 @@ def get_groups(data, group_min_size, max_groups):
 
 _models = {
     'kaplan-meier': KaplanMeier,
+    'nonparametric': Nonparametric,
     'exponential': Exponential,
     'weibull': Weibull,
     'gamma': Gamma,

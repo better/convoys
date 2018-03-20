@@ -108,7 +108,27 @@ def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=100000):
     assert 0.80*k/lambd < model.predict_time([1]) < 1.20*k/lambd
 
 
-def test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=10000):
+def test_nonparametric_model(c=0.3, lambd=0.1, k=0.5, n=10000):
+    C = scipy.stats.bernoulli.rvs(c, size=(n,))
+    N = scipy.stats.uniform.rvs(scale=30./lambd, size=(n,))
+    E = numpy.array([sample_weibull(k, lambd) for r in range(n)])
+    B, T = generate_censored_data(N, E, C)
+
+    m = convoys.single.Nonparametric()
+    m.fit(B, T)
+
+    assert 0.95*c < m.predict_final() < 1.05*c
+
+    # Check shapes of results
+    assert m.predict_final().shape == ()
+    assert m.predict_final(ci=0.95).shape == (3,)
+    assert m.predict(1).shape == ()
+    assert m.predict([1, 2, 3, 4]).shape == (4,)
+    assert m.predict(1, ci=0.95).shape == (3,)
+    assert m.predict([1, 2, 3, 4], ci=0.95).shape == (4, 3)
+
+
+def _test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=10000, model='weibull'):
     C = numpy.array([bool(random.random() < cs[r % len(cs)]) for r in range(n)])
     N = scipy.stats.uniform.rvs(scale=5./lambd, size=(n,))
     E = numpy.array([sample_weibull(k, lambd) for r in range(n)])
@@ -122,35 +142,17 @@ def test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=10000):
                      x2t(n)))  # now
 
     matplotlib.pyplot.clf()
-    result = convoys.plot_cohorts(data, model='weibull')
-    matplotlib.pyplot.savefig('weibull.png')
+    result = convoys.plot_cohorts(data, model=model)
+    matplotlib.pyplot.savefig(model + '.png')
     group, y, y_lo, y_hi = result[0]
     c = cs[0]
     assert group == 'Group 0'
     assert 0.95*c < y < 1.05 * c
 
-    # Also plot with default arguments
-    # TODO: disabled right now because the kaplan-meier api is broken
-    # not going to fix it since it's deprecated anyway
-    #matplotlib.pyplot.clf()
-    #convoys.plot_cohorts(data)
-    #matplotlib.pyplot.savefig('kaplan-meier.png')
-    #group, y, y_lo, y_hi = result[0]
-    #c = cs[0]
-    #assert group == 'Group 0'
-    #assert 0.95*c < y < 1.05 * c
+
+def test_plot_cohorts_weibull():
+    _test_plot_cohorts(model='weibull')
 
 
-def test_nonparametric_model(c=0.3, lambd=0.1, k=0.5, n=10000):
-    C = scipy.stats.bernoulli.rvs(c, size=(n,))
-    N = scipy.stats.uniform.rvs(scale=30./lambd, size=(n,))
-    E = numpy.array([sample_weibull(k, lambd) for r in range(n)])
-    B, T = generate_censored_data(N, E, C)
-
-    m = convoys.single.Nonparametric()
-    m.fit(B, T)
-
-    assert 0.95*c < m.predict_final() < 1.05*c
-
-    print(m.predict(1, ci=0.95))
-    print(m.predict([1, 2], ci=0.95))
+def test_plot_cohorts_nonparametric():
+    _test_plot_cohorts(model='nonparametric')

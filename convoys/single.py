@@ -78,7 +78,9 @@ class Nonparametric(SingleModel):
 
         beta = tf.Variable(tf.zeros([]))
         c = tf.sigmoid(beta)
-        B = B.astype(numpy.float32)
+
+        B = numpy.array(B, dtype=numpy.float32)
+        T = numpy.array(T, dtype=numpy.float32)
 
         LL_observed = tf.log(c) + log_survived_until + log_observed
         LL_unobserved = tf.log(1 - c + c * tf.exp(log_survived_after))
