@@ -47,7 +47,7 @@ class KaplanMeier(SingleModel):
 
 
 class Nonparametric(SingleModel):
-    def fit(self, B, T, n=2):
+    def fit(self, B, T, n=100):
         # We're going to fit c and p_0, p_1, ...
         # so that the probability of conversion at time i is c * (1 - p_0) * ... p_i
         # What's the total likelihood
@@ -89,22 +89,31 @@ class Nonparametric(SingleModel):
             self.params = {
                 'beta': sess.run(beta),
                 'z': sess.run(z),
-                'beta_cov': 1. / tf_utils.get_hessian(sess, LL, beta),
+                'beta_std': tf_utils.get_hessian(sess, LL, beta) ** -0.5,
                 'z_cov': numpy.linalg.inv(tf_utils.get_hessian(sess, LL, z)),
             }
+            # TODO: on synthetic data, z_cov is extremely close to diagonal
+            # Would be much faster/easier to just store a diagonal matrix
 
     def predict(self, t, ci=None, n=1000):
         t = tf_utils.fix_t(t)
         if ci:
-            betas = numpy.random.normal(self.params['beta'], self.params['beta_cov'], n)
+            betas = numpy.random.normal(self.params['beta'], self.params['beta_std'], n)
             zs = numpy.random.multivariate_normal(self.params['z'], self.params['z_cov'], n).T
         else:
             betas = self.params['beta']
             zs = self.params['z']
 
         c = expit(betas)
-        log_survived_until = numpy.cumsum(numpy.log(expit(-zs)), axis=0)  # todo: should use exclusive=True I think?
+        log_survived_until = numpy.cumsum(numpy.log(expit(-zs)), axis=0)
         f = c * (1 - numpy.exp(log_survived_until))
-        p = tf_utils.predict(f, ci)
+        y, y_lo, y_hi = tf_utils.predict(f, ci)
+
         j = self.get_j(t)
-        print(j)
+
+    def predict_final(self, ci=None, n=1000):
+        if ci:
+            betas = numpy.random.normal(self.params['beta'], self.params['beta_std'], n)
+            return tf_utils.predict(betas, ci)
+        else:
+            return expit(self.params['beta'])

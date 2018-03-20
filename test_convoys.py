@@ -123,11 +123,16 @@ def test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=10000):
     assert 0.95*c < y < 1.05 * c
 
 
-def test_nonparametric_model(c=0.3, lambd=0.1, k=0.5, n=100000):
+def test_nonparametric_model(c=0.3, lambd=0.1, k=0.5, n=10000):
     C = scipy.stats.bernoulli.rvs(c, size=(n,))
-    N = scipy.stats.uniform.rvs(scale=5./lambd, size=(n,))
+    N = scipy.stats.uniform.rvs(scale=30./lambd, size=(n,))
     E = numpy.array([sample_weibull(k, lambd) for r in range(n)])
     B, T = generate_censored_data(N, E, C)
 
     m = convoys.single.Nonparametric()
     m.fit(B, T)
+
+    assert 0.95*c < m.predict_final() < 1.05*c
+
+    print(m.predict(1, ci=0.95))
+    print(m.predict([1, 2], ci=0.95))
