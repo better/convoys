@@ -130,7 +130,7 @@ def test_nonparametric_model(c=0.3, lambd=0.1, k=0.5, n=10000):
 
 def _test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=10000, model='weibull'):
     C = numpy.array([bool(random.random() < cs[r % len(cs)]) for r in range(n)])
-    N = scipy.stats.uniform.rvs(scale=5./lambd, size=(n,))
+    N = scipy.stats.uniform.rvs(scale=15./lambd, size=(n,))
     E = numpy.array([sample_weibull(k, lambd) for r in range(n)])
     B, T = generate_censored_data(N, E, C)
     data = []
@@ -147,7 +147,7 @@ def _test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=10000, model='wei
     group, y, y_lo, y_hi = result[0]
     c = cs[0]
     assert group == 'Group 0'
-    assert 0.95*c < y < 1.05 * c
+    assert 0.90*c < y < 1.10 * c
 
 
 def test_plot_cohorts_weibull():

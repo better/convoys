@@ -47,7 +47,7 @@ class KaplanMeier(SingleModel):
 
 
 class Nonparametric(SingleModel):
-    def fit(self, B, T, n=100):
+    def fit(self, B, T, n=1000):
         # We're going to fit c and p_0, p_1, ...
         # so that the probability of conversion at time i is c * (1 - p_0) * ... p_i
         # What's the total likelihood
@@ -119,6 +119,6 @@ class Nonparametric(SingleModel):
     def predict_final(self, ci=None, n=1000):
         if ci:
             betas = numpy.random.normal(self.params['beta'], self.params['beta_std'], n)
-            return tf_utils.predict(betas, ci)
+            return tf_utils.predict(expit(betas), ci)
         else:
             return expit(self.params['beta'])
