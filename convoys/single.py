@@ -61,7 +61,7 @@ class Nonparametric(SingleModel):
         n = min(n, len(all_ts))
         js = [int(round(1.0 * len(all_ts) * (z + 1) / n - 1)) for z in range(n)]
         self.ts = [all_ts[j] for j in js]
-        self.get_j = numpy.vectorize(lambda t: min(bisect.bisect_left(self.ts, t), n-1))
+        self.get_j = lambda t: min(bisect.bisect_left(self.ts, t), n-1)  # TODO: numpy.searchsorted?
         count_observed = numpy.zeros((n,), dtype=numpy.float32)
         count_unobserved = numpy.zeros((n,), dtype=numpy.float32)
         for i, (b, t) in enumerate(zip(B, T)):
@@ -93,10 +93,10 @@ class Nonparametric(SingleModel):
                 'z_cov': numpy.linalg.inv(tf_utils.get_hessian(sess, LL, z)),
             }
             # TODO: on synthetic data, z_cov is extremely close to diagonal
-            # Would be much faster/easier to just store a diagonal matrix
+            # Would be much faster/easier to just compute & store a diagonal matrix
 
     def predict(self, t, ci=None, n=1000):
-        t = tf_utils.fix_t(t)
+        t = numpy.array(t)
         if ci:
             betas = numpy.random.normal(self.params['beta'], self.params['beta_std'], n)
             zs = numpy.random.multivariate_normal(self.params['z'], self.params['z_cov'], n).T
@@ -107,9 +107,12 @@ class Nonparametric(SingleModel):
         c = expit(betas)
         log_survived_until = numpy.cumsum(numpy.log(expit(-zs)), axis=0)
         f = c * (1 - numpy.exp(log_survived_until))
-        y, y_lo, y_hi = tf_utils.predict(f, ci)
-
-        j = self.get_j(t)
+        m = tf_utils.predict(f, ci)
+        res = numpy.zeros(t.shape + (3,) if ci else t.shape)
+        for indexes, value in numpy.ndenumerate(t):
+            j = self.get_j(value)
+            res[indexes] = m[j]
+        return res
 
     def predict_final(self, ci=None, n=1000):
         if ci:
