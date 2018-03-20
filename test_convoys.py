@@ -30,13 +30,18 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=100000):
     B, T = generate_censored_data(N, E, C)
     model = convoys.regression.Exponential()
     model.fit(X, B, T)
+    assert model.predict_final([1]).shape == ()
     assert 0.95*c < model.predict_final([1]) < 1.05*c
     assert 0.80/lambd < model.predict_time([1]) < 1.20/lambd
+    assert model.predict([1], 0).shape == ()
+    assert model.predict([1], [0, 1, 2, 3]).shape == (4,)
     t = 10
     d = 1 - numpy.exp(-lambd*t)
     assert 0.95*c*d < model.predict([1], t) < 1.05*c*d
 
     # Check the confidence intervals
+    assert model.predict_final([1], ci=0.95).shape == (3,)
+    assert model.predict([1], [0, 1, 2, 3], ci=0.95).shape == (4, 3)
     y, y_lo, y_hi = model.predict_final([1], ci=0.95)
     c_lo = scipy.stats.beta.ppf(0.025, n*c, n*(1-c))
     c_hi = scipy.stats.beta.ppf(0.975, n*c, n*(1-c))
@@ -53,6 +58,17 @@ def test_weibull_regression_model(cs=[0.3, 0.5, 0.7], lambd=0.1, k=0.5, n=100000
 
     model = convoys.regression.Weibull()
     model.fit(X, B, T)
+
+    # Validate shape of results
+    x = numpy.ones((len(cs)+1,))
+    assert model.predict_final(x).shape == ()
+    assert model.predict_final(x, ci=0.95).shape == (3,)
+    assert model.predict(x, 1).shape == ()
+    assert model.predict(x, 1, ci=True).shape == (3,)
+    assert model.predict(x, [1, 2, 3, 4]).shape == (4,)
+    assert model.predict(x, [1, 2, 3, 4], ci=True).shape == (4, 3)
+
+    # Check results
     for r, c in enumerate(cs):
         x = [1] + [int(r == j) for j in range(len(cs))]
         assert 0.95 * c < model.predict_final(x) < 1.05 * c

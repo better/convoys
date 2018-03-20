@@ -40,10 +40,10 @@ class Exponential(RegressionModel):
             }
 
     def predict(self, x, t, ci=None, n=1000):
-        t = tf_utils.fix_t(t)
+        t = numpy.array(t)
         x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
         x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
-        return tf_utils.predict(expit(x_prod_beta) * (1 - numpy.exp(-t * numpy.exp(x_prod_alpha))), ci)
+        return tf_utils.predict(expit(x_prod_beta) * (1 - numpy.exp(numpy.multiply.outer(-t, numpy.exp(x_prod_alpha)))), ci)
 
     def predict_final(self, x, ci=None, n=1000):
         x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
@@ -90,10 +90,10 @@ class Weibull(RegressionModel):
             }
 
     def predict(self, x, t, ci=None, n=1000):
-        t = tf_utils.fix_t(t)
+        t = numpy.array(t)
         x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
         x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
-        return tf_utils.predict(expit(x_prod_beta) * (1 - numpy.exp(-(t * numpy.exp(x_prod_alpha))**self.params['k'])), ci)
+        return tf_utils.predict(expit(x_prod_beta) * (1 - numpy.exp(-numpy.multiply.outer(t, numpy.exp(x_prod_alpha))**self.params['k'])), ci)
 
     def predict_final(self, x, ci=None, n=1000):
         x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
@@ -140,10 +140,10 @@ class Gamma(RegressionModel):
             }
 
     def predict(self, x, t, ci=None, n=1000):
-        t = tf_utils.fix_t(t)
+        t = numpy.array(t)
         x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
         x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
-        return tf_utils.predict(expit(x_prod_beta) * (1 - gammainc(self.params['k'], t * numpy.exp(x_prod_alpha))), ci)
+        return tf_utils.predict(expit(x_prod_beta) * (1 - gammainc(self.params['k'], numpy.multiply.outer(t, numpy.exp(x_prod_alpha)))), ci)
 
     def predict_final(self, x, ci=None, n=1000):
         x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
