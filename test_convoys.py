@@ -123,7 +123,7 @@ def test_nonparametric_model(c=0.3, lambd=0.1, k=0.5, n=10000):
     m = convoys.single.Nonparametric()
     m.fit(B, T)
 
-    assert 0.95*c < m.predict_final() < 1.05*c
+    assert 0.90*c < m.predict_final() < 1.10*c
 
     # Check shapes of results
     assert m.predict_final().shape == ()
