@@ -46,6 +46,14 @@ class KaplanMeier(SingleModel):
             return median(self.ps)
 
 
+def _fit_beta_distribution_from_sigmoid(c, h):
+    # TODO: should write down the derivation of this somewhere
+    M = numpy.array([[-1/c**2, -1/(1-c)**2],
+                     [(1-c), -c]])
+    q = numpy.array([-h/(c*(1-c))**2 - 1/c**2 - 1/(1-c)**2, 1 - 2*c])
+    return numpy.linalg.solve(M, q)
+
+
 class Nonparametric(SingleModel):
     def fit(self, B, T, n=100):
         # We're going to fit c and p_0, p_1, ...
@@ -93,24 +101,29 @@ class Nonparametric(SingleModel):
             # numpy.random.multivariate_normal to break.
             self.params = {
                 'beta': sess.run(beta),
-                'z': sess.run(z),
                 'beta_std': tf_utils.get_hessian(sess, LL, beta) ** -0.5,
-                'z_std': numpy.maximum(numpy.diag(tf_utils.get_hessian(sess, LL, z)), 0) ** -0.5,  # TODO: seems inefficient
+                'a': numpy.zeros((n,)),
+                'b': numpy.zeros((n,)),
             }
+            c = sess.run(tf.sigmoid(z))
+            # TODO: seems inefficient to compute the full hessian and then discard everything but the diagonal
+            h = numpy.diag(tf_utils.get_hessian(sess, LL, z))
+            for i in range(len(c)):
+                self.params['a'][i], self.params['b'][i] = _fit_beta_distribution_from_sigmoid(c[i], h[i])
+
 
     def predict(self, t, ci=None, n=1000):
         t = numpy.array(t)
         if ci:
             betas = numpy.random.normal(self.params['beta'], self.params['beta_std'], n)
-            zs = numpy.random.normal(self.params['z'], self.params['z_std'], size=(n,) + self.params['z'].shape).T
-            zs = numpy.clip(zs, -10, 10)  # Fix crazy outliers
+            cs = numpy.random.beta(self.params['a'], self.params['b'], size=(n,) + self.params['a'].shape).T
         else:
             betas = self.params['beta']
-            zs = self.params['z']
+            cs = (self.params['a'] - 1) / (self.params['a'] + self.params['b'] - 2)
 
         c = expit(betas)
-        log_survived_until = numpy.cumsum(numpy.log(expit(-zs)), axis=0)
-        f = c * (1 - numpy.exp(log_survived_until))
+        survived_until = numpy.cumprod(1 - cs, axis=0)
+        f = c * (1 - survived_until)
         m = tf_utils.predict(f, ci)
         res = numpy.zeros(t.shape + (3,) if ci else t.shape)
         for indexes, value in numpy.ndenumerate(t):
