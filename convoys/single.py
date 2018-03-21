@@ -1,7 +1,7 @@
 import bisect
 import lifelines
 import numpy
-from scipy.special import expit
+from scipy.special import expit, logit
 import tensorflow as tf
 from convoys import tf_utils
 
@@ -71,6 +71,9 @@ class Nonparametric(SingleModel):
             else:
                 count_unobserved[j] += 1
 
+        B = numpy.array(B, dtype=numpy.float32)
+        T = numpy.array(T, dtype=numpy.float32)
+
         z = tf.Variable(tf.zeros((n,)))
         log_survived_until = tf.cumsum(tf.log(tf.sigmoid(-z)), exclusive=True)
         log_survived_after = tf.cumsum(tf.log(tf.sigmoid(-z)))
@@ -79,24 +82,33 @@ class Nonparametric(SingleModel):
         beta = tf.Variable(tf.zeros([]))
         c = tf.sigmoid(beta)
 
-        B = numpy.array(B, dtype=numpy.float32)
-        T = numpy.array(T, dtype=numpy.float32)
-
-        LL_observed = tf.log(c) + log_survived_until + log_observed
-        LL_unobserved = tf.log(1 - c + c * tf.exp(log_survived_after))
-        LL = tf.reduce_sum(count_observed * LL_observed + count_unobserved * LL_unobserved, 0)
+        def get_LL(log_survived_until, log_survived_after, log_observed):
+            LL_observed = tf.log(c) + log_survived_until + log_observed
+            LL_unobserved = tf.log(1 - c + c * tf.exp(log_survived_after))
+            return tf.reduce_sum(count_observed * LL_observed + count_unobserved * LL_unobserved, 0)
 
         with tf.Session() as sess:
-            tf_utils.optimize(sess, LL, (z, beta))
+            tf_utils.optimize(sess, get_LL(log_survived_until, log_survived_after, log_observed), (z, beta))
+
+            # At this point, we're going to reparametrize the problem to be a function of log_survived_after
+            # We can't do that with the original problem, since that would induce negative values of log_observed
+            log_cs = sess.run(log_survived_after)
+            z = tf.Variable(logit(numpy.exp(log_cs)))
+            log_survived_after = tf.log(tf.sigmoid(z))
+            log_survived_until = tf.concat([[0], tf.slice(log_survived_after, [0], [len(log_cs)-1])], axis=0)
+            log_observed = tf.log(1 - tf.exp(log_survived_after - log_survived_until))
+            LL = get_LL(log_survived_until, log_survived_after, log_observed)
+            sess.run(z.initializer)
+
             # Note: we only store the diagonal of the Hessian, since empirically, off-diagonal
-            # elements are almost zero, and working with the full covariance matrix causes
-            # numpy.random.multivariate_normal to break.
+            # elements are almost zero.
             self.params = {
                 'beta': sess.run(beta),
-                'z': sess.run(z),
                 'beta_std': tf_utils.get_hessian(sess, LL, beta) ** -0.5,
-                'z_std': numpy.maximum(numpy.diag(tf_utils.get_hessian(sess, LL, z)), 0) ** -0.5,  # TODO: seems inefficient
+                'z': sess.run(z),
+                'z_std': numpy.diag(tf_utils.get_hessian(sess, LL, z)) ** -0.5,  # TODO: seems inefficient
             }
+            self.params['z_std'] = 0  # not sure what's up, will revisit this
 
     def predict(self, t, ci=None, n=1000):
         t = numpy.array(t)
@@ -109,8 +121,8 @@ class Nonparametric(SingleModel):
             zs = self.params['z']
 
         c = expit(betas)
-        log_survived_until = numpy.cumsum(numpy.log(expit(-zs)), axis=0)
-        f = c * (1 - numpy.exp(log_survived_until))
+        survived_until = expit(zs)
+        f = c * (1 - survived_until)
         m = tf_utils.predict(f, ci)
         res = numpy.zeros(t.shape + (3,) if ci else t.shape)
         for indexes, value in numpy.ndenumerate(t):
