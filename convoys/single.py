@@ -95,7 +95,7 @@ class Nonparametric(SingleModel):
                 'beta': sess.run(beta),
                 'z': sess.run(z),
                 'beta_std': tf_utils.get_hessian(sess, LL, beta) ** -0.5,
-                'z_std': numpy.diag(tf_utils.get_hessian(sess, LL, z)) ** -0.5,  # TODO: seems inefficient
+                'z_std': numpy.maximum(numpy.diag(tf_utils.get_hessian(sess, LL, z)), 0) ** -0.5,  # TODO: seems inefficient
             }
 
     def predict(self, t, ci=None, n=1000):
