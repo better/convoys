@@ -1,10 +1,7 @@
-import abc
 import datetime
-import lifelines
-import math
+import itertools
 import numpy
 import random
-import seaborn
 from matplotlib import pyplot
 from convoys.multi import Exponential, Weibull, Gamma, KaplanMeier, Nonparametric
 
@@ -76,6 +73,17 @@ def get_groups(data, group_min_size, max_groups):
     return sorted(groups)
 
 
+def generate_n_colors(n):
+    vs = numpy.linspace(0.4, 1.0, 7)
+    colors = [(1., .3, .3)]
+    def euclidean(a, b):
+        return sum((x-y)**2 for x, y in zip(a, b))
+    while len(colors) < n:
+        new_color = max(itertools.product(vs, vs, vs), key=lambda a: min(euclidean(a, b) for b in colors))
+        colors.append(new_color)
+    return colors
+
+
 _models = {
     'kaplan-meier': KaplanMeier,
     'nonparametric': Nonparametric,
@@ -101,7 +109,7 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
     m.fit(G, B, T)
 
     # Plot
-    colors = seaborn.color_palette('hls', len(groups))
+    colors = generate_n_colors(len(groups))
     t = numpy.linspace(0, t_max, 1000)
     y_max = 0
     result = []

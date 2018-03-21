@@ -2,5 +2,4 @@ lifelines==0.11.2
 matplotlib>=2.0.0
 numpy
 scipy
-seaborn==0.8.1
 tensorflow==1.6.0rc1
