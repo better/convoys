@@ -1,12 +1,11 @@
 import abc
 import datetime
-import lifelines
 import math
 import numpy
 import random
 import seaborn
 from matplotlib import pyplot
-from convoys.multi import Exponential, Weibull, Gamma, KaplanMeier, Nonparametric
+from convoys.multi import Exponential, Weibull, Gamma, Nonparametric
 
 
 def get_timescale(t):
@@ -77,7 +76,6 @@ def get_groups(data, group_min_size, max_groups):
 
 
 _models = {
-    'kaplan-meier': KaplanMeier,
     'nonparametric': Nonparametric,
     'exponential': Exponential,
     'weibull': Weibull,
@@ -85,7 +83,7 @@ _models = {
 }
 
 
-def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='kaplan-meier'):
+def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='nonparametric'):
     # Set x scale
     if t_max is None:
         t_max = max(now - created_at for group, created_at, converted_at, now in data)

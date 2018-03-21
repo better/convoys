@@ -70,9 +70,5 @@ class Gamma(RegressionToMulti):
     _base_model_cls = regression.Gamma
 
 
-class KaplanMeier(SingleToMulti):
-    _base_model_cls = single.KaplanMeier
-
-
 class Nonparametric(SingleToMulti):
     _base_model_cls = single.Nonparametric
