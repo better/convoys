@@ -112,11 +112,11 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
         p_y, p_y_lo, p_y_hi = m.predict(j, t, ci=0.95).T
         p_y_final, p_y_lo_final, p_y_hi_final = m.predict_final(j, ci=0.95)
         label += ' projected: %.2f%% (%.2f%% - %.2f%%)' % (100.*p_y_final, 100.*p_y_lo_final, 100.*p_y_hi_final)
-        pyplot.plot(t, 100. * p_y, color=color, alpha=0.7, label=label)
+        pyplot.plot(t, 100. * p_y, color=color, linewidth=1.5, alpha=0.7, label=label)
         pyplot.fill_between(t, 100. * p_y_lo, 100. * p_y_hi, color=color, alpha=0.2)
         if extra_model is not None:
             extra_p_y = extra_m.predict(j, t)
-            pyplot.plot(t, 100. * extra_p_y, color=color, linestyle=':', alpha=0.7)
+            pyplot.plot(t, 100. * extra_p_y, color=color, linestyle='--', linewidth=1.5, alpha=0.7)
         result.append((group, p_y_final, p_y_lo_final, p_y_hi_final))
         y_max = max(y_max, 110. * max(p_y))
 
