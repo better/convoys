@@ -136,7 +136,7 @@ def test_nonparametric_model(c=0.3, lambd=0.1, k=0.5, n=10000):
 
 def _test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=10000, model='weibull', extra_model=None):
     C = numpy.array([bool(random.random() < cs[r % len(cs)]) for r in range(n)])
-    N = scipy.stats.uniform.rvs(scale=15./lambd, size=(n,))
+    N = scipy.stats.expon.rvs(scale=10./lambd, size=(n,))
     E = numpy.array([sample_weibull(k, lambd) for r in range(n)])
     B, T = generate_censored_data(N, E, C)
     data = []
@@ -157,6 +157,11 @@ def _test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=10000, model='wei
 
 
 @flaky.flaky
+def test_plot_cohorts_kaplan_meier():
+    _test_plot_cohorts(model='kaplan-meier')
+
+
+@flaky.flaky
 def test_plot_cohorts_weibull():
     _test_plot_cohorts(model='weibull')
 
@@ -167,5 +172,5 @@ def test_plot_cohorts_nonparametric():
 
 
 @flaky.flaky
-def test_plot_cohorts_weibull_nonparametric():
-    _test_plot_cohorts(model='weibull', extra_model='nonparametric')
+def test_plot_cohorts_two_models():
+    _test_plot_cohorts(model='kaplan-meier', extra_model='nonparametric')

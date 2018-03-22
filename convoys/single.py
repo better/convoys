@@ -1,7 +1,7 @@
 import bisect
-import lifelines
 import numpy
 from scipy.special import expit, logit
+import scipy.stats
 import tensorflow as tf
 from convoys import tf_utils
 
@@ -12,38 +12,43 @@ class SingleModel:
 
 class KaplanMeier(SingleModel):
     def fit(self, B, T):
-        kmf = lifelines.KaplanMeierFitter()
-        kmf.fit(T, event_observed=B)
-        self.ts = kmf.survival_function_.index.values
-        self.ps = 1.0 - kmf.survival_function_['KM_estimate'].values
-        self.ps_hi = 1.0 - kmf.confidence_interval_['KM_estimate_lower_0.95'].values
-        self.ps_lo = 1.0 - kmf.confidence_interval_['KM_estimate_upper_0.95'].values
+        # See https://www.math.wustl.edu/~sawyer/handouts/greenwood.pdf
+        n = len(T)
+        self._ts = []
+        self._ss = []
+        self._vs = []
+        sum_var_terms = 0.0
+        prod_s_terms = 1.0
+        for t, b in sorted(zip(T, B)):
+            d = float(b)
+            self._ts.append(t)
+            prod_s_terms *= 1 - d/n
+            self._ss.append(prod_s_terms)
+            sum_var_terms += d / (n*(n-d))
+            self._vs.append(1 / numpy.log(prod_s_terms)**2 * sum_var_terms)
+            n -= 1
+        self.get_j = lambda t: min(bisect.bisect_left(self._ts, t), len(self._ts)-1)  # TODO: numpy.searchsorted?
 
-    def predict(self, ts, ci=None):
-        # TODO: should also handle scalars
-        js = [bisect.bisect_left(self.ts, t) for t in ts]
-        def array_lookup(a):
-            return numpy.array([a[min(j, len(self.ts)-1)] for j in js])
-        if ci is not None:
-            return (array_lookup(self.ps), array_lookup(self.ps_lo), array_lookup(self.ps_hi))
+    def _get_value_at(self, j, ci):
+        if ci:
+            z_lo, z_hi = scipy.stats.norm.ppf([(1-ci)/2, (1+ci)/2])
+            return (
+                1 - self._ss[j],
+                1 - numpy.exp(-numpy.exp(numpy.log(-numpy.log(self._ss[j])) + z_hi * self._vs[j]**0.5)),
+                1 - numpy.exp(-numpy.exp(numpy.log(-numpy.log(self._ss[j])) + z_lo * self._vs[j]**0.5))
+            )
         else:
-            return array_lookup(self.ps)
+            return 1 - self._ss[j]
+
+    def predict(self, t, ci=None):
+        res = numpy.zeros(t.shape + (3,) if ci else t.shape)
+        for indexes, value in numpy.ndenumerate(t):
+            j = self.get_j(value)
+            res[indexes] = self._get_value_at(j, ci)
+        return res
 
     def predict_final(self, ci=None):
-        if ci is not None:
-            return (self.ps[-1], self.ps_lo[-1], self.ps_hi[-1])
-        else:
-            return self.ps[-1]
-
-    def predict_time(self, ci=None):
-        # TODO: should not use median here, but mean is no good
-        def median(ps):
-            i = bisect.bisect_left(ps, 0.5)
-            return self.ts[min(i, len(ps)-1)]
-        if ci is not None:
-            return median(self.ps), median(self.ps_lo), median(self.ps_hi)
-        else:
-            return median(self.ps)
+        return self._get_value_at(len(self._ts)-1, ci)
 
 
 class Nonparametric(SingleModel):
