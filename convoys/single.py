@@ -26,7 +26,7 @@ class KaplanMeier(SingleModel):
             sum_var_terms += d / (n*(n-d))
             self._vs.append(1 / numpy.log(prod_s_terms)**2 * sum_var_terms)
             n -= 1
-        self.get_j = lambda t: min(numpy.searchsorted(self._ts, t), len(self._ts)-1)
+        self.get_j = lambda t: numpy.searchsorted(self._ts, t)
 
     def _get_value_at(self, j, ci):
         if ci:
@@ -43,7 +43,11 @@ class KaplanMeier(SingleModel):
         res = numpy.zeros(t.shape + (3,) if ci else t.shape)
         for indexes, value in numpy.ndenumerate(t):
             j = self.get_j(value)
-            res[indexes] = self._get_value_at(j, ci)
+            if j == len(self._ts):
+                # Make the plotting stop at the last value of t
+                res[indexes] = [float('nan')]*3 if ci else float('nan')
+            else:
+                res[indexes] = self._get_value_at(j, ci)
         return res
 
     def predict_final(self, ci=None):
