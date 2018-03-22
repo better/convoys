@@ -148,7 +148,7 @@ def _test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=10000, model='wei
                      x2t(n)))  # now
 
     matplotlib.pyplot.clf()
-    result = convoys.plot_cohorts(data, model=model, extra_model=None)
+    result = convoys.plot_cohorts(data, model=model, extra_model=extra_model)
     matplotlib.pyplot.savefig('%s-%s.png' % (model, extra_model) if extra_model is not None else '%s.png' % model)
     group, y, y_lo, y_hi = result[0]
     c = cs[0]
