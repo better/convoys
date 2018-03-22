@@ -1,4 +1,3 @@
-import bisect
 import numpy
 from scipy.special import expit, logit
 import scipy.stats
@@ -27,7 +26,7 @@ class KaplanMeier(SingleModel):
             sum_var_terms += d / (n*(n-d))
             self._vs.append(1 / numpy.log(prod_s_terms)**2 * sum_var_terms)
             n -= 1
-        self.get_j = lambda t: min(bisect.bisect_left(self._ts, t), len(self._ts)-1)  # TODO: numpy.searchsorted?
+        self.get_j = lambda t: min(numpy.searchsorted(self._ts, t), len(self._ts)-1)
 
     def _get_value_at(self, j, ci):
         if ci:
@@ -66,7 +65,7 @@ class Nonparametric(SingleModel):
         n = min(n, len(all_ts))
         js = [int(round(1.0 * len(all_ts) * (z + 1) / n - 1)) for z in range(n)]
         self.ts = [all_ts[j] for j in js]
-        self.get_j = lambda t: min(bisect.bisect_left(self.ts, t), n-1)  # TODO: numpy.searchsorted?
+        self.get_j = lambda t: min(numpy.searchsorted(self.ts, t), n-1)
         count_observed = numpy.zeros((n,), dtype=numpy.float32)
         count_unobserved = numpy.zeros((n,), dtype=numpy.float32)
         for i, (b, t) in enumerate(zip(B, T)):
