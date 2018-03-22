@@ -27,7 +27,7 @@ def get_arrays(groups, data, t_converter):
     G, B, T = [], [], []
     group2j = dict((group, j) for j, group in enumerate(groups))
     for group, created_at, converted_at, now in data:
-        if converted_at is not None and converted_at < created_at:
+        if converted_at is not None and converted_at <= created_at:
             print('created at', created_at, 'but converted at', converted_at)
             continue
         if now < created_at:
