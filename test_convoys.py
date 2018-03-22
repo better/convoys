@@ -134,7 +134,7 @@ def test_nonparametric_model(c=0.3, lambd=0.1, k=0.5, n=10000):
     assert m.predict([1, 2, 3, 4], ci=0.95).shape == (4, 3)
 
 
-def _test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=10000, model='weibull'):
+def _test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=10000, model='weibull', extra_model=None):
     C = numpy.array([bool(random.random() < cs[r % len(cs)]) for r in range(n)])
     N = scipy.stats.uniform.rvs(scale=15./lambd, size=(n,))
     E = numpy.array([sample_weibull(k, lambd) for r in range(n)])
@@ -148,8 +148,8 @@ def _test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=10000, model='wei
                      x2t(n)))  # now
 
     matplotlib.pyplot.clf()
-    result = convoys.plot_cohorts(data, model=model)
-    matplotlib.pyplot.savefig(model + '.png')
+    result = convoys.plot_cohorts(data, model=model, extra_model=None)
+    matplotlib.pyplot.savefig('%s-%s.png' % (model, extra_model) if extra_model is not None else '%s.png' % model)
     group, y, y_lo, y_hi = result[0]
     c = cs[0]
     assert group == 'Group 0'
@@ -164,3 +164,8 @@ def test_plot_cohorts_weibull():
 @flaky.flaky
 def test_plot_cohorts_nonparametric():
     _test_plot_cohorts(model='nonparametric')
+
+
+@flaky.flaky
+def test_plot_cohorts_weibull_nonparametric():
+    _test_plot_cohorts(model='weibull', extra_model='nonparametric')

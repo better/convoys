@@ -85,7 +85,7 @@ _models = {
 }
 
 
-def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='kaplan-meier'):
+def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='kaplan-meier', extra_model=None):
     # Set x scale
     if t_max is None:
         t_max = max(now - created_at for group, created_at, converted_at, now in data)
@@ -99,6 +99,9 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
     # Fit model
     m = _models[model]()
     m.fit(G, B, T)
+    if extra_model is not None:
+        extra_m = _models[extra_model]()
+        extra_m.fit(G, B, T)
 
     # Plot
     colors = seaborn.color_palette('hls', len(groups))
@@ -112,8 +115,11 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
         p_y, p_y_lo, p_y_hi = m.predict(j, t, ci=0.95).T
         p_y_final, p_y_lo_final, p_y_hi_final = m.predict_final(j, ci=0.95)
         label += ' projected: %.2f%% (%.2f%% - %.2f%%)' % (100.*p_y_final, 100.*p_y_lo_final, 100.*p_y_hi_final)
-        pyplot.plot(t, 100. * p_y, color=color, linestyle=':', alpha=0.7, label=label)
+        pyplot.plot(t, 100. * p_y, color=color, alpha=0.7, label=label)
         pyplot.fill_between(t, 100. * p_y_lo, 100. * p_y_hi, color=color, alpha=0.2)
+        if extra_model is not None:
+            extra_p_y = extra_m.predict(j, t)
+            pyplot.plot(t, 100. * extra_p_y, color=color, linestyle=':', alpha=0.7)
         result.append((group, p_y_final, p_y_lo_final, p_y_hi_final))
         y_max = max(y_max, 110. * max(p_y))
 
