@@ -143,7 +143,7 @@ class Gamma(RegressionModel):
         t = numpy.array(t)
         x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
         x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
-        return tf_utils.predict(expit(x_prod_beta) * (1 - gammainc(self.params['k'], numpy.multiply.outer(t, numpy.exp(x_prod_alpha)))), ci)
+        return tf_utils.predict(expit(x_prod_beta) * gammainc(self.params['k'], numpy.multiply.outer(t, numpy.exp(x_prod_alpha))), ci)
 
     def predict_final(self, x, ci=None, n=1000):
         x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
