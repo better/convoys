@@ -130,7 +130,7 @@ class Gamma(RegressionModel):
         LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
 
         with tf.Session() as sess:
-            tf_utils.optimize(sess, LL_penalized, (alpha, beta, log_k_var))
+            tf_utils.optimize(sess, LL_penalized, (alpha, beta, log_k_var), method='Powell')
             self.params = {
                 'beta': sess.run(beta),
                 'alpha': sess.run(alpha),
