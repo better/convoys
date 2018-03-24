@@ -11,7 +11,7 @@ def get_hessian(sess, f, param):
     return sess.run(tf.hessians(-f, [param]))[0]
 
 
-def optimize(sess, target, variables, method='L-BFGS-B'):
+def optimize(sess, target, method='L-BFGS-B'):
     optimizer = ScipyOptimizerInterface(-target, method=method, options={'disp': True})
     sess.run(tf.global_variables_initializer())
     optimizer.minimize(sess)
