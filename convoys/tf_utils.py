@@ -12,10 +12,15 @@ def get_hessian(sess, f, param):
 
 
 def optimize(sess, target, method='L-BFGS-B'):
-    optimizer = ScipyOptimizerInterface(-target, method=method, options={'disp': True})
+    optimizer = ScipyOptimizerInterface(-target, method=method)
     sess.run(tf.global_variables_initializer())
-    optimizer.minimize(sess)
-
+    losses = []
+    def callback(loss):
+        losses.append(loss)
+        sys.stdout.write('step %6d %14.3f%40s' % (len(losses), loss, ''))
+        sys.stdout.write('\n' if len(losses) % 100 == 0 else '\r')
+        sys.stdout.flush()
+    optimizer.minimize(sess, fetches=[target], loss_callback=callback)
 
 def sample_hessian(x, value, hessian, n, ci):
     if ci is None:
