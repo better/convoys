@@ -5,7 +5,7 @@ from convoys import tf_utils
 
 
 class RegressionModel:
-    def __init__(self, L2_reg=1.0):
+    def __init__(self, L2_reg=0):
         self._L2_reg = L2_reg
 
 
@@ -31,7 +31,7 @@ class Exponential(RegressionModel):
         LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
 
         with tf.Session() as sess:
-            tf_utils.optimize(sess, LL_penalized, (alpha, beta))
+            tf_utils.optimize(sess, LL_penalized)
             self.params = {
                 'beta': sess.run(beta),
                 'alpha': sess.run(alpha),
@@ -80,7 +80,7 @@ class Weibull(RegressionModel):
         LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
 
         with tf.Session() as sess:
-            tf_utils.optimize(sess, LL_penalized, (alpha, beta, log_k_var))
+            tf_utils.optimize(sess, LL_penalized)
             self.params = {
                 'beta': sess.run(beta),
                 'alpha': sess.run(alpha),
@@ -130,7 +130,7 @@ class Gamma(RegressionModel):
         LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
 
         with tf.Session() as sess:
-            tf_utils.optimize(sess, LL_penalized, (alpha, beta, log_k_var))
+            tf_utils.optimize(sess, LL_penalized, method='Powell')
             self.params = {
                 'beta': sess.run(beta),
                 'alpha': sess.run(alpha),
