@@ -12,31 +12,32 @@ class RegressionModel:
 class Exponential(RegressionModel):
     def fit(self, X, B, T):
         n, k = X.shape
-        X, B, T = (z.astype(numpy.float32) for z in (X, B, T))
+        X_batch, B_batch, T_batch = tf_utils.get_batch_placeholders((X, B, T))
 
         alpha = tf.Variable(tf.zeros([k]), 'alpha')
         beta = tf.Variable(tf.zeros([k]), 'beta')
-        X_prod_alpha = tf.squeeze(tf.matmul(X, tf.expand_dims(alpha, -1)), 1)
-        X_prod_beta = tf.squeeze(tf.matmul(X, tf.expand_dims(beta, -1)), 1)
+        X_prod_alpha = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(alpha, -1)), 1)
+        X_prod_beta = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(beta, -1)), 1)
         lambd = tf.exp(X_prod_alpha)
         c = tf.sigmoid(X_prod_beta)
 
-        log_pdf = tf.log(lambd) - T*lambd
-        cdf = 1 - tf.exp(-(T * lambd))
+        log_pdf = tf.log(lambd) - T_batch*lambd
+        cdf = 1 - tf.exp(-(T_batch * lambd))
 
         LL_observed = tf.log(c) + log_pdf
         LL_censored = tf.log((1-c) + c * (1 - cdf))
 
-        LL = tf.reduce_sum(B * LL_observed + (1 - B) * LL_censored, 0)
+        LL = tf.reduce_sum(B_batch * LL_observed + (1 - B_batch) * LL_censored, 0)
         LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
 
         with tf.Session() as sess:
-            tf_utils.optimize(sess, LL_penalized, (alpha, beta))
+            feed_dict = {X_batch: X, B_batch: B, T_batch: T}
+            tf_utils.optimize(sess, LL_penalized, (alpha, beta), feed_dict)
             self.params = {
                 'beta': sess.run(beta),
                 'alpha': sess.run(alpha),
-                'alpha_hessian': tf_utils.get_hessian(sess, LL_penalized, alpha),
-                'beta_hessian': tf_utils.get_hessian(sess, LL_penalized, beta),
+                'alpha_hessian': tf_utils.get_hessian(sess, LL_penalized, feed_dict, alpha),
+                'beta_hessian': tf_utils.get_hessian(sess, LL_penalized, feed_dict, beta),
             }
 
     def predict(self, x, t, ci=None, n=1000):
@@ -57,36 +58,37 @@ class Exponential(RegressionModel):
 class Weibull(RegressionModel):
     def fit(self, X, B, T):
         n, k = X.shape
-        X, B, T = (z.astype(numpy.float32) for z in (X, B, T))
+        X_batch, B_batch, T_batch = tf_utils.get_batch_placeholders((X, B, T))
 
         alpha = tf.Variable(tf.zeros([k]), 'alpha')
         beta = tf.Variable(tf.zeros([k]), 'beta')
         log_k_var = tf.Variable(tf.zeros([]), 'log_k')
-        X_prod_alpha = tf.squeeze(tf.matmul(X, tf.expand_dims(alpha, -1)), 1)
-        X_prod_beta = tf.squeeze(tf.matmul(X, tf.expand_dims(beta, -1)), 1)
+        X_prod_alpha = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(alpha, -1)), 1)
+        X_prod_beta = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(beta, -1)), 1)
         k = tf.exp(log_k_var)
         lambd = tf.exp(X_prod_alpha)
         c = tf.sigmoid(X_prod_beta)
 
         # PDF of Weibull: k * lambda * (x * lambda)^(k-1) * exp(-(t * lambda)^k)
-        log_pdf = tf.log(k) + tf.log(lambd) + (k-1)*(tf.log(T) + tf.log(lambd)) - (T*lambd)**k
+        log_pdf = tf.log(k) + tf.log(lambd) + (k-1)*(tf.log(T_batch) + tf.log(lambd)) - (T_batch*lambd)**k
         # CDF of Weibull: 1 - exp(-(t * lambda)^k)
-        cdf = 1 - tf.exp(-(T * lambd)**k)
+        cdf = 1 - tf.exp(-(T_batch * lambd)**k)
 
         LL_observed = tf.log(c) + log_pdf
         LL_censored = tf.log((1-c) + c * (1 - cdf))
 
-        LL = tf.reduce_sum(B * LL_observed + (1 - B) * LL_censored, 0)
+        LL = tf.reduce_sum(B_batch * LL_observed + (1 - B_batch) * LL_censored, 0)
         LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
 
         with tf.Session() as sess:
-            tf_utils.optimize(sess, LL_penalized, (alpha, beta, log_k_var))
+            feed_dict = {X_batch: X, B_batch: B, T_batch: T}
+            tf_utils.optimize(sess, LL_penalized, (alpha, beta, log_k_var), feed_dict)
             self.params = {
                 'beta': sess.run(beta),
                 'alpha': sess.run(alpha),
                 'k': sess.run(k),
-                'alpha_hessian': tf_utils.get_hessian(sess, LL_penalized, alpha),
-                'beta_hessian': tf_utils.get_hessian(sess, LL_penalized, beta),
+                'alpha_hessian': tf_utils.get_hessian(sess, LL_penalized, feed_dict, alpha),
+                'beta_hessian': tf_utils.get_hessian(sess, LL_penalized, feed_dict, beta),
             }
 
     def predict(self, x, t, ci=None, n=1000):
@@ -107,36 +109,37 @@ class Weibull(RegressionModel):
 class Gamma(RegressionModel):
     def fit(self, X, B, T):
         n, k = X.shape
-        X, B, T = (z.astype(numpy.float32) for z in (X, B, T))
+        X_batch, B_batch, T_batch = tf_utils.get_batch_placeholders((X, B, T))
 
         alpha = tf.Variable(tf.zeros([k]), 'alpha')
         beta = tf.Variable(tf.zeros([k]), 'beta')
         log_k_var = tf.Variable(tf.zeros([]), 'log_k')
-        X_prod_alpha = tf.squeeze(tf.matmul(X, tf.expand_dims(alpha, -1)), 1)
-        X_prod_beta = tf.squeeze(tf.matmul(X, tf.expand_dims(beta, -1)), 1)
+        X_prod_alpha = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(alpha, -1)), 1)
+        X_prod_beta = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(beta, -1)), 1)
         k = tf.exp(log_k_var)
         lambd = tf.exp(X_prod_alpha)
         c = tf.sigmoid(X_prod_beta)
 
         # PDF of gamma: 1.0 / gamma(k) * lambda ^ k * t^(k-1) * exp(-t * lambda)
-        log_pdf = -tf.lgamma(k) + k*tf.log(lambd) + (k-1)*tf.log(T) - lambd*T
+        log_pdf = -tf.lgamma(k) + k*tf.log(lambd) + (k-1)*tf.log(T_batch) - lambd*T_batch
         # CDF of gamma: gammainc(k, lambda * t)
-        cdf = tf.igamma(k, lambd * T)
+        cdf = tf.igamma(k, lambd * T_batch)
 
         LL_observed = tf.log(c) + log_pdf
         LL_censored = tf.log((1-c) + c * (1 - cdf))
 
-        LL = tf.reduce_sum(B * LL_observed + (1 - B) * LL_censored, 0)
+        LL = tf.reduce_sum(B_batch * LL_observed + (1 - B_batch) * LL_censored, 0)
         LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
 
         with tf.Session() as sess:
-            tf_utils.optimize(sess, LL_penalized, (alpha, beta, log_k_var))
+            feed_dict = {X_batch: X, B_batch: B, T_batch: T}
+            tf_utils.optimize(sess, LL_penalized, (alpha, beta, log_k_var), feed_dict)
             self.params = {
                 'beta': sess.run(beta),
                 'alpha': sess.run(alpha),
                 'k': sess.run(k),
-                'alpha_hessian': tf_utils.get_hessian(sess, LL_penalized, alpha),
-                'beta_hessian': tf_utils.get_hessian(sess, LL_penalized, beta),
+                'alpha_hessian': tf_utils.get_hessian(sess, LL_penalized, feed_dict, alpha),
+                'beta_hessian': tf_utils.get_hessian(sess, LL_penalized, feed_dict, beta),
             }
 
     def predict(self, x, t, ci=None, n=1000):

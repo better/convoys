@@ -96,7 +96,7 @@ class Nonparametric(SingleModel):
             return tf.reduce_sum(count_observed * LL_observed + count_unobserved * LL_unobserved, 0)
 
         with tf.Session() as sess:
-            tf_utils.optimize(sess, get_LL(log_survived_until, log_survived_after, log_observed), (z, beta))
+            tf_utils.optimize(sess, get_LL(log_survived_until, log_survived_after, log_observed), (z, beta), {})
 
             # At this point, we're going to reparametrize the problem to be a function of log_survived_after
             # We can't do that with the original problem, since that would induce negative values of log_observed
@@ -112,9 +112,9 @@ class Nonparametric(SingleModel):
             # elements are almost zero.
             self.params = {
                 'beta': sess.run(beta),
-                'beta_std': tf_utils.get_hessian(sess, LL, beta) ** -0.5,
+                'beta_std': tf_utils.get_hessian(sess, LL, {}, beta) ** -0.5,
                 'z': sess.run(z),
-                'z_std': numpy.diag(tf_utils.get_hessian(sess, LL, z)) ** -0.5,  # TODO: seems inefficient
+                'z_std': numpy.diag(tf_utils.get_hessian(sess, LL, {}, z)) ** -0.5,  # TODO: seems inefficient
             }
             self.params['z_std'] = 0  # not sure what's up, will revisit this
 

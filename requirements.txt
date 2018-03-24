@@ -1,5 +1,6 @@
 matplotlib>=2.0.0
 numpy
 scipy
+sklearn
 seaborn==0.8.1
 tensorflow==1.6.0rc1
