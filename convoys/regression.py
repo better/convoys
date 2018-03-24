@@ -5,7 +5,7 @@ from convoys import tf_utils
 
 
 class RegressionModel:
-    def __init__(self, L2_reg=1.0):
+    def __init__(self, L2_reg=0):
         self._L2_reg = L2_reg
 
 
