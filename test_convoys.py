@@ -109,7 +109,7 @@ def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=100000):
     model.fit(X, B, T)
     assert 0.95*c < model.predict_final([1]) < 1.05*c
     assert 0.90*k < model.params['k'] < 1.10*k
-    assert 0.90*lambd < numpy.exp(model.params['alpha']) < 1.10*lambd
+    assert 0.90*lambd < numpy.exp(model.params['a'] + model.params['alpha']) < 1.10*lambd
     assert 0.80*k/lambd < model.predict_time([1]) < 1.20*k/lambd
 
 
