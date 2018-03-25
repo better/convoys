@@ -15,9 +15,9 @@ def get_hessian(sess, f, feed_dict, param):
     return sess.run(tf.hessians(-f, [param]), feed_dict=feed_dict)[0]
 
 
-def optimize(sess, target, variables, placeholders, batch_size=1<<16):
+def optimize(sess, target, placeholders, batch_size=1024, update_callback=None):
     learning_rate_input = tf.placeholder(tf.float32, [])
-    optimizer = tf.train.AdagradOptimizer(learning_rate_input).minimize(-target)
+    optimizer = tf.train.AdamOptimizer(learning_rate_input).minimize(-target)
 
     sess.run(tf.global_variables_initializer())
 
@@ -26,8 +26,9 @@ def optimize(sess, target, variables, placeholders, batch_size=1<<16):
     else:
         n = 1
 
+    best_cost, best_step, step = float('-inf'), 0, 0
     learning_rate = 3e-4
-    for step in range(30000):
+    while True:
         cost = 0
         shuffled = sklearn.utils.shuffle(*placeholders.values())
         for i in range(0, n, batch_size):
@@ -42,6 +43,15 @@ def optimize(sess, target, variables, placeholders, batch_size=1<<16):
         sys.stdout.write('step %6d (lr %6.6f): %14.3f%30s' % (step, learning_rate, cost, ''))
         sys.stdout.write('\n' if step % 100 == 0 else '\r')
         sys.stdout.flush()
+
+        if cost > best_cost:
+            best_cost, best_step = cost, step
+        if step - best_step > 200:
+            break
+        step += 1
+
+        if update_callback:
+            update_callback(sess)
 
 
 def sample_hessian(x, value, hessian, n, ci):
