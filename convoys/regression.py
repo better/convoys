@@ -5,8 +5,7 @@ from convoys import tf_utils
 
 
 class RegressionModel:
-    def __init__(self, L2_reg=1.0):
-        self._L2_reg = L2_reg
+    pass
 
 
 class Exponential(RegressionModel):
@@ -16,8 +15,13 @@ class Exponential(RegressionModel):
 
         alpha = tf.Variable(tf.zeros([k]), 'alpha')
         beta = tf.Variable(tf.zeros([k]), 'beta')
-        X_prod_alpha = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(alpha, -1)), 1)
-        X_prod_beta = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(beta, -1)), 1)
+        a = tf.Variable(tf.zeros([]), 'a')
+        b = tf.Variable(tf.zeros([]), 'b')
+        X_batch = tf.nn.dropout(X_batch, keep_prob=0.5)
+        X_prod_alpha = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(alpha, -1)), 1) + a
+        X_prod_beta = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(beta, -1)), 1) + b
+        X_prod_alpha = tf.squeeze(tf.matmul(X, tf.expand_dims(alpha, -1)), 1) + a
+        X_prod_beta = tf.squeeze(tf.matmul(X, tf.expand_dims(beta, -1)), 1) + b
         lambd = tf.exp(X_prod_alpha)
         c = tf.sigmoid(X_prod_beta)
 
@@ -28,30 +32,31 @@ class Exponential(RegressionModel):
         LL_censored = tf.log((1-c) + c * (1 - cdf))
 
         LL = tf.reduce_sum(B_batch * LL_observed + (1 - B_batch) * LL_censored, 0)
-        LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
 
         with tf.Session() as sess:
             feed_dict = {X_batch: X, B_batch: B, T_batch: T}
-            tf_utils.optimize(sess, LL_penalized, (alpha, beta), feed_dict)
+            tf_utils.optimize(sess, LL, (alpha, beta), feed_dict)
             self.params = {
-                'beta': sess.run(beta),
                 'alpha': sess.run(alpha),
-                'alpha_hessian': tf_utils.get_hessian(sess, LL_penalized, feed_dict, alpha),
-                'beta_hessian': tf_utils.get_hessian(sess, LL_penalized, feed_dict, beta),
+                'beta': sess.run(beta),
+                'a': sess.run(a),  # TODO: store hessian
+                'b': sess.run(b),  # TODO: store hessian
+                'alpha_hessian': tf_utils.get_hessian(sess, LL, feed_dict, alpha),
+                'beta_hessian': tf_utils.get_hessian(sess, LL, feed_dict, beta),
             }
 
     def predict(self, x, t, ci=None, n=1000):
         t = numpy.array(t)
-        x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
-        x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
+        x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci) + self.params['a']
+        x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci) + self.params['b']
         return tf_utils.predict(expit(x_prod_beta) * (1 - numpy.exp(numpy.multiply.outer(-t, numpy.exp(x_prod_alpha)))), ci)
 
     def predict_final(self, x, ci=None, n=1000):
-        x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
+        x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci) + self.params['b']
         return tf_utils.predict(expit(x_prod_beta), ci)
 
     def predict_time(self, x, ci=None, n=1000):
-        x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
+        x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci) + self.params['a']
         return tf_utils.predict(1./numpy.exp(x_prod_alpha), ci)
 
 
@@ -62,9 +67,12 @@ class Weibull(RegressionModel):
 
         alpha = tf.Variable(tf.zeros([k]), 'alpha')
         beta = tf.Variable(tf.zeros([k]), 'beta')
+        a = tf.Variable(tf.zeros([]), 'a')
+        b = tf.Variable(tf.zeros([]), 'b')
         log_k_var = tf.Variable(tf.zeros([]), 'log_k')
-        X_prod_alpha = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(alpha, -1)), 1)
-        X_prod_beta = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(beta, -1)), 1)
+        X_batch = tf.nn.dropout(X_batch, keep_prob=0.5)
+        X_prod_alpha = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(alpha, -1)), 1) + a
+        X_prod_beta = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(beta, -1)), 1) + b
         k = tf.exp(log_k_var)
         lambd = tf.exp(X_prod_alpha)
         c = tf.sigmoid(X_prod_beta)
@@ -78,14 +86,15 @@ class Weibull(RegressionModel):
         LL_censored = tf.log((1-c) + c * (1 - cdf))
 
         LL = tf.reduce_sum(B_batch * LL_observed + (1 - B_batch) * LL_censored, 0)
-        LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
 
         with tf.Session() as sess:
             feed_dict = {X_batch: X, B_batch: B, T_batch: T}
             tf_utils.optimize(sess, LL_penalized, (alpha, beta, log_k_var), feed_dict)
             self.params = {
-                'beta': sess.run(beta),
                 'alpha': sess.run(alpha),
+                'beta': sess.run(beta),
+                'a': sess.run(a),  # TODO: store hessian
+                'b': sess.run(b),  # TODO: store hessian
                 'k': sess.run(k),
                 'alpha_hessian': tf_utils.get_hessian(sess, LL_penalized, feed_dict, alpha),
                 'beta_hessian': tf_utils.get_hessian(sess, LL_penalized, feed_dict, beta),
@@ -93,16 +102,16 @@ class Weibull(RegressionModel):
 
     def predict(self, x, t, ci=None, n=1000):
         t = numpy.array(t)
-        x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
-        x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
+        x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci) + self.params['a']
+        x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci) + self.params['b']
         return tf_utils.predict(expit(x_prod_beta) * (1 - numpy.exp(-numpy.multiply.outer(t, numpy.exp(x_prod_alpha))**self.params['k'])), ci)
 
     def predict_final(self, x, ci=None, n=1000):
-        x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
+        x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci) + self.params['b']
         return tf_utils.predict(expit(x_prod_beta), ci)
 
     def predict_time(self, x, ci=None, n=1000):
-        x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
+        x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci) + self.params['a']
         return tf_utils.predict(1./numpy.exp(x_prod_alpha) * gamma(1 + 1./self.params['k']), ci)
 
 
@@ -113,9 +122,14 @@ class Gamma(RegressionModel):
 
         alpha = tf.Variable(tf.zeros([k]), 'alpha')
         beta = tf.Variable(tf.zeros([k]), 'beta')
-        log_k_var = tf.Variable(tf.zeros([]), 'log_k')
-        X_prod_alpha = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(alpha, -1)), 1)
-        X_prod_beta = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(beta, -1)), 1)
+        a = tf.Variable(tf.zeros([]), 'a')
+        b = tf.Variable(tf.zeros([]), 'b')
+        X_batch = tf.nn.dropout(X_batch, keep_prob=0.5)
+        X_prod_alpha = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(alpha, -1)), 1) + a
+        X_prod_beta = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(beta, -1)), 1) + b
+        log_k_var = tf.Variable(tf.constant(1.0, shape=[]), 'log_k')
+        X_prod_alpha = tf.squeeze(tf.matmul(X, tf.expand_dims(alpha, -1)), 1) + a
+        X_prod_beta = tf.squeeze(tf.matmul(X, tf.expand_dims(beta, -1)), 1) + b
         k = tf.exp(log_k_var)
         lambd = tf.exp(X_prod_alpha)
         c = tf.sigmoid(X_prod_beta)
@@ -129,14 +143,15 @@ class Gamma(RegressionModel):
         LL_censored = tf.log((1-c) + c * (1 - cdf))
 
         LL = tf.reduce_sum(B_batch * LL_observed + (1 - B_batch) * LL_censored, 0)
-        LL_penalized = LL - self._L2_reg * tf.reduce_sum(beta * beta, 0)
 
         with tf.Session() as sess:
             feed_dict = {X_batch: X, B_batch: B, T_batch: T}
             tf_utils.optimize(sess, LL_penalized, (alpha, beta, log_k_var), feed_dict)
             self.params = {
-                'beta': sess.run(beta),
                 'alpha': sess.run(alpha),
+                'beta': sess.run(beta),
+                'a': sess.run(a),  # TODO: store hessian
+                'b': sess.run(b),  # TODO: store hessian
                 'k': sess.run(k),
                 'alpha_hessian': tf_utils.get_hessian(sess, LL_penalized, feed_dict, alpha),
                 'beta_hessian': tf_utils.get_hessian(sess, LL_penalized, feed_dict, beta),
@@ -144,14 +159,14 @@ class Gamma(RegressionModel):
 
     def predict(self, x, t, ci=None, n=1000):
         t = numpy.array(t)
-        x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
-        x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
+        x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci) + self.params['a']
+        x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci) + self.params['b']
         return tf_utils.predict(expit(x_prod_beta) * gammainc(self.params['k'], numpy.multiply.outer(t, numpy.exp(x_prod_alpha))), ci)
 
     def predict_final(self, x, ci=None, n=1000):
-        x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci)
+        x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci) + self.params['a']
         return tf_utils.predict(expit(x_prod_beta), ci)
 
     def predict_time(self, x, ci=None, n=1000):
-        x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci)
+        x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci) + self.params['a']
         return tf_utils.predict(self.params['k']/numpy.exp(x_prod_alpha), ci)

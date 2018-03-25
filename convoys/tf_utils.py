@@ -26,12 +26,8 @@ def optimize(sess, target, variables, placeholders, batch_size=1<<16):
     else:
         n = 1
 
-    dec_learning_rate = 1.0
-    step, best_step = 0, 0
-    best_cost = float('-inf')
-    while True:
-        inc_learning_rate = 10 ** (min(240, step)//40-6)
-        learning_rate = min(inc_learning_rate, dec_learning_rate)
+    learning_rate = 3e-4
+    for step in range(30000):
         cost = 0
         shuffled = sklearn.utils.shuffle(*placeholders.values())
         for i in range(0, n, batch_size):
@@ -42,15 +38,7 @@ def optimize(sess, target, variables, placeholders, batch_size=1<<16):
             feed_dict[learning_rate_input] = learning_rate
             sess.run(optimizer, feed_dict=feed_dict)
             cost += sess.run(target, feed_dict=feed_dict)
-        if cost > best_cost:
-            best_cost, best_step = cost, step
-        elif step - best_step > 40:
-            dec_learning_rate = learning_rate / 10
-            best_cost, best_step = float('-inf'), step
-        if learning_rate < 1e-6:
-            sys.stdout.write('\n')
-            break
-        step += 1
+
         sys.stdout.write('step %6d (lr %6.6f): %14.3f%30s' % (step, learning_rate, cost, ''))
         sys.stdout.write('\n' if step % 100 == 0 else '\r')
         sys.stdout.flush()

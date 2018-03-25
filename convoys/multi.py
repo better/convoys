@@ -13,16 +13,14 @@ class RegressionToMulti(MultiModel):
 
     def fit(self, G, B, T):
         self._n_groups = max(G) + 1
-        X = numpy.zeros((len(G), self._n_groups+1))
-        X[:,0] = 1.0
+        X = numpy.zeros((len(G), self._n_groups))
         for i, group in enumerate(G):
-            X[i,group+1] = 1
+            X[i,group] = 1
         self._base_model.fit(X, B, T)
 
     def _get_x(self, group):
-        x = numpy.zeros(self._n_groups+1)
-        x[0] = 1
-        x[group+1] = 1
+        x = numpy.zeros(self._n_groups)
+        x[group] = 1
         return x
 
     def predict(self, group, t, *args, **kwargs):
