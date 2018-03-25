@@ -40,14 +40,13 @@ def optimize(sess, target, placeholders, batch_size=1024, update_callback=None):
             sess.run(optimizer, feed_dict=feed_dict)
             cost += sess.run(target, feed_dict=feed_dict)
 
-        sys.stdout.write('step %6d (lr %6.6f): %14.3f%30s' % (step, learning_rate, cost, ''))
-        sys.stdout.write('\n' if step % 100 == 0 else '\r')
-        sys.stdout.flush()
-
         if cost > best_cost:
             best_cost, best_step = cost, step
         if step - best_step > 20:
             break
+        sys.stdout.write('step %6d (%6d since best): %14.3f%30s' % (step, step-best_step, cost, ''))
+        sys.stdout.write('\n' if step % 100 == 0 else '\r')
+        sys.stdout.flush()
         step += 1
 
         if update_callback:
