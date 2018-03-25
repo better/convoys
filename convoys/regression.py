@@ -150,7 +150,7 @@ class Gamma(RegressionModel):
             # So let's just try small perturbations
             k_value = sess.run(k)
             res = {}
-            for k_mult in [0.99, 1.0, 1.01]:
+            for k_mult in [0.97, 1.0, 1.03]:
                 sess.run(assign_k, feed_dict={new_k: k_value * k_mult})
                 res[k_value * k_mult] = sess.run(LL, feed_dict=feed_dict)
             sess.run(assign_k, feed_dict={new_k: max(res.keys(), key=res.get)})

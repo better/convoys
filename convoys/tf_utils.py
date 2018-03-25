@@ -27,7 +27,7 @@ def optimize(sess, target, placeholders, batch_size=1024, update_callback=None):
         n = 1
 
     best_cost, best_step, step = float('-inf'), 0, 0
-    learning_rate = 3e-4
+    learning_rate = 3e-3
     while True:
         cost = 0
         shuffled = sklearn.utils.shuffle(*placeholders.values())
@@ -46,7 +46,7 @@ def optimize(sess, target, placeholders, batch_size=1024, update_callback=None):
 
         if cost > best_cost:
             best_cost, best_step = cost, step
-        if step - best_step > 200:
+        if step - best_step > 20:
             break
         step += 1
 
