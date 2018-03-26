@@ -53,7 +53,7 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=100000):
 
 @flaky.flaky
 def test_weibull_regression_model(cs=[0.3, 0.5, 0.7], lambd=0.1, k=0.5, n=100000):
-    X = numpy.array([[1] + [r % len(cs) == j for j in range(len(cs))] for r in range(n)])
+    X = numpy.array([[r % len(cs) == j for j in range(len(cs))] for r in range(n)])
     C = numpy.array([bool(random.random() < cs[r % len(cs)]) for r in range(n)])
     N = scipy.stats.uniform.rvs(scale=5./lambd, size=(n,))
     E = numpy.array([sample_weibull(k, lambd) for r in range(n)])
@@ -63,7 +63,7 @@ def test_weibull_regression_model(cs=[0.3, 0.5, 0.7], lambd=0.1, k=0.5, n=100000
     model.fit(X, B, T)
 
     # Validate shape of results
-    x = numpy.ones((len(cs)+1,))
+    x = numpy.ones((len(cs),))
     assert model.predict_final(x).shape == ()
     assert model.predict_final(x, ci=0.95).shape == (3,)
     assert model.predict(x, 1).shape == ()
@@ -73,7 +73,7 @@ def test_weibull_regression_model(cs=[0.3, 0.5, 0.7], lambd=0.1, k=0.5, n=100000
 
     # Check results
     for r, c in enumerate(cs):
-        x = [1] + [int(r == j) for j in range(len(cs))]
+        x = [int(r == j) for j in range(len(cs))]
         assert 0.95 * c < model.predict_final(x) < 1.05 * c
         expected_time = 1./lambd * scipy.special.gamma(1 + 1/k)
         assert 0.80*expected_time < model.predict_time(x) < 1.20*expected_time
@@ -109,7 +109,7 @@ def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=100000):
     model.fit(X, B, T)
     assert 0.95*c < model.predict_final([1]) < 1.05*c
     assert 0.90*k < model.params['k'] < 1.10*k
-    assert 0.90*lambd < numpy.exp(model.params['alpha']) < 1.10*lambd
+    assert 0.90*lambd < numpy.exp(model.params['a'] + model.params['alpha']) < 1.10*lambd
     assert 0.80*k/lambd < model.predict_time([1]) < 1.20*k/lambd
 
 
