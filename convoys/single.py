@@ -23,7 +23,10 @@ class KaplanMeier(SingleModel):
             self._ts.append(t)
             prod_s_terms *= 1 - d/n
             self._ss.append(prod_s_terms)
-            sum_var_terms += d / (n*(n-d))
+            try:
+                sum_var_terms += d / (n*(n-d))
+            except ZeroDivisionError:
+                sum_var_terms = float('inf')
             self._vs.append(1 / numpy.log(prod_s_terms)**2 * sum_var_terms)
             n -= 1
         self.get_j = lambda t: numpy.searchsorted(self._ts, t)
