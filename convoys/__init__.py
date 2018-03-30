@@ -1,9 +1,11 @@
 import datetime
 import numpy
 import random
+import scipy.interpolate
 import seaborn
 from matplotlib import pyplot
-from convoys.multi import Exponential, Weibull, Gamma, KaplanMeier, Nonparametric
+import convoys.multi
+import convoys.regression
 
 
 def get_timescale(t):
@@ -25,6 +27,7 @@ def get_timescale(t):
 
 def get_arrays(groups, data, t_converter):
     G, B, T = [], [], []
+    C = []
     group2j = dict((group, j) for j, group in enumerate(groups))
     for group, created_at, converted_at, now in data:
         if converted_at is not None and converted_at <= created_at:
@@ -37,13 +40,15 @@ def get_arrays(groups, data, t_converter):
             G.append(group2j[group])
             B.append(converted_at is not None)
             T.append(t_converter(converted_at - created_at) if converted_at is not None else t_converter(now - created_at))
-    return numpy.array(G), numpy.array(B), numpy.array(T)
+            C.append(created_at)
+    return numpy.array(G), numpy.array(B), numpy.array(T), C
 
 
 def get_groups(data, group_min_size, max_groups):
     group2count = {}
     for group, created_at, converted_at, now in data:
-        group2count[group] = group2count.get(group, 0) + 1
+        if group is not None:
+            group2count[group] = group2count.get(group, 0) + 1
 
     # Remove groups with too few data points
     # Pick the top groups
@@ -53,12 +58,12 @@ def get_groups(data, group_min_size, max_groups):
     return sorted(groups)
 
 
-_models = {
-    'kaplan-meier': KaplanMeier,
-    'nonparametric': Nonparametric,
-    'exponential': Exponential,
-    'weibull': Weibull,
-    'gamma': Gamma,
+_multi_models = {
+    'kaplan-meier': convoys.multi.KaplanMeier,
+    'nonparametric': convoys.multi.Nonparametric,
+    'exponential': convoys.multi.Exponential,
+    'weibull': convoys.multi.Weibull,
+    'gamma': convoys.multi.Gamma,
 }
 
 
@@ -71,7 +76,7 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
 
     # Split data by group and get data
     groups = get_groups(data, group_min_size, max_groups)
-    G, B, T = get_arrays(groups, data, t_converter)
+    G, B, T, _ = get_arrays(groups, data, t_converter)
 
     # Fit model
     m = _models[model]()
@@ -120,3 +125,57 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
     pyplot.legend()
     pyplot.gca().grid(True)
     return m, result
+
+
+_regression_models = {
+    'exponential': convoys.regression.Exponential,
+    'weibull': convoys.regression.Weibull,
+    'gamma': convoys.regression.Gamma,
+}
+
+
+def plot_timeseries(data, title=None, n_splines=30, group_min_size=0, max_groups=100, model='exponential'):
+    t_max = max(now - created_at for group, created_at, converted_at, now in data)
+    t_unit, t_converter = get_timescale(t_max)
+    t_max = t_converter(t_max)
+
+    # Split data by group and get data
+    groups = get_groups(data, group_min_size, max_groups)
+    G, B, T, created_at = get_arrays(groups, data, t_converter)
+    t_start = min(created_at for group, created_at, converted_at, now in data)
+    t_end = max(created_at for group, created_at, converted_at, now in data)
+
+    # Create splines for the regression model
+    s = scipy.interpolate.CubicSpline(
+        numpy.linspace(0, t_converter(t_end - t_start), n_splines),
+        numpy.eye(n_splines)
+    )
+
+    # Construct the regression input
+    X = []
+    for g, b, t, created_at in zip(G, B, T, created_at):
+        z = s(t_converter(created_at - t_start))
+        x = numpy.zeros((n_splines * len(groups),))
+        x[g*n_splines:(g+1)*n_splines] = s(t)
+        X.append(x)
+    X = numpy.array(X)
+
+    m = _regression_models[model]()
+    m.fit(X, B, T)
+    print(m.params)
+
+    # Construct the plot data
+    ts = numpy.linspace(0, t_converter(t_end - t_start), 1000)
+    colors = seaborn.color_palette('hls', len(groups))
+    for g, color in enumerate(colors):
+        cs, cs_lo, cs_hi = [], [], []
+        # TODO: should vectorize this
+        for j, t in enumerate(ts):
+            x = numpy.zeros((n_splines * len(groups),))
+            x[g*n_splines:(g+1)*n_splines] = s(t)
+            c, c_lo, c_hi = m.predict_final(x, ci=0.95)
+            cs.append(c * 100)
+            cs_lo.append(c_lo * 100)
+            cs_hi.append(c_hi * 100)
+        pyplot.plot(ts, cs, color=color, linewidth=1.5, alpha=0.7) #, label=label)
+        pyplot.fill_between(ts, cs_lo, cs_hi, color=color, alpha=0.2)
