@@ -79,10 +79,10 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
     G, B, T, _ = get_arrays(groups, data, t_converter)
 
     # Fit model
-    m = _models[model]()
+    m = _multi_models[model]()
     m.fit(G, B, T)
     if extra_model is not None:
-        extra_m = _models[extra_model]()
+        extra_m = _multi_models[extra_model]()
         extra_m.fit(G, B, T)
 
     # Plot
@@ -156,7 +156,7 @@ def plot_timeseries(data, title=None, n_splines=30, group_min_size=0, max_groups
     for g, b, t, created_at in zip(G, B, T, created_at):
         z = s(t_converter(created_at - t_start))
         x = numpy.zeros((n_splines * len(groups),))
-        x[g*n_splines:(g+1)*n_splines] = s(t)
+        x[g*n_splines:(g+1)*n_splines] = z
         X.append(x)
     X = numpy.array(X)
 
