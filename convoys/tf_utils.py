@@ -1,5 +1,4 @@
 import numpy
-import scipy.stats
 import sklearn.utils
 import sys
 import tensorflow as tf
@@ -9,10 +8,6 @@ tf.logging.set_verbosity(3)
 
 def get_batch_placeholders(vs):
     return [tf.placeholder(tf.float32, shape=((None,) + v.shape[1:])) for v in vs]
-
-
-def get_hessian(sess, f, feed_dict, param):
-    return sess.run(tf.hessians(-f, [param]), feed_dict=feed_dict)[0]
 
 
 def optimize(sess, target, placeholders, batch_size=1024, update_callback=None):
@@ -51,16 +46,6 @@ def optimize(sess, target, placeholders, batch_size=1024, update_callback=None):
 
         if update_callback:
             update_callback(sess)
-
-
-def sample_hessian(x, value, hessian, n, ci):
-    if ci is None:
-        return numpy.dot(x, value)
-    else:
-        x = numpy.array(x)
-        # TODO: if x is a zero vector, this triggers some weird warning
-        inv_var = numpy.dot(numpy.dot(x.T, hessian), x)
-        return numpy.dot(x, value) + scipy.stats.norm.rvs(scale=inv_var**-0.5, size=(n,))
 
 
 def predict(func_values, ci):
