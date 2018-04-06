@@ -115,9 +115,9 @@ class Nonparametric(SingleModel):
             # elements are almost zero.
             self.params = {
                 'beta': sess.run(beta),
-                'beta_std': tf_utils.get_hessian(sess, LL, {}, beta) ** -0.5,
+                'beta_std': sess.run(tf.hessians(-LL, [beta])[0]) ** -0.5,
                 'z': sess.run(z),
-                'z_std': numpy.diag(tf_utils.get_hessian(sess, LL, {}, z)) ** -0.5,  # TODO: seems inefficient
+                'z_std': numpy.diag(sess.run(tf.hessians(-LL, [z])[0])) ** -0.5,  # TODO: seems inefficient
             }
             self.params['z_std'] = 0  # not sure what's up, will revisit this
 
