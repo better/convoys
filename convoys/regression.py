@@ -1,7 +1,37 @@
 import numpy # TODO: remove
 from scipy.special import expit, gamma, gammainc  # TODO: remove
+import scipy.stats
 import tensorflow as tf
 from convoys import tf_utils
+
+
+class LinearCombination:
+    def __init__(self, X, k):
+        self.beta = tf.Variable(tf.zeros([k]))
+        self.b = tf.Variable(tf.zeros([]))
+        self.y = tf.squeeze(tf.matmul(X, tf.expand_dims(self.beta, -1)), 1) + self.b
+
+    def params(self, sess, LL, feed_dict):
+        return sess.run([
+            self.beta,
+            self.b,
+            tf.hessians(-LL, [self.beta])[0],
+            tf.hessians(-LL, [self.b])[0]
+        ], feed_dict=feed_dict)
+
+    @staticmethod
+    def sample(params, x, ci, n):
+        beta, b, beta_hessian, b_hessian = params
+        mean = numpy.dot(x, beta) + b
+        if ci is None:
+            return mean
+        else:
+            x = numpy.array(x)
+            # TODO: if x is a zero vector, this triggers some weird warning
+            # TODO: we shouldn't assume that beta and b are independent
+            inv_var_beta = numpy.dot(numpy.dot(x.T, beta_hessian), x)
+            inv_var_b = b_hessian**2
+            return mean + scipy.stats.norm.rvs(scale=(1/inv_var_beta + 1/inv_var_b)**0.5, size=(n,))
 
 
 class RegressionModel:
@@ -13,15 +43,11 @@ class Exponential(RegressionModel):
         n, k = X.shape
         X_batch, B_batch, T_batch = tf_utils.get_batch_placeholders((X, B, T))
 
-        alpha = tf.Variable(tf.zeros([k]), name='alpha')
-        beta = tf.Variable(tf.zeros([k]), name='beta')
-        a = tf.Variable(tf.zeros([]), name='a')
-        b = tf.Variable(tf.zeros([]), name='b')
         X_batch = tf.nn.dropout(X_batch, keep_prob=0.5)
-        X_prod_alpha = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(alpha, -1)), 1) + a
-        X_prod_beta = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(beta, -1)), 1) + b
-        lambd = tf.exp(X_prod_alpha)
-        c = tf.sigmoid(X_prod_beta)
+        a = LinearCombination(X_batch, k)
+        b = LinearCombination(X_batch, k)
+        lambd = tf.exp(a.y)
+        c = tf.sigmoid(b.y)
 
         log_pdf = tf.log(lambd) - T_batch*lambd
         cdf = 1 - tf.exp(-(T_batch * lambd))
@@ -35,27 +61,23 @@ class Exponential(RegressionModel):
             feed_dict = {X_batch: X, B_batch: B, T_batch: T}
             tf_utils.optimize(sess, LL, feed_dict)
             self.params = {
-                'alpha': sess.run(alpha),
-                'beta': sess.run(beta),
-                'a': sess.run(a),  # TODO: store hessian
-                'b': sess.run(b),  # TODO: store hessian
-                'alpha_hessian': tf_utils.get_hessian(sess, LL, feed_dict, alpha),
-                'beta_hessian': tf_utils.get_hessian(sess, LL, feed_dict, beta),
+                'a': a.params(sess, LL, feed_dict),
+                'b': b.params(sess, LL, feed_dict),
             }
 
     def predict(self, x, t, ci=None, n=1000):
         t = numpy.array(t)
-        x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci) + self.params['a']
-        x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci) + self.params['b']
-        return tf_utils.predict(expit(x_prod_beta) * (1 - numpy.exp(numpy.multiply.outer(-t, numpy.exp(x_prod_alpha)))), ci)
+        a = LinearCombination.sample(self.params['a'], x, ci, n)
+        b = LinearCombination.sample(self.params['b'], x, ci, n)
+        return tf_utils.predict(expit(b) * (1 - numpy.exp(numpy.multiply.outer(-t, numpy.exp(a)))), ci)
 
     def predict_final(self, x, ci=None, n=1000):
-        x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci) + self.params['b']
-        return tf_utils.predict(expit(x_prod_beta), ci)
+        b = LinearCombination.sample(self.params['b'], x, ci, n)
+        return tf_utils.predict(expit(b), ci)
 
     def predict_time(self, x, ci=None, n=1000):
-        x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci) + self.params['a']
-        return tf_utils.predict(1./numpy.exp(x_prod_alpha), ci)
+        a = LinearCombination.sample(self.params['a'], x, ci, n)
+        return tf_utils.predict(1./numpy.exp(a), ci)
 
 
 class Weibull(RegressionModel):
@@ -63,17 +85,13 @@ class Weibull(RegressionModel):
         n, k = X.shape
         X_batch, B_batch, T_batch = tf_utils.get_batch_placeholders((X, B, T))
 
-        alpha = tf.Variable(tf.zeros([k]), name='alpha')
-        beta = tf.Variable(tf.zeros([k]), name='beta')
-        a = tf.Variable(tf.zeros([]), name='a')
-        b = tf.Variable(tf.zeros([]), name='b')
         log_k_var = tf.Variable(tf.zeros([]), name='log_k')
         X_batch = tf.nn.dropout(X_batch, keep_prob=0.5)
-        X_prod_alpha = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(alpha, -1)), 1) + a
-        X_prod_beta = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(beta, -1)), 1) + b
+        a = LinearCombination(X_batch, k)
+        b = LinearCombination(X_batch, k)
         k = tf.exp(log_k_var)
-        lambd = tf.exp(X_prod_alpha)
-        c = tf.sigmoid(X_prod_beta)
+        lambd = tf.exp(a.y)
+        c = tf.sigmoid(b.y)
 
         # PDF of Weibull: k * lambda * (x * lambda)^(k-1) * exp(-(t * lambda)^k)
         log_pdf = tf.log(k) + tf.log(lambd) + (k-1)*(tf.log(T_batch) + tf.log(lambd)) - (T_batch*lambd)**k
@@ -89,28 +107,24 @@ class Weibull(RegressionModel):
             feed_dict = {X_batch: X, B_batch: B, T_batch: T}
             tf_utils.optimize(sess, LL, feed_dict)
             self.params = {
-                'alpha': sess.run(alpha),
-                'beta': sess.run(beta),
-                'a': sess.run(a),  # TODO: store hessian
-                'b': sess.run(b),  # TODO: store hessian
+                'a': a.params(sess, LL, feed_dict),
+                'b': b.params(sess, LL, feed_dict),
                 'k': sess.run(k),
-                'alpha_hessian': tf_utils.get_hessian(sess, LL, feed_dict, alpha),
-                'beta_hessian': tf_utils.get_hessian(sess, LL, feed_dict, beta),
             }
 
     def predict(self, x, t, ci=None, n=1000):
         t = numpy.array(t)
-        x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci) + self.params['a']
-        x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci) + self.params['b']
-        return tf_utils.predict(expit(x_prod_beta) * (1 - numpy.exp(-numpy.multiply.outer(t, numpy.exp(x_prod_alpha))**self.params['k'])), ci)
+        a = LinearCombination.sample(self.params['a'], x, ci, n)
+        b = LinearCombination.sample(self.params['b'], x, ci, n)
+        return tf_utils.predict(expit(b) * (1 - numpy.exp(-numpy.multiply.outer(t, numpy.exp(a))**self.params['k'])), ci)
 
     def predict_final(self, x, ci=None, n=1000):
-        x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci) + self.params['b']
-        return tf_utils.predict(expit(x_prod_beta), ci)
+        b = LinearCombination.sample(self.params['b'], x, ci, n)
+        return tf_utils.predict(expit(b), ci)
 
     def predict_time(self, x, ci=None, n=1000):
-        x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci) + self.params['a']
-        return tf_utils.predict(1./numpy.exp(x_prod_alpha) * gamma(1 + 1./self.params['k']), ci)
+        a = LinearCombination.sample(self.params['a'], x, ci, n)
+        return tf_utils.predict(1./numpy.exp(a) * gamma(1 + 1./self.params['k']), ci)
 
 
 class Gamma(RegressionModel):
@@ -118,16 +132,12 @@ class Gamma(RegressionModel):
         n, k = X.shape
         X_batch, B_batch, T_batch = tf_utils.get_batch_placeholders((X, B, T))
 
-        alpha = tf.Variable(tf.zeros([k]), name='alpha')
-        beta = tf.Variable(tf.zeros([k]), name='beta')
-        a = tf.Variable(tf.zeros([]), name='a')
-        b = tf.Variable(tf.zeros([]), name='b')
         X_batch = tf.nn.dropout(X_batch, keep_prob=0.5)
-        X_prod_alpha = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(alpha, -1)), 1) + a
-        X_prod_beta = tf.squeeze(tf.matmul(X_batch, tf.expand_dims(beta, -1)), 1) + b
+        a = LinearCombination(X_batch, k)
+        b = LinearCombination(X_batch, k)
         k = tf.Variable(2.0, name='k', trainable=False)
-        lambd = tf.exp(X_prod_alpha)
-        c = tf.sigmoid(X_prod_beta)
+        lambd = tf.exp(a.y)
+        c = tf.sigmoid(b.y)
 
         # PDF of gamma: 1.0 / gamma(k) * lambda ^ k * t^(k-1) * exp(-t * lambda)
         log_pdf = -tf.lgamma(k) + k*tf.log(lambd) + (k-1)*tf.log(T_batch) - lambd*T_batch
@@ -158,25 +168,21 @@ class Gamma(RegressionModel):
         with tf.Session() as sess:
             tf_utils.optimize(sess, LL, feed_dict, update_callback=update_k)
             self.params = {
-                'alpha': sess.run(alpha),
-                'beta': sess.run(beta),
-                'a': sess.run(a),  # TODO: store hessian
-                'b': sess.run(b),  # TODO: store hessian
+                'a': a.params(sess, LL, feed_dict),
+                'b': b.params(sess, LL, feed_dict),
                 'k': sess.run(k),
-                'alpha_hessian': tf_utils.get_hessian(sess, LL, feed_dict, alpha),
-                'beta_hessian': tf_utils.get_hessian(sess, LL, feed_dict, beta),
             }
 
     def predict(self, x, t, ci=None, n=1000):
         t = numpy.array(t)
-        x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci) + self.params['a']
-        x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci) + self.params['b']
-        return tf_utils.predict(expit(x_prod_beta) * gammainc(self.params['k'], numpy.multiply.outer(t, numpy.exp(x_prod_alpha))), ci)
+        a = LinearCombination.sample(self.params['a'], x, ci, n)
+        b = LinearCombination.sample(self.params['b'], x, ci, n)
+        return tf_utils.predict(expit(b) * gammainc(self.params['k'], numpy.multiply.outer(t, numpy.exp(a))), ci)
 
     def predict_final(self, x, ci=None, n=1000):
-        x_prod_beta = tf_utils.sample_hessian(x, self.params['beta'], self.params['beta_hessian'], n, ci) + self.params['b']
-        return tf_utils.predict(expit(x_prod_beta), ci)
+        b = LinearCombination.sample(self.params['b'], x, ci, n)
+        return tf_utils.predict(expit(b), ci)
 
     def predict_time(self, x, ci=None, n=1000):
-        x_prod_alpha = tf_utils.sample_hessian(x, self.params['alpha'], self.params['alpha_hessian'], n, ci) + self.params['a']
-        return tf_utils.predict(self.params['k']/numpy.exp(x_prod_alpha), ci)
+        a = LinearCombination.sample(self.params['a'], x, ci, n)
+        return tf_utils.predict(self.params['k']/numpy.exp(a), ci)
