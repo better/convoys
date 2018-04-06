@@ -82,7 +82,7 @@ _models = {
 }
 
 
-def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='kaplan-meier', extra_model=None):
+def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100, model='kaplan-meier', ci=0.95, extra_model=None):
     # Set x scale
     if t_max is None:
         t_max = max(now - created_at for group, created_at, converted_at, now in data)
@@ -109,15 +109,24 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
         n = sum(1 for g in G if g == j)  # TODO: slow
         k = sum(1 for g, b in zip(G, B) if g == j and b)  # TODO: slow
         label = '%s (n=%.0f, k=%.0f)' % (group, n, k)
-        p_y, p_y_lo, p_y_hi = m.predict(j, t, ci=0.95).T
-        p_y_final, p_y_lo_final, p_y_hi_final = m.predict_final(j, ci=0.95)
-        label += ' projected: %.2f%% (%.2f%% - %.2f%%)' % (100.*p_y_final, 100.*p_y_lo_final, 100.*p_y_hi_final)
-        pyplot.plot(t, 100. * p_y, color=color, linewidth=1.5, alpha=0.7, label=label)
-        pyplot.fill_between(t, 100. * p_y_lo, 100. * p_y_hi, color=color, alpha=0.2)
+
+        if ci is not None:
+            p_y, p_y_lo, p_y_hi = m.predict(j, t, ci=ci).T
+            p_y_final, p_y_lo_final, p_y_hi_final = m.predict_final(j, ci=0.95)
+            label += ' projected: %.2f%% (%.2f%% - %.2f%%)' % (100.*p_y_final, 100.*p_y_lo_final, 100.*p_y_hi_final)
+            result.append((group, p_y_final, p_y_lo_final, p_y_hi_final))
+            pyplot.plot(t, 100. * p_y, color=color, linewidth=1.5, alpha=0.7, label=label)
+            pyplot.fill_between(t, 100. * p_y_lo, 100. * p_y_hi, color=color, alpha=0.2)
+        else:
+            p_y = m.predict(j, t).T
+            p_y_final = m.predict_final(j, ci=None)
+            label += ' projected: %.2f%%' % (100.*p_y_final,)
+            result.append((group, p_y_final))
+            pyplot.plot(t, 100. * p_y, color=color, linewidth=1.5, alpha=0.7, label=label)
+
         if extra_model is not None:
             extra_p_y = extra_m.predict(j, t)
             pyplot.plot(t, 100. * extra_p_y, color=color, linestyle='--', linewidth=1.5, alpha=0.7)
-        result.append((group, p_y_final, p_y_lo_final, p_y_hi_final))
         y_max = max(y_max, 110. * max(p_y))
 
     if title:
@@ -128,4 +137,4 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
     pyplot.ylabel('Conversion rate %')
     pyplot.legend()
     pyplot.gca().grid(True)
-    return result
+    return m, result

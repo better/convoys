@@ -9,14 +9,14 @@ class MultiModel:
 
 class RegressionToMulti(MultiModel):
     def __init__(self, *args, **kwargs):
-        self._base_model = self._base_model_cls(*args, **kwargs)
+        self.base_model = self.base_model_cls(*args, **kwargs)
 
     def fit(self, G, B, T):
         self._n_groups = max(G) + 1
         X = numpy.zeros((len(G), self._n_groups))
         for i, group in enumerate(G):
             X[i,group] = 1
-        self._base_model.fit(X, B, T)
+        self.base_model.fit(X, B, T)
 
     def _get_x(self, group):
         x = numpy.zeros(self._n_groups)
@@ -24,18 +24,18 @@ class RegressionToMulti(MultiModel):
         return x
 
     def predict(self, group, t, *args, **kwargs):
-        return self._base_model.predict(self._get_x(group), t, *args, **kwargs)
+        return self.base_model.predict(self._get_x(group), t, *args, **kwargs)
 
     def predict_final(self, group, *args, **kwargs):
-        return self._base_model.predict_final(self._get_x(group), *args, **kwargs)
+        return self.base_model.predict_final(self._get_x(group), *args, **kwargs)
 
     def predict_time(self, group, *args, **kwargs):
-        return self._base_model.predict_time(self._get_x(group), *args, **kwargs)
+        return self.base_model.predict_time(self._get_x(group), *args, **kwargs)
 
 
 class SingleToMulti(MultiModel):
     def __init__(self, *args, **kwargs):
-        self._base_model_init = lambda: self._base_model_cls(*args, **kwargs)
+        self.base_model_init = lambda: self.base_model_cls(*args, **kwargs)
 
     def fit(self, G, B, T):
         group2bt = {}
@@ -43,7 +43,7 @@ class SingleToMulti(MultiModel):
             group2bt.setdefault(g, []).append((b, t))
         self._group2model = {}
         for g, BT in group2bt.items():
-            self._group2model[g] = self._base_model_init()
+            self._group2model[g] = self.base_model_init()
             self._group2model[g].fit([b for b, t in BT], [t for b, t in BT])
 
     def predict(self, group, t, *args, **kwargs):
@@ -57,20 +57,20 @@ class SingleToMulti(MultiModel):
 
 
 class Exponential(RegressionToMulti):
-    _base_model_cls = regression.Exponential
+    base_model_cls = regression.Exponential
 
 
 class Weibull(RegressionToMulti):
-    _base_model_cls = regression.Weibull
+    base_model_cls = regression.Weibull
 
 
 class Gamma(RegressionToMulti):
-    _base_model_cls = regression.Gamma
+    base_model_cls = regression.Gamma
 
 
 class KaplanMeier(SingleToMulti):
-    _base_model_cls = single.KaplanMeier
+    base_model_cls = single.KaplanMeier
 
 
 class Nonparametric(SingleToMulti):
-    _base_model_cls = single.Nonparametric
+    base_model_cls = single.Nonparametric
