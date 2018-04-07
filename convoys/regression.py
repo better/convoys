@@ -154,8 +154,6 @@ class Gamma(RegressionModel):
         assign_k = tf.assign(k, new_k)
 
         def update_k(sess):
-            import time
-            t0 = time.time()
             # tf.igamma doesn't compute the gradient wrt a properly
             # So let's just try small perturbations
             k_value = sess.run(k)
