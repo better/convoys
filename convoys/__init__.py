@@ -40,26 +40,6 @@ def get_arrays(groups, data, t_converter):
     return numpy.array(G), numpy.array(B), numpy.array(T)
 
 
-def sample_event(model, x, t, hi=1e3):
-    # We are now at time t. Generate a random event whether the user is going to convert or not
-    # TODO: this is a hacky thing until we have a "invert CDF" method on each model
-    def pred(t):
-        ts = numpy.array([t])
-        return model.predict(x, ts)[1][-1]
-    y = pred(t)
-    r = y + random.random() * (1 - y)
-    if pred(hi) < r:
-        return None
-    lo = t
-    for j in range(20):
-        mid = (lo + hi) / 2
-        if pred(mid) < r:
-            lo = mid
-        else:
-            hi = mid
-    return (lo + hi)/2
-
-
 def get_groups(data, group_min_size, max_groups):
     group2count = {}
     for group, created_at, converted_at, now in data:
@@ -111,23 +91,23 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
         label = '%s (n=%.0f, k=%.0f)' % (group, n, k)
 
         if ci is not None:
-            p_y, p_y_lo, p_y_hi = m.predict(j, t, ci=ci).T
-            p_y_final, p_y_lo_final, p_y_hi_final = m.predict(j, float('inf'), ci=0.95)
+            p_y, p_y_lo, p_y_hi = m.cdf(j, t, ci=ci).T
+            p_y_final, p_y_lo_final, p_y_hi_final = m.cdf(j, float('inf'), ci=0.95)
             if str(p_y_final) != 'nan':
                 label += ' projected: %.2f%% (%.2f%% - %.2f%%)' % (100.*p_y_final, 100.*p_y_lo_final, 100.*p_y_hi_final)
             result.append((group, p_y_final, p_y_lo_final, p_y_hi_final))
             pyplot.plot(t, 100. * p_y, color=color, linewidth=1.5, alpha=0.7, label=label)
             pyplot.fill_between(t, 100. * p_y_lo, 100. * p_y_hi, color=color, alpha=0.2)
         else:
-            p_y = m.predict(j, t).T
-            p_y_final = m.predict(j, float('inf'), ci=None)
+            p_y = m.cdf(j, t).T
+            p_y_final = m.cdf(j, float('inf'), ci=None)
             if str(p_y_final) != 'nan':
                 label += ' projected: %.2f%%' % (100.*p_y_final,)
             result.append((group, p_y_final))
             pyplot.plot(t, 100. * p_y, color=color, linewidth=1.5, alpha=0.7, label=label)
 
         if extra_model is not None:
-            extra_p_y = extra_m.predict(j, t)
+            extra_p_y = extra_m.cdf(j, t)
             pyplot.plot(t, 100. * extra_p_y, color=color, linestyle='--', linewidth=1.5, alpha=0.7)
         y_max = max(y_max, 110. * max(p_y))
 

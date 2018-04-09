@@ -23,8 +23,8 @@ class RegressionToMulti(MultiModel):
         x[group] = 1
         return x
 
-    def predict(self, group, t, *args, **kwargs):
-        return self.base_model.predict(self._get_x(group), t, *args, **kwargs)
+    def cdf(self, group, t, *args, **kwargs):
+        return self.base_model.cdf(self._get_x(group), t, *args, **kwargs)
 
 
 class SingleToMulti(MultiModel):
@@ -40,8 +40,8 @@ class SingleToMulti(MultiModel):
             self._group2model[g] = self.base_model_init()
             self._group2model[g].fit([b for b, t in BT], [t for b, t in BT])
 
-    def predict(self, group, t, *args, **kwargs):
-        return self._group2model[group].predict(t, *args, **kwargs)
+    def cdf(self, group, t, *args, **kwargs):
+        return self._group2model[group].cdf(t, *args, **kwargs)
 
 
 class Exponential(RegressionToMulti):
