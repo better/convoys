@@ -71,14 +71,6 @@ class Exponential(RegressionModel):
         b = LinearCombination.sample(self.params['b'], x, ci, n)
         return tf_utils.predict(expit(b) * (1 - numpy.exp(numpy.multiply.outer(-t, numpy.exp(a)))), ci)
 
-    def predict_final(self, x, ci=None, n=1000):
-        b = LinearCombination.sample(self.params['b'], x, ci, n)
-        return tf_utils.predict(expit(b), ci)
-
-    def predict_time(self, x, ci=None, n=1000):
-        a = LinearCombination.sample(self.params['a'], x, ci, n)
-        return tf_utils.predict(1./numpy.exp(a), ci)
-
 
 class Weibull(RegressionModel):
     def fit(self, X, B, T):
@@ -117,14 +109,6 @@ class Weibull(RegressionModel):
         a = LinearCombination.sample(self.params['a'], x, ci, n)
         b = LinearCombination.sample(self.params['b'], x, ci, n)
         return tf_utils.predict(expit(b) * (1 - numpy.exp(-numpy.multiply.outer(t, numpy.exp(a))**self.params['k'])), ci)
-
-    def predict_final(self, x, ci=None, n=1000):
-        b = LinearCombination.sample(self.params['b'], x, ci, n)
-        return tf_utils.predict(expit(b), ci)
-
-    def predict_time(self, x, ci=None, n=1000):
-        a = LinearCombination.sample(self.params['a'], x, ci, n)
-        return tf_utils.predict(1./numpy.exp(a) * gamma(1 + 1./self.params['k']), ci)
 
 
 class Gamma(RegressionModel):
@@ -176,11 +160,3 @@ class Gamma(RegressionModel):
         a = LinearCombination.sample(self.params['a'], x, ci, n)
         b = LinearCombination.sample(self.params['b'], x, ci, n)
         return tf_utils.predict(expit(b) * gammainc(self.params['k'], numpy.multiply.outer(t, numpy.exp(a))), ci)
-
-    def predict_final(self, x, ci=None, n=1000):
-        b = LinearCombination.sample(self.params['b'], x, ci, n)
-        return tf_utils.predict(expit(b), ci)
-
-    def predict_time(self, x, ci=None, n=1000):
-        a = LinearCombination.sample(self.params['a'], x, ci, n)
-        return tf_utils.predict(self.params['k']/numpy.exp(a), ci)

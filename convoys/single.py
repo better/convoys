@@ -43,6 +43,7 @@ class KaplanMeier(SingleModel):
             return 1 - self._ss[j]
 
     def predict(self, t, ci=None):
+        t = numpy.array(t)
         res = numpy.zeros(t.shape + (3,) if ci else t.shape)
         for indexes, value in numpy.ndenumerate(t):
             j = self.get_j(value)
@@ -52,9 +53,6 @@ class KaplanMeier(SingleModel):
             else:
                 res[indexes] = self._get_value_at(j, ci)
         return res
-
-    def predict_final(self, ci=None):
-        return self._get_value_at(len(self._ts)-1, ci)
 
 
 class Nonparametric(SingleModel):
@@ -140,10 +138,3 @@ class Nonparametric(SingleModel):
             j = self.get_j(value)
             res[indexes] = m[j]
         return res
-
-    def predict_final(self, ci=None, n=1000):
-        if ci:
-            betas = numpy.random.normal(self.params['beta'], self.params['beta_std'], n)
-            return tf_utils.predict(expit(betas), ci)
-        else:
-            return expit(self.params['beta'])
