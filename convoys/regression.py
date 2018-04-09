@@ -65,7 +65,7 @@ class Exponential(RegressionModel):
                 'b': b.params(sess, LL, feed_dict),
             }
 
-    def predict(self, x, t, ci=None, n=1000):
+    def cdf(self, x, t, ci=None, n=1000):
         t = numpy.array(t)
         a = LinearCombination.sample(self.params['a'], x, ci, n)
         b = LinearCombination.sample(self.params['b'], x, ci, n)
@@ -104,7 +104,7 @@ class Weibull(RegressionModel):
                 'k': sess.run(k),
             }
 
-    def predict(self, x, t, ci=None, n=1000):
+    def cdf(self, x, t, ci=None, n=1000):
         t = numpy.array(t)
         a = LinearCombination.sample(self.params['a'], x, ci, n)
         b = LinearCombination.sample(self.params['b'], x, ci, n)
@@ -155,7 +155,7 @@ class Gamma(RegressionModel):
                 'k': sess.run(k),
             }
 
-    def predict(self, x, t, ci=None, n=1000):
+    def cdf(self, x, t, ci=None, n=1000):
         t = numpy.array(t)
         a = LinearCombination.sample(self.params['a'], x, ci, n)
         b = LinearCombination.sample(self.params['b'], x, ci, n)

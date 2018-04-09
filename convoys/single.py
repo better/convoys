@@ -42,7 +42,7 @@ class KaplanMeier(SingleModel):
         else:
             return 1 - self._ss[j]
 
-    def predict(self, t, ci=None):
+    def cdf(self, t, ci=None):
         t = numpy.array(t)
         res = numpy.zeros(t.shape + (3,) if ci else t.shape)
         for indexes, value in numpy.ndenumerate(t):
@@ -119,7 +119,7 @@ class Nonparametric(SingleModel):
             }
             self.params['z_std'] = 0  # not sure what's up, will revisit this
 
-    def predict(self, t, ci=None, n=1000):
+    def cdf(self, t, ci=None, n=1000):
         t = numpy.array(t)
         if ci:
             betas = numpy.random.normal(self.params['beta'], self.params['beta_std'], n)
