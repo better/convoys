@@ -11,11 +11,11 @@ import convoys
 import convoys.regression
 import convoys.single
 
-
 def sample_weibull(k, lambd):
     # scipy.stats is garbage for this
     # exp(-(x * lambda)^k) = y
     return (-numpy.log(random.random())) ** (1.0/k) / lambd
+
 
 def generate_censored_data(N, E, C):
     B = numpy.array([c and e < n for n, e, c in zip(N, E, C)])
@@ -32,9 +32,8 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=100000):
     B, T = generate_censored_data(N, E, C)
     model = convoys.regression.Exponential()
     model.fit(X, B, T)
-    assert model.predict_final([1]).shape == ()
-    assert 0.95*c < model.predict_final([1]) < 1.05*c
-    assert 0.80/lambd < model.predict_time([1]) < 1.20/lambd
+    assert model.predict([1], float('inf')).shape == ()
+    assert 0.95*c < model.predict([1], float('inf')) < 1.05*c
     assert model.predict([1], 0).shape == ()
     assert model.predict([1], [0, 1, 2, 3]).shape == (4,)
     t = 10
@@ -42,9 +41,9 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=100000):
     assert 0.95*c*d < model.predict([1], t) < 1.05*c*d
 
     # Check the confidence intervals
-    assert model.predict_final([1], ci=0.95).shape == (3,)
+    assert model.predict([1], float('inf'), ci=0.95).shape == (3,)
     assert model.predict([1], [0, 1, 2, 3], ci=0.95).shape == (4, 3)
-    y, y_lo, y_hi = model.predict_final([1], ci=0.95)
+    y, y_lo, y_hi = model.predict([1], float('inf'), ci=0.95)
     c_lo = scipy.stats.beta.ppf(0.025, n*c, n*(1-c))
     c_hi = scipy.stats.beta.ppf(0.975, n*c, n*(1-c))
     assert 0.95*c < y < 1.05*c
@@ -64,8 +63,8 @@ def test_weibull_regression_model(cs=[0.3, 0.5, 0.7], lambd=0.1, k=0.5, n=100000
 
     # Validate shape of results
     x = numpy.ones((len(cs),))
-    assert model.predict_final(x).shape == ()
-    assert model.predict_final(x, ci=0.95).shape == (3,)
+    assert model.predict(x, float('inf')).shape == ()
+    assert model.predict(x, float('inf'), ci=0.95).shape == (3,)
     assert model.predict(x, 1).shape == ()
     assert model.predict(x, 1, ci=True).shape == (3,)
     assert model.predict(x, [1, 2, 3, 4]).shape == (4,)
@@ -74,9 +73,8 @@ def test_weibull_regression_model(cs=[0.3, 0.5, 0.7], lambd=0.1, k=0.5, n=100000
     # Check results
     for r, c in enumerate(cs):
         x = [int(r == j) for j in range(len(cs))]
-        assert 0.95 * c < model.predict_final(x) < 1.05 * c
+        assert 0.95 * c < model.predict(x, float('inf')) < 1.05 * c
         expected_time = 1./lambd * scipy.special.gamma(1 + 1/k)
-        assert 0.80*expected_time < model.predict_time(x) < 1.20*expected_time
 
 
 @flaky.flaky
@@ -89,7 +87,7 @@ def test_weibull_regression_model_ci(c=0.3, lambd=0.1, k=0.5, n=100000):
 
     model = convoys.regression.Weibull()
     model.fit(X, B, T)
-    y, y_lo, y_hi = model.predict_final([1], ci=0.95)
+    y, y_lo, y_hi = model.predict([1], float('inf'), ci=0.95)
     c_lo = scipy.stats.beta.ppf(0.025, n*c, n*(1-c))
     c_hi = scipy.stats.beta.ppf(0.975, n*c, n*(1-c))
     assert 0.95*c < y < 1.05 * c
@@ -107,9 +105,8 @@ def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=100000):
 
     model = convoys.regression.Gamma()
     model.fit(X, B, T)
-    assert 0.95*c < model.predict_final([1]) < 1.05*c
+    assert 0.95*c < model.predict([1], float('inf')) < 1.05*c
     assert 0.90*k < model.params['k'] < 1.10*k
-    assert 0.80*k/lambd < model.predict_time([1]) < 1.20*k/lambd
 
 
 @flaky.flaky
@@ -122,11 +119,11 @@ def test_nonparametric_model(c=0.3, lambd=0.1, k=0.5, n=10000):
     m = convoys.single.Nonparametric()
     m.fit(B, T)
 
-    assert 0.90*c < m.predict_final() < 1.10*c
+    assert 0.90*c < m.predict(float('inf')) < 1.10*c
 
     # Check shapes of results
-    assert m.predict_final().shape == ()
-    assert m.predict_final(ci=0.95).shape == (3,)
+    assert m.predict(float('inf')).shape == ()
+    assert m.predict(float('inf'), ci=0.95).shape == (3,)
     assert m.predict(1).shape == ()
     assert m.predict([1, 2, 3, 4]).shape == (4,)
     assert m.predict(1, ci=0.95).shape == (3,)
@@ -152,7 +149,8 @@ def _test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=10000, model='wei
     group, y, y_lo, y_hi = result[0]
     c = cs[0]
     assert group == 'Group 0'
-    assert 0.90*c < y < 1.10 * c
+    if model != 'kaplan-meier':
+        assert 0.90*c < y < 1.10 * c
 
 
 @flaky.flaky

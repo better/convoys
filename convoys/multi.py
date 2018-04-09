@@ -26,12 +26,6 @@ class RegressionToMulti(MultiModel):
     def predict(self, group, t, *args, **kwargs):
         return self.base_model.predict(self._get_x(group), t, *args, **kwargs)
 
-    def predict_final(self, group, *args, **kwargs):
-        return self.base_model.predict_final(self._get_x(group), *args, **kwargs)
-
-    def predict_time(self, group, *args, **kwargs):
-        return self.base_model.predict_time(self._get_x(group), *args, **kwargs)
-
 
 class SingleToMulti(MultiModel):
     def __init__(self, *args, **kwargs):
@@ -48,12 +42,6 @@ class SingleToMulti(MultiModel):
 
     def predict(self, group, t, *args, **kwargs):
         return self._group2model[group].predict(t, *args, **kwargs)
-
-    def predict_final(self, group, *args, **kwargs):
-        return self._group2model[group].predict_final(*args, **kwargs)
-
-    def predict_time(self, group, *args, **kwargs):
-        return self._group2model[group].predict_time(*args, **kwargs)
 
 
 class Exponential(RegressionToMulti):
