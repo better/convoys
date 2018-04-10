@@ -134,7 +134,7 @@ _regression_models = {
 }
 
 
-def plot_timeseries(data, title=None, n_splines=30, group_min_size=0, max_groups=100, model='exponential'):
+def plot_timeseries(data, title=None, n_splines=10, group_min_size=0, max_groups=100, model='exponential'):
     t_max = max(now - created_at for group, created_at, converted_at, now in data)
     t_unit, t_converter = get_timescale(t_max)
     t_max = t_converter(t_max)
@@ -146,9 +146,10 @@ def plot_timeseries(data, title=None, n_splines=30, group_min_size=0, max_groups
     t_end = max(created_at for group, created_at, converted_at, now in data)
 
     # Create splines for the regression model
-    s = scipy.interpolate.CubicSpline(
+    s = scipy.interpolate.interp1d(
         numpy.linspace(0, t_converter(t_end - t_start), n_splines),
-        numpy.eye(n_splines)
+        numpy.eye(n_splines),
+        kind='quadratic',
     )
 
     # Construct the regression input
@@ -173,7 +174,7 @@ def plot_timeseries(data, title=None, n_splines=30, group_min_size=0, max_groups
         for j, t in enumerate(ts):
             x = numpy.zeros((n_splines * len(groups),))
             x[g*n_splines:(g+1)*n_splines] = s(t)
-            c, c_lo, c_hi = m.predict_final(x, ci=0.95)
+            c, c_lo, c_hi = m.cdf(x, float('inf'), ci=0.95)
             cs.append(c * 100)
             cs_lo.append(c_lo * 100)
             cs_hi.append(c_hi * 100)
