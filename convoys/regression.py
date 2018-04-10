@@ -66,7 +66,10 @@ class GeneralizedGamma(RegressionModel):
             p = tf.constant(p, tf.float32)
 
         # PDF: p*lambda^(k*p) / gamma(k) * t^(k*p-1) * exp(-(x*lambda)^p)
-        log_pdf = tf.log(p) + (k*p) * tf.log(lambd) - tf.lgamma(k) + (k*p-1) * tf.log(T_batch) - (T_batch*lambd)**p
+        log_pdf = \
+            tf.log(p) + (k*p) * tf.log(lambd) \
+            - tf.lgamma(k) + (k*p-1) * tf.log(T_batch) \
+            - (T_batch*lambd)**p
         cdf = tf.igamma(k, (T_batch*lambd)**p)
 
         LL_observed = tf.log(c) + log_pdf
@@ -76,9 +79,10 @@ class GeneralizedGamma(RegressionModel):
 
         with tf.Session() as sess:
             feed_dict = {X_batch: X, B_batch: B, T_batch: T}
-            tf_utils.optimize(sess, LL, feed_dict, 
-                              update_callback=(tf_utils.get_tweaker(sess, LL, k, feed_dict)
-                                               if should_update_k else None))
+            tf_utils.optimize(
+                sess, LL, feed_dict,
+                update_callback=(tf_utils.get_tweaker(sess, LL, k, feed_dict)
+                                 if should_update_k else None))
             self.params = {
                 'a': a.params(sess, LL, feed_dict),
                 'b': b.params(sess, LL, feed_dict),
@@ -90,7 +94,11 @@ class GeneralizedGamma(RegressionModel):
         t = numpy.array(t)
         a = LinearCombination.sample(self.params['a'], x, ci, n)
         b = LinearCombination.sample(self.params['b'], x, ci, n)
-        return tf_utils.predict(expit(b) * gammainc(self.params['k'], numpy.multiply.outer(t, numpy.exp(a))**self.params['p']), ci)
+        return tf_utils.predict(
+            expit(b) * gammainc(
+                self.params['k'],
+                numpy.multiply.outer(t, numpy.exp(a))**self.params['p']),
+            ci)
 
 
 class Exponential(GeneralizedGamma):
