@@ -56,6 +56,10 @@ class Gamma(RegressionToMulti):
     base_model_cls = regression.Gamma
 
 
+class GeneralizedGamma(RegressionToMulti):
+    base_model_cls = regression.GeneralizedGamma
+
+
 class KaplanMeier(SingleToMulti):
     base_model_cls = single.KaplanMeier
 

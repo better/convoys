@@ -3,7 +3,7 @@ import numpy
 import random
 import seaborn
 from matplotlib import pyplot
-from convoys.multi import Exponential, Weibull, Gamma, KaplanMeier, Nonparametric
+from convoys.multi import *
 
 
 def get_timescale(t):
@@ -59,6 +59,7 @@ _models = {
     'exponential': Exponential,
     'weibull': Weibull,
     'gamma': Gamma,
+    'generalized-gamma': GeneralizedGamma,
 }
 
 

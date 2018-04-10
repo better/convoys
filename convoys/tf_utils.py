@@ -48,6 +48,23 @@ def optimize(sess, target, placeholders, batch_size=1024, update_callback=None):
             update_callback(sess)
 
 
+def get_tweaker(sess, target, z, feed_dict):
+    new_z = tf.placeholder(tf.float32, shape=z.shape)
+    assign_z = tf.assign(z, new_z)
+
+    def tweak_z(sess):
+        # tf.igamma doesn't compute the gradient wrt a properly
+        # So let's just try small perturbations
+        z_value = sess.run(z)
+        res = {}
+        for z_mult in [0.97, 1.0, 1.03]:
+            sess.run(assign_z, feed_dict={new_z: z_value * z_mult})
+            res[z_value * z_mult] = sess.run(target, feed_dict=feed_dict)
+        sess.run(assign_z, feed_dict={new_z: max(res.keys(), key=res.get)})
+
+    return tweak_z
+
+
 def predict(func_values, ci):
     if ci is None:
         return func_values
