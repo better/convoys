@@ -34,7 +34,7 @@ class LinearCombination:
             return mean + scipy.stats.norm.rvs(scale=(1/inv_var_beta + 1/inv_var_b)**0.5, size=(n,))
 
 
-class RegressionModel:
+class RegressionModel(object):
     pass
 
 
