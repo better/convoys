@@ -55,6 +55,7 @@ def get_tweaker(sess, target, z, feed_dict):
     def tweak_z(sess):
         # tf.igamma doesn't compute the gradient wrt a properly
         # So let's just try small perturbations
+        # https://github.com/tensorflow/tensorflow/issues/17995
         z_value = sess.run(z)
         res = {}
         for z_mult in [0.97, 1.0, 1.03]:
