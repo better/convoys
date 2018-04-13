@@ -13,7 +13,9 @@ class LinearCombination:
         self.log_sigma = tf.Variable(tf.zeros([]))
         self.sigma = tf.exp(self.log_sigma)
         # log PDF of normal distribution
-        self.LL_term = -tf.reduce_sum(self.beta**2) / (2*self.sigma**2) - k*self.log_sigma
+        self.LL_term = \
+            -tf.reduce_sum(self.beta**2) / (2*self.sigma**2) + \
+            -k**self.log_sigma
 
     def params(self, sess, LL, feed_dict):
         return sess.run([
@@ -79,15 +81,18 @@ class GeneralizedGamma(RegressionModel):
         LL_observed = tf.log(c) + log_pdf
         LL_censored = tf.log((1-c) + c * (1 - cdf))
 
-        LL_batch = tf.reduce_sum(B_batch * LL_observed + (1 - B_batch) * LL_censored, 0)
+        LL_batch = tf.reduce_sum(
+            B_batch * LL_observed +
+            (1 - B_batch) * LL_censored, 0)
         LL_global = a.LL_term + b.LL_term
 
         with tf.Session() as sess:
             feed_dict = {X_batch: X, B_batch: B, T_batch: T}
             tf_utils.optimize(
                 sess, LL_batch, LL_global, feed_dict,
-                update_callback=(tf_utils.get_tweaker(sess, LL_batch + LL_global, k, feed_dict)
-                                 if should_update_k else None))
+                update_callback=(
+                    tf_utils.get_tweaker(sess, LL_batch + LL_global, k, feed_dict)
+                    if should_update_k else None))
             self.params = {
                 'a': a.params(sess, LL_batch + LL_global, feed_dict),
                 'b': b.params(sess, LL_batch + LL_global, feed_dict),

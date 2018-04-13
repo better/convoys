@@ -10,16 +10,19 @@ def get_batch_placeholders(vs):
     return [tf.placeholder(tf.float32, shape=((None,) + v.shape[1:])) for v in vs]
 
 
-def optimize(sess, target_batch, target_global=None, placeholders={}, batch_size=1024, update_callback=None):
+def optimize(sess, target_batch, target_global=None, placeholders={},
+             batch_size=1024, update_callback=None):
     if placeholders:
         n = int(list(placeholders.values())[0].shape[0])
     else:
         n = 1
 
     learning_rate_input = tf.placeholder(tf.float32, [])
-    optimizer_batch = tf.train.AdamOptimizer(learning_rate_input).minimize(-target_batch)
+    optimizer_batch = tf.train.AdamOptimizer(learning_rate_input) \
+        .minimize(-target_batch)
     if target_global is not None:
-        optimizer_global = tf.train.AdamOptimizer(learning_rate_input).minimize(-target_global)
+        optimizer_global = tf.train.AdamOptimizer(learning_rate_input) \
+            .minimize(-target_global)
     sess.run(tf.global_variables_initializer())
 
     best_cost, best_step, step = float('-inf'), 0, 0
@@ -28,14 +31,17 @@ def optimize(sess, target_batch, target_global=None, placeholders={}, batch_size
         cost = 0
         shuffled = sklearn.utils.shuffle(*placeholders.values())
         for i in range(0, n, batch_size):
-            feed_dict_batch = {placeholder: v[i:min(i+batch_size, n)] for placeholder, v in zip(placeholders.keys(), shuffled)}
-            feed_dict_batch[learning_rate_input] = learning_rate
+            feed_dict_batch = dict(
+                [(learning_rate_input, learning_rate)] +
+                [(placeholder, v[i:min(i+batch_size, n)])
+                 for placeholder, v in zip(placeholders.keys(), shuffled)])
             sess.run(optimizer_batch, feed_dict=feed_dict_batch)
             cost += sess.run(target_batch, feed_dict=feed_dict_batch)
 
         if target_global is not None:
-            feed_dict_global = {placeholder: v for placeholder, v in placeholders.items()}
-            feed_dict_global[learning_rate_input] = learning_rate
+            feed_dict_global = dict(
+                [(learning_rate_input, learning_rate)] +
+                [(placeholder, v) for placeholder, v in placeholders.items()])
             sess.run(optimizer_global, feed_dict=feed_dict_global)
             cost += sess.run(target_global, feed_dict=feed_dict_global)
 
