@@ -10,18 +10,25 @@ class LinearCombination:
         self.beta = tf.Variable(tf.zeros([k]))
         self.b = tf.Variable(tf.zeros([]))
         self.y = tf.squeeze(tf.matmul(X, tf.expand_dims(self.beta, -1)), 1) + self.b
+        self.log_sigma = tf.Variable(tf.zeros([]))
+        self.sigma = tf.exp(self.log_sigma)
+        # log PDF of normal distribution
+        self.LL_term = \
+            -tf.reduce_sum(self.beta**2) / (2*self.sigma**2) + \
+            -k**self.log_sigma
 
     def params(self, sess, LL, feed_dict):
         return sess.run([
             self.beta,
             self.b,
             tf.hessians(-LL, [self.beta])[0],
-            tf.hessians(-LL, [self.b])[0]
+            tf.hessians(-LL, [self.b])[0],
+            self.sigma,
         ], feed_dict=feed_dict)
 
     @staticmethod
     def sample(params, x, ci, n):
-        beta, b, beta_hessian, b_hessian = params
+        beta, b, beta_hessian, b_hessian, sigma = params
         mean = numpy.dot(x, beta) + b
         if ci is None:
             return mean
@@ -46,7 +53,6 @@ class GeneralizedGamma(RegressionModel):
         n_features = X.shape[1]
         X_batch, B_batch, T_batch = tf_utils.get_batch_placeholders((X, B, T))
 
-        X_batch = tf.nn.dropout(X_batch, keep_prob=0.5)
         a = LinearCombination(X_batch, n_features)
         b = LinearCombination(X_batch, n_features)
         lambd = tf.exp(a.y)
@@ -75,17 +81,21 @@ class GeneralizedGamma(RegressionModel):
         LL_observed = tf.log(c) + log_pdf
         LL_censored = tf.log((1-c) + c * (1 - cdf))
 
-        LL = tf.reduce_sum(B_batch * LL_observed + (1 - B_batch) * LL_censored, 0)
+        LL_batch = tf.reduce_sum(
+            B_batch * LL_observed +
+            (1 - B_batch) * LL_censored, 0)
+        LL_global = a.LL_term + b.LL_term
 
         with tf.Session() as sess:
             feed_dict = {X_batch: X, B_batch: B, T_batch: T}
             tf_utils.optimize(
-                sess, LL, feed_dict,
-                update_callback=(tf_utils.get_tweaker(sess, LL, k, feed_dict)
-                                 if should_update_k else None))
+                sess, LL_batch, LL_global, feed_dict,
+                update_callback=(
+                    tf_utils.get_tweaker(sess, LL_batch + LL_global, k, feed_dict)
+                    if should_update_k else None))
             self.params = {
-                'a': a.params(sess, LL, feed_dict),
-                'b': b.params(sess, LL, feed_dict),
+                'a': a.params(sess, LL_batch + LL_global, feed_dict),
+                'b': b.params(sess, LL_batch + LL_global, feed_dict),
                 'k': sess.run(k),
                 'p': sess.run(p),
             }
