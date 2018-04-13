@@ -60,6 +60,8 @@ class GeneralizedGamma(RegressionModel):
 
         if k is None:
             k = tf.Variable(1.0, name='k', trainable=False)
+            new_k = tf.placeholder(tf.float32, shape=[])
+            assign_k = tf.assign(k, new_k)
             should_update_k = True
         else:
             k = tf.constant(k, tf.float32)
@@ -88,11 +90,19 @@ class GeneralizedGamma(RegressionModel):
 
         with tf.Session() as sess:
             feed_dict = {X_batch: X, B_batch: B, T_batch: T}
-            tf_utils.optimize(
-                sess, LL_batch, LL_global, feed_dict,
-                update_callback=(
-                    tf_utils.get_tweaker(sess, LL_batch + LL_global, k, feed_dict)
-                    if should_update_k else None))
+            for _ in tf_utils.optimize(
+                sess, LL_batch, LL_global, feed_dict):
+                if should_update_k:
+                    # tf.igamma doesn't compute the gradient wrt a properly
+                    # So let's just try small perturbations
+                    # https://github.com/tensorflow/tensorflow/issues/17995
+                    k_value = sess.run(k)
+                    res = {}
+                    for k_mult in [0.97, 1.0, 1.03]:
+                        sess.run(assign_k, feed_dict={new_k: k_value * k_mult})
+                        res[k_value * k_mult] = sess.run(LL_batch + LL_global, feed_dict=feed_dict)
+                    sess.run(assign_k, feed_dict={new_k: max(res.keys(), key=res.get)})
+
             self.params = {
                 'a': a.params(sess, LL_batch + LL_global, feed_dict),
                 'b': b.params(sess, LL_batch + LL_global, feed_dict),
