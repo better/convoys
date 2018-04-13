@@ -1,5 +1,5 @@
 import numpy
-import sklearn.utils
+import random
 import sys
 import tensorflow as tf
 
@@ -14,8 +14,10 @@ def optimize(sess, target_batch, target_global=None, placeholders={},
              batch_size=1024, update_callback=None):
     if placeholders:
         n = int(list(placeholders.values())[0].shape[0])
+        indexes = list(range(n))
     else:
         n = 1
+        indexes = []
 
     learning_rate_input = tf.placeholder(tf.float32, [])
     optimizer_batch = tf.train.AdamOptimizer(learning_rate_input) \
@@ -29,12 +31,12 @@ def optimize(sess, target_batch, target_global=None, placeholders={},
     learning_rate = 3e-3
     while True:
         cost = 0
-        shuffled = sklearn.utils.shuffle(*placeholders.values())
+        random.shuffle(indexes)
         for i in range(0, n, batch_size):
             feed_dict_batch = dict(
                 [(learning_rate_input, learning_rate)] +
-                [(placeholder, v[i:min(i+batch_size, n)])
-                 for placeholder, v in zip(placeholders.keys(), shuffled)])
+                [(placeholder, v[indexes[i:min(i+batch_size, n)]])
+                 for placeholder, v in placeholders.items()])
             sess.run(optimizer_batch, feed_dict=feed_dict_batch)
             cost += sess.run(target_batch, feed_dict=feed_dict_batch)
 
