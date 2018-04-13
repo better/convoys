@@ -90,18 +90,19 @@ class GeneralizedGamma(RegressionModel):
 
         with tf.Session() as sess:
             feed_dict = {X_batch: X, B_batch: B, T_batch: T}
-            for _ in tf_utils.optimize(
-                sess, LL_batch, LL_global, feed_dict):
+            for _ in tf_utils.optimize(sess, LL_batch, LL_global, feed_dict):
                 if should_update_k:
                     # tf.igamma doesn't compute the gradient wrt a properly
                     # So let's just try small perturbations
                     # https://github.com/tensorflow/tensorflow/issues/17995
-                    k_value = sess.run(k)
+                    k_val = sess.run(k)
                     res = {}
-                    for k_mult in [0.97, 1.0, 1.03]:
-                        sess.run(assign_k, feed_dict={new_k: k_value * k_mult})
-                        res[k_value * k_mult] = sess.run(LL_batch + LL_global, feed_dict=feed_dict)
-                    sess.run(assign_k, feed_dict={new_k: max(res.keys(), key=res.get)})
+                    for new_k_val in [0.97*k_val, 1.0*k_val, 1.03*k_val]:
+                        sess.run(assign_k, feed_dict={new_k: new_k_val})
+                        res[new_k_val] = sess.run(LL_batch + LL_global,
+                                                  feed_dict=feed_dict)
+                    best_k_val = max(res.keys(), key=res.get)
+                    sess.run(assign_k, feed_dict={new_k: best_k_val})
 
             self.params = {
                 'a': a.params(sess, LL_batch + LL_global, feed_dict),
