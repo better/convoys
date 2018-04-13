@@ -11,7 +11,7 @@ def get_batch_placeholders(vs):
 
 
 def optimize(sess, target_batch, target_global=None, placeholders={},
-             batch_size=1024, update_callback=None):
+             batch_size=128, update_callback=None):
     if placeholders:
         n = int(list(placeholders.values())[0].shape[0])
         indexes = list(range(n))
