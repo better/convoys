@@ -97,7 +97,7 @@ class Nonparametric(SingleModel):
             return tf.reduce_sum(count_observed * LL_observed + count_unobserved * LL_unobserved, 0)
 
         with tf.Session() as sess:
-            tf_utils.optimize(sess, get_LL(log_survived_until, log_survived_after, log_observed), {})
+            tf_utils.optimize(sess, get_LL(log_survived_until, log_survived_after, log_observed))
 
             # At this point, we're going to reparametrize the problem to be a function of log_survived_after
             # We can't do that with the original problem, since that would induce negative values of log_observed
