@@ -23,11 +23,14 @@ class KaplanMeier(SingleModel):
             self._ts.append(t)
             prod_s_terms *= 1 - d/n
             self._ss.append(prod_s_terms)
-            try:
-                sum_var_terms += d / (n*(n-d))
-            except ZeroDivisionError:
+            if d == n == 1:
                 sum_var_terms = float('inf')
-            self._vs.append(1 / numpy.log(prod_s_terms)**2 * sum_var_terms)
+            else:
+                sum_var_terms += d / (n*(n-d))
+            if sum_var_terms > 0:
+                self._vs.append(1 / numpy.log(prod_s_terms)**2 * sum_var_terms)
+            else:
+                self._vs.append(0)
             n -= 1
         self.get_j = lambda t: numpy.searchsorted(self._ts, t)
 
