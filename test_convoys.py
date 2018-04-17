@@ -49,6 +49,10 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=100000):
     assert 0.95*c < y < 1.05*c
     assert 0.70*(c_hi-c_lo) < (y_hi-y_lo) < 1.30*(c_hi-c_lo)
 
+    # Check the random variates
+    will_convert, convert_at = model.rvs([1], n_curves=1, n_samples=1000)
+    assert 0.95*c < numpy.mean(will_convert) < 1.05*c
+
 
 @flaky.flaky
 def test_weibull_regression_model(cs=[0.3, 0.5, 0.7], lambd=0.1, k=0.5, n=100000):
