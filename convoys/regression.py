@@ -1,5 +1,5 @@
-import numpy # TODO: remove
-from scipy.special import expit, gamma, gammainc, gammaincinv
+import numpy
+from scipy.special import expit, gammainc, gammaincinv
 import scipy.stats
 import tensorflow as tf
 from convoys import tf_utils
@@ -121,7 +121,9 @@ class GeneralizedGamma(RegressionModel):
         C = numpy.zeros((n_curves, n_samples))
         for i, (a, b) in enumerate(zip(a, b)):
             z = numpy.random.uniform(size=(n_samples,))
-            cdf_now = expit(b) * gammainc(self.params['k'], (T[i]*numpy.exp(a))**self.params['p'])
+            cdf_now = expit(b) * gammainc(
+                self.params['k'],
+                (T[i]*numpy.exp(a))**self.params['p'])
             cdf_final = expit(b)
             adjusted_z = cdf_now + (1 - cdf_now) * z
             B[i] = (adjusted_z < cdf_final)
