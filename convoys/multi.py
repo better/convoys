@@ -23,8 +23,11 @@ class RegressionToMulti(MultiModel):
         x[group] = 1
         return x
 
-    def cdf(self, group, t, *args, **kwargs):
-        return self.base_model.cdf(self._get_x(group), t, *args, **kwargs)
+    def cdf(self, group, *args, **kwargs):
+        return self.base_model.cdf(self._get_x(group), *args, **kwargs)
+
+    def rvs(self, group, *args, **kwargs):
+        return self.base_model.rvs(self._get_x(group), *args, **kwargs)
 
 
 class SingleToMulti(MultiModel):

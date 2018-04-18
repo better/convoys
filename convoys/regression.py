@@ -115,6 +115,8 @@ class GeneralizedGamma(RegressionModel):
         # T is optional and means we already observed non-conversion until T
         if T is None:
             T = numpy.zeros((n_curves, n_samples))
+        else:
+            assert T.shape == (n_curves, n_samples)
         a = LinearCombination.sample(self.params['a'], x, 1, n_curves)
         b = LinearCombination.sample(self.params['b'], x, 1, n_curves)
         B = numpy.zeros((n_curves, n_samples), dtype=numpy.bool)
@@ -123,7 +125,7 @@ class GeneralizedGamma(RegressionModel):
             z = numpy.random.uniform(size=(n_samples,))
             cdf_now = expit(b) * gammainc(
                 self.params['k'],
-                (T[i]*numpy.exp(a))**self.params['p'])
+                numpy.multiply.outer(T[i], numpy.exp(a))**self.params['p'])
             cdf_final = expit(b)
             adjusted_z = cdf_now + (1 - cdf_now) * z
             B[i] = (adjusted_z < cdf_final)
@@ -131,7 +133,7 @@ class GeneralizedGamma(RegressionModel):
             x = gammaincinv(self.params['k'], y)
             # x = (t * exp(a))**p
             C[i] = x**(1./self.params['p']) / numpy.exp(a)
-            C[~B] = 0
+            C[i][~B[i]] = 0
 
         return B, C
 

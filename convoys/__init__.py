@@ -28,11 +28,17 @@ def get_arrays(groups, data, t_converter):
     G, B, T = [], [], []
     group2j = dict((group, j) for j, group in enumerate(groups))
     for group, created_at, converted_at, now in data:
+        if created_at is None:
+            print('created at is None')
+            continue
         if converted_at is not None and converted_at <= created_at:
             print('created at', created_at, 'but converted at', converted_at)
             continue
         if now < created_at:
             print('created at', created_at, 'but now is', now)
+            continue
+        if converted_at is not None and now < converted_at:
+            print('converted at', converted_at, 'but now is', now)
             continue
         if group in group2j:
             G.append(group2j[group])
