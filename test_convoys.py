@@ -36,9 +36,9 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=100000):
     assert 0.95*c < model.cdf([1], float('inf')) < 1.05*c
     assert model.cdf([1], 0).shape == ()
     assert model.cdf([1], [0, 1, 2, 3]).shape == (4,)
-    t = 10
-    d = 1 - numpy.exp(-lambd*t)
-    assert 0.95*c*d < model.cdf([1], t) < 1.05*c*d
+    for t in [1, 3, 10]:
+        d = 1 - numpy.exp(-lambd*t)
+        assert 0.95*c*d < model.cdf([1], t) < 1.05*c*d
 
     # Check the confidence intervals
     assert model.cdf([1], float('inf'), ci=0.95).shape == (3,)
@@ -52,6 +52,10 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=100000):
     # Check the random variates
     will_convert, convert_at = model.rvs([1], n_curves=1, n_samples=1000)
     assert 0.95*c < numpy.mean(will_convert) < 1.05*c
+    convert_times = convert_at[will_convert]
+    for t in [1, 3, 10]:
+        d = 1 - numpy.exp(-lambd*t)
+        assert 0.9*d < (convert_times < t).mean() < 1.1*d
 
 
 @flaky.flaky
