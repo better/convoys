@@ -1,5 +1,5 @@
-import numpy # TODO: remove
-from scipy.special import expit, gamma, gammainc  # TODO: remove
+import numpy
+from scipy.special import expit, gammainc, gammaincinv
 import scipy.stats
 import tensorflow as tf
 from convoys import tf_utils
@@ -109,6 +109,33 @@ class GeneralizedGamma(RegressionModel):
                 self.params['k'],
                 numpy.multiply.outer(t, numpy.exp(a))**self.params['p']),
             ci)
+
+    def rvs(self, x, n_curves=1, n_samples=1, T=None):
+        # Samples values from this distribution
+        # T is optional and means we already observed non-conversion until T
+        if T is None:
+            T = numpy.zeros((n_curves, n_samples))
+        else:
+            assert T.shape == (n_curves, n_samples)
+        a = LinearCombination.sample(self.params['a'], x, 1, n_curves)
+        b = LinearCombination.sample(self.params['b'], x, 1, n_curves)
+        B = numpy.zeros((n_curves, n_samples), dtype=numpy.bool)
+        C = numpy.zeros((n_curves, n_samples))
+        for i, (a, b) in enumerate(zip(a, b)):
+            z = numpy.random.uniform(size=(n_samples,))
+            cdf_now = expit(b) * gammainc(
+                self.params['k'],
+                numpy.multiply.outer(T[i], numpy.exp(a))**self.params['p'])
+            cdf_final = expit(b)
+            adjusted_z = cdf_now + (1 - cdf_now) * z
+            B[i] = (adjusted_z < cdf_final)
+            y = adjusted_z / cdf_final
+            x = gammaincinv(self.params['k'], y)
+            # x = (t * exp(a))**p
+            C[i] = x**(1./self.params['p']) / numpy.exp(a)
+            C[i][~B[i]] = 0
+
+        return B, C
 
 
 class Exponential(GeneralizedGamma):
