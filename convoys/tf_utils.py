@@ -11,7 +11,7 @@ def get_batch_placeholders(vs):
 
 
 def optimize(sess, target_batch, target_global=None, placeholders={},
-             batch_size=128, update_callback=None):
+             batch_size=128):
     if placeholders:
         n = int(list(placeholders.values())[0].shape[0])
         indexes = list(range(n))
@@ -55,27 +55,7 @@ def optimize(sess, target_batch, target_global=None, placeholders={},
         sys.stdout.write('\n' if step % 100 == 0 else '\r')
         sys.stdout.flush()
         step += 1
-
-        if update_callback:
-            update_callback(sess)
-
-
-def get_tweaker(sess, target, z, feed_dict):
-    new_z = tf.placeholder(tf.float32, shape=z.shape)
-    assign_z = tf.assign(z, new_z)
-
-    def tweak_z(sess):
-        # tf.igamma doesn't compute the gradient wrt a properly
-        # So let's just try small perturbations
-        # https://github.com/tensorflow/tensorflow/issues/17995
-        z_value = sess.run(z)
-        res = {}
-        for z_mult in [0.97, 1.0, 1.03]:
-            sess.run(assign_z, feed_dict={new_z: z_value * z_mult})
-            res[z_value * z_mult] = sess.run(target, feed_dict=feed_dict)
-        sess.run(assign_z, feed_dict={new_z: max(res.keys(), key=res.get)})
-
-    return tweak_z
+        yield  # Let the caller do any custom stuff here
 
 
 def predict(func_values, ci):
