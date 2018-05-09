@@ -49,9 +49,11 @@ class GeneralizedGamma(RegressionModel):
     # https://en.wikipedia.org/wiki/Generalized_gamma_distribution
     # Note however that lambda is a^-1 in WP's notation
     # Note also that k = d/p so d = k*p
-    def fit(self, X, B, T, k=None, p=None):
+    def fit(self, X, B, T, W=None, k=None, p=None):
         n_features = X.shape[1]
-        X_batch, B_batch, T_batch = tf_utils.get_batch_placeholders((X, B, T))
+        if W is None:
+            W = numpy.ones(B.shape)
+        X_batch, B_batch, T_batch, W_batch = tf_utils.get_batch_placeholders((X, B, T, W))
 
         a = LinearCombination(X_batch, n_features)
         b = LinearCombination(X_batch, n_features)
@@ -82,12 +84,12 @@ class GeneralizedGamma(RegressionModel):
         LL_censored = tf.log((1-c) + c * (1 - cdf))
 
         LL_batch = tf.reduce_sum(
-            B_batch * LL_observed +
-            (1 - B_batch) * LL_censored, 0)
+            W_batch * B_batch * LL_observed +
+            W_batch * (1 - B_batch) * LL_censored, 0)
         LL_global = a.LL_term + b.LL_term
 
         with tf.Session() as sess:
-            feed_dict = {X_batch: X, B_batch: B, T_batch: T}
+            feed_dict = {X_batch: X, B_batch: B, T_batch: T, W_batch: W}
             tf_utils.optimize(
                 sess, LL_batch, LL_global, feed_dict,
                 update_callback=(
@@ -139,15 +141,15 @@ class GeneralizedGamma(RegressionModel):
 
 
 class Exponential(GeneralizedGamma):
-    def fit(self, X, B, T):
-        super(Exponential, self).fit(X, B, T, k=1, p=1)
+    def fit(self, X, B, T, W):
+        super(Exponential, self).fit(X, B, T, W, k=1, p=1)
 
 
 class Weibull(GeneralizedGamma):
-    def fit(self, X, B, T):
-        super(Weibull, self).fit(X, B, T, k=1)
+    def fit(self, X, B, T, W):
+        super(Weibull, self).fit(X, B, T, W, k=1)
 
 
 class Gamma(GeneralizedGamma):
-    def fit(self, X, B, T):
-        super(Gamma, self).fit(X, B, T, p=1)
+    def fit(self, X, B, T, W):
+        super(Gamma, self).fit(X, B, T, W, p=1)
