@@ -2,65 +2,31 @@ import numpy
 import random
 import sys
 import tensorflow as tf
+from tensorflow.contrib.opt import ScipyOptimizerInterface
 
 tf.logging.set_verbosity(3)
 
 
-def get_batch_placeholders(vs):
-    return [tf.placeholder(tf.float32, shape=((None,) + v.shape[1:])) for v in vs]
-
-
-def optimize(sess, target_batch, target_global=None, placeholders={},
-             batch_size=128, update_callback=None):
-    if placeholders:
-        n = int(list(placeholders.values())[0].shape[0])
-        indexes = list(range(n))
-    else:
-        n = 1
-        indexes = []
-
-    learning_rate_input = tf.placeholder(tf.float32, [])
-    optimizer_batch = tf.train.AdamOptimizer(learning_rate_input) \
-        .minimize(-target_batch)
-    if target_global is not None:
-        optimizer_global = tf.train.AdamOptimizer(learning_rate_input) \
-            .minimize(-target_global)
+def optimize(sess, target, update_callback=None):
     sess.run(tf.global_variables_initializer())
 
-    best_cost, best_step, step = float('-inf'), 0, 0
-    learning_rate = 3e-3
-    while True:
-        cost = 0
-        random.shuffle(indexes)
-        for i in range(0, n, batch_size):
-            feed_dict_batch = dict(
-                [(learning_rate_input, learning_rate)] +
-                [(placeholder, v[indexes[i:min(i+batch_size, n)]])
-                 for placeholder, v in placeholders.items()])
-            sess.run(optimizer_batch, feed_dict=feed_dict_batch)
-            cost += sess.run(target_batch, feed_dict=feed_dict_batch)
-
-        if target_global is not None:
-            feed_dict_global = dict(
-                [(learning_rate_input, learning_rate)] +
-                [(placeholder, v) for placeholder, v in placeholders.items()])
-            sess.run(optimizer_global, feed_dict=feed_dict_global)
-            cost += sess.run(target_global, feed_dict=feed_dict_global)
-
-        if cost > best_cost:
-            best_cost, best_step = cost, step
-        if step - best_step > 20:
-            break
-        sys.stdout.write('step %6d (%6d since best): %14.3f%30s' % (step, step-best_step, cost, ''))
-        sys.stdout.write('\n' if step % 100 == 0 else '\r')
-        sys.stdout.flush()
-        step += 1
-
+    def step_callback(*args):
         if update_callback:
             update_callback(sess)
 
+    def loss_callback(loss):
+        sys.stderr.write('Current loss: %6.3f\r' % loss)
 
-def get_tweaker(sess, target, z, feed_dict):
+    optimizer = ScipyOptimizerInterface(-target, method='Newton-CG', options={'maxiter': 10000})
+    optimizer.minimize(sess,
+                       fetches=[target],
+                       step_callback=step_callback,
+                       loss_callback=loss_callback)
+
+    sys.stderr.write('\n')
+
+
+def get_tweaker(sess, target, z):
     new_z = tf.placeholder(tf.float32, shape=z.shape)
     assign_z = tf.assign(z, new_z)
 
@@ -72,7 +38,7 @@ def get_tweaker(sess, target, z, feed_dict):
         res = {}
         for z_mult in [0.97, 1.0, 1.03]:
             sess.run(assign_z, feed_dict={new_z: z_value * z_mult})
-            res[z_value * z_mult] = sess.run(target, feed_dict=feed_dict)
+            res[z_value * z_mult] = sess.run(target)
         sess.run(assign_z, feed_dict={new_z: max(res.keys(), key=res.get)})
 
     return tweak_z
