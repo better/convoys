@@ -16,7 +16,6 @@ class LinearCombination:
         self.LL_term = \
             -tf.reduce_sum(self.beta**2) / (2*self.sigma**2) + \
             -k*self.log_sigma
-        self.LL_term = 0
 
     def params(self, sess, LL):
         return sess.run([
