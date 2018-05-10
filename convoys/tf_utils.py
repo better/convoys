@@ -15,7 +15,7 @@ def optimize(sess, target, update_callback=None):
             update_callback(sess)
 
     def loss_callback(loss):
-        sys.stderr.write('Current loss: %30.3f\r' % loss)
+        sys.stderr.write('Current loss: %9.6e\r' % loss)
 
     optimizer = ScipyOptimizerInterface(loss=-target,
                                         method='SLSQP',
