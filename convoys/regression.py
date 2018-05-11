@@ -10,13 +10,12 @@ class LinearCombination:
         self.beta = tf.Variable(tf.zeros([k]))
         self.b = tf.Variable(tf.zeros([]))
         self.y = tf.squeeze(tf.matmul(X, tf.expand_dims(self.beta, -1)), 1) + self.b
-        self.log_sigma = tf.Variable(tf.zeros([]))
+        self.log_sigma = tf.Variable(-1.0)
         self.sigma = tf.exp(self.log_sigma)
         # log PDF of normal distribution
         self.LL_term = \
             -tf.reduce_sum(self.beta**2) / (2*self.sigma**2) + \
             -k*self.log_sigma
-        self.LL_term = 0
 
     def params(self, sess, LL):
         return sess.run([
@@ -50,7 +49,9 @@ class GeneralizedGamma(RegressionModel):
     # https://en.wikipedia.org/wiki/Generalized_gamma_distribution
     # Note however that lambda is a^-1 in WP's notation
     # Note also that k = d/p so d = k*p
-    def fit(self, X, B, T, W=None, k=None, p=None):
+    def fit(self, X, B, T, W=None, k=None, p=None, method='Powell'):
+        # Note on using Powell: tf.igamma returns the wrong gradient wrt k
+        # https://github.com/tensorflow/tensorflow/issues/17995
         n_features = X.shape[1]
         X, B, T = (numpy.array(z, dtype=numpy.float32) for z in (X, B, T))
         if W is None:
@@ -62,11 +63,10 @@ class GeneralizedGamma(RegressionModel):
         c = tf.sigmoid(b.y)
 
         if k is None:
-            k = tf.Variable(1.0, name='k', trainable=False)
-            should_update_k = True
+            log_k_var = tf.Variable(tf.zeros([]), name='log_k')
+            k = tf.exp(log_k_var)
         else:
             k = tf.constant(k, tf.float32)
-            should_update_k = False
 
         if p is None:
             log_p_var = tf.Variable(tf.zeros([]), name='log_p')
@@ -90,11 +90,7 @@ class GeneralizedGamma(RegressionModel):
             a.LL_term + b.LL_term
 
         with tf.Session() as sess:
-            tf_utils.optimize(
-                sess, LL,
-                update_callback=(
-                    tf_utils.get_tweaker(sess, LL, k)
-                    if should_update_k else None))
+            tf_utils.optimize(sess, LL, method)
             self.params = {
                 'a': a.params(sess, LL),
                 'b': b.params(sess, LL),
@@ -142,12 +138,12 @@ class GeneralizedGamma(RegressionModel):
 
 class Exponential(GeneralizedGamma):
     def fit(self, X, B, T, W=None):
-        super(Exponential, self).fit(X, B, T, W, k=1, p=1)
+        super(Exponential, self).fit(X, B, T, W, k=1, p=1, method='CG')
 
 
 class Weibull(GeneralizedGamma):
     def fit(self, X, B, T, W=None):
-        super(Weibull, self).fit(X, B, T, W, k=1)
+        super(Weibull, self).fit(X, B, T, W, k=1, method='CG')
 
 
 class Gamma(GeneralizedGamma):
