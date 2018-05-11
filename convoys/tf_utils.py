@@ -13,12 +13,14 @@ def optimize(sess, target, method='SLSQP'):
     def loss_callback(loss):
         sys.stderr.write('loss: %30.6f%30s\r' % (loss, ''))
 
-    optimizer = ScipyOptimizerInterface(loss=-target,
-                                        method=method,
-                                        options={'maxiter': 10000})
-    optimizer.minimize(sess,
-                       fetches=[target],
-                       loss_callback=loss_callback)
+    optimizer = ScipyOptimizerInterface(
+        loss=-target,
+        method=method,
+        options={'maxiter': 10000, 'xtol': 1e-9, 'ftol': 1e-9})
+    optimizer.minimize(
+        sess,
+        fetches=[target],
+        loss_callback=loss_callback)
     sys.stderr.write('\n')
 
 

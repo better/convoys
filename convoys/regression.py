@@ -10,7 +10,7 @@ class LinearCombination:
         self.beta = tf.Variable(tf.zeros([k]))
         self.b = tf.Variable(tf.zeros([]))
         self.y = tf.squeeze(tf.matmul(X, tf.expand_dims(self.beta, -1)), 1) + self.b
-        self.log_sigma = tf.Variable(-1.0)
+        self.log_sigma = tf.Variable(1.0)
         self.sigma = tf.exp(self.log_sigma)
         # log PDF of normal distribution
         self.LL_term = \
@@ -138,12 +138,12 @@ class GeneralizedGamma(RegressionModel):
 
 class Exponential(GeneralizedGamma):
     def fit(self, X, B, T, W=None):
-        super(Exponential, self).fit(X, B, T, W, k=1, p=1, method='CG')
+        super(Exponential, self).fit(X, B, T, W, k=1, p=1, method='Newton-CG')
 
 
 class Weibull(GeneralizedGamma):
     def fit(self, X, B, T, W=None):
-        super(Weibull, self).fit(X, B, T, W, k=1, method='CG')
+        super(Weibull, self).fit(X, B, T, W, k=1, method='Newton-CG')
 
 
 class Gamma(GeneralizedGamma):
