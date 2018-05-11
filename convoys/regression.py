@@ -50,6 +50,8 @@ class GeneralizedGamma(RegressionModel):
     # Note however that lambda is a^-1 in WP's notation
     # Note also that k = d/p so d = k*p
     def fit(self, X, B, T, W=None, k=None, p=None, method='Powell'):
+        # Note on using Powell: tf.igamma returns the wrong gradient wrt k
+        # https://github.com/tensorflow/tensorflow/issues/17995
         n_features = X.shape[1]
         X, B, T = (numpy.array(z, dtype=numpy.float32) for z in (X, B, T))
         if W is None:
