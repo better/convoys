@@ -1,7 +1,6 @@
 import datetime
 import numpy
 import random
-import seaborn
 from matplotlib import pyplot
 from convoys.multi import Exponential, Weibull, Gamma, GeneralizedGamma, \
     KaplanMeier, Nonparametric
@@ -89,7 +88,8 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
         extra_m.fit(G, B, T)
 
     # Plot
-    colors = seaborn.color_palette('hls', len(groups))
+    colors = pyplot.get_cmap('tab10').colors
+    colors = [colors[i % len(colors)] for i in range(len(groups))]
     t = numpy.linspace(0, t_max, 1000)
     y_max = 0
     result = []
