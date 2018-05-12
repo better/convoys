@@ -2,6 +2,7 @@ import numpy
 from scipy.special import expit, gammainc, gammaincinv
 import scipy.stats
 import tensorflow as tf
+import warnings
 from convoys import tf_utils
 
 
@@ -52,11 +53,19 @@ class GeneralizedGamma(RegressionModel):
     def fit(self, X, B, T, W=None, k=None, p=None, method='Powell'):
         # Note on using Powell: tf.igamma returns the wrong gradient wrt k
         # https://github.com/tensorflow/tensorflow/issues/17995
-        n_features = X.shape[1]
-        X, B, T = (numpy.array(z, dtype=numpy.float32) for z in (X, B, T))
+        # Sanity check input:
         if W is None:
-            W = numpy.ones(B.shape, dtype=numpy.float32)
+            W = [1] * len(X)
+        XBTW = [(x, b, t, w) for x, b, t, w in zip(X, B, T, W)
+                if t > 0 or float(t) not in [0, 1] or w < 0]
+        if len(XBTW) < len(X):
+            n_removed = len(X) - len(XBTW)
+            warnings.warn('Warning! Removed %d entries from inputs where' +
+                          'T <= 0 or B not 0/1 or W < 0' % n_removed)
+        X, B, T, W = (numpy.array([z[i] for z in XBTW], dtype=numpy.float32)
+                      for i in range(4))
 
+        n_features = X.shape[1]
         a = LinearCombination(X, n_features)
         b = LinearCombination(X, n_features)
         lambd = tf.exp(a.y)
