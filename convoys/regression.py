@@ -59,8 +59,9 @@ class GeneralizedGamma(RegressionModel):
         XBTW = [(x, b, t, w) for x, b, t, w in zip(X, B, T, W)
                 if t > 0 or float(t) not in [0, 1] or w < 0]
         if len(XBTW) < len(X):
-            warnings.warn('Warning! Removed %d entries from inputs where ' + \
-                          'T <= 0 or B not 0/1 or W < 0' % (len(X) - len(XBTW)))
+            n_removed = len(X) - len(XBTW)
+            warnings.warn('Warning! Removed %d entries from inputs where' +
+                          'T <= 0 or B not 0/1 or W < 0' % n_removed)
         X, B, T, W = (numpy.array([z[i] for z in XBTW], dtype=numpy.float32)
                       for i in range(4))
 
