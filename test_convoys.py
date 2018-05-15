@@ -1,3 +1,4 @@
+import autograd
 import datetime
 import flaky
 import matplotlib
@@ -8,8 +9,10 @@ import scipy.special
 import scipy.stats
 matplotlib.use('Agg')  # Needed for matplotlib to run in Travis
 import convoys
+import convoys.gamma
 import convoys.regression
 import convoys.single
+
 
 def sample_weibull(k, lambd):
     # scipy.stats is garbage for this
@@ -21,6 +24,21 @@ def generate_censored_data(N, E, C):
     B = numpy.array([c and e < n for n, e, c in zip(N, E, C)])
     T = numpy.array([e if b else n for e, b, n in zip(E, B, N)])
     return B, T
+
+
+def test_gammainc(k=2.5, x=4.2, g_eps=1e-7):
+    # Verify that function values are correct
+    assert convoys.gamma.gammainc(k, x) == pytest.approx(scipy.special.gammainc(k, x))
+
+    # Verify the derivative wrt k
+    f_grad_k = autograd.grad(lambda k: convoys.gamma.gammainc(k, x))
+    f_grad_k_numeric = lambda k: (scipy.special.gammainc(k + g_eps, x) - scipy.special.gammainc(k, x)) / g_eps
+    assert f_grad_k(k) == pytest.approx(f_grad_k_numeric(k))
+
+    # Verify the derivative wrt x
+    f_grad_x = autograd.grad(lambda x: convoys.gamma.gammainc(k, x))
+    f_grad_x_numeric = lambda x: (scipy.special.gammainc(k, x + g_eps) - scipy.special.gammainc(k, x)) / g_eps
+    assert f_grad_x(x) == pytest.approx(f_grad_x_numeric(x))
 
 
 @flaky.flaky
