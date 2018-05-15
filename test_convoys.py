@@ -44,6 +44,12 @@ def test_gammainc(k=2.5, x=4.2, g_eps=1e-7):
     f_grad_x_numeric = lambda x: (scipy.special.gammainc(k, x + g_eps) - scipy.special.gammainc(k, x)) / g_eps
     assert f_grad_x(x) == pytest.approx(f_grad_x_numeric(x))
 
+    # Verify the derivative wrt x when x is a vector
+    f_grad_x = autograd.jacobian(lambda x: convoys.gamma.gammainc(1.0, x))
+    f_grad_x_correct = autograd.jacobian(lambda x: 1.0 - autograd.numpy.exp(-x))
+    xs = numpy.array([1., 2., 3.])
+    assert f_grad_x(xs) == pytest.approx(f_grad_x_correct(xs))
+
 
 @flaky.flaky
 def test_exponential_regression_model(c=0.3, lambd=0.1, n=100000):
