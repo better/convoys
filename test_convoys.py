@@ -30,6 +30,10 @@ def test_gammainc(k=2.5, x=4.2, g_eps=1e-7):
     # Verify that function values are correct
     assert convoys.gamma.gammainc(k, x) == pytest.approx(scipy.special.gammainc(k, x))
 
+    # Verify that it handles vectors
+    assert convoys.gamma.gammainc(k, numpy.array([1, 2, 3])) == \
+        pytest.approx(scipy.special.gammainc(k, numpy.array([1, 2, 3])))
+
     # Verify the derivative wrt k
     f_grad_k = autograd.grad(lambda k: convoys.gamma.gammainc(k, x))
     f_grad_k_numeric = lambda k: (scipy.special.gammainc(k + g_eps, x) - scipy.special.gammainc(k, x)) / g_eps
