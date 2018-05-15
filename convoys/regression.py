@@ -1,7 +1,7 @@
 import autograd
 import emcee
 import numpy
-#from scipy.special import gammainc, gammaincinv
+from scipy.special import gammainc, gammaincinv
 from autograd.scipy.special import expit, gammaln # , gammainc
 from autograd.numpy import isnan, exp, dot, log, sum
 import scipy.stats
@@ -10,8 +10,11 @@ import warnings
 from convoys import tf_utils
 
 
-def gammainc(k, x):
-    return 1 - exp(-x)  # This is true for k=1
+def my_gammainc(k, x):
+    if k == 1:
+        return 1 - exp(-x)  # This is true for k=1
+    else:
+        return gammainc(k, x)
 
 
 class RegressionModel(object):
@@ -44,12 +47,13 @@ class GeneralizedGamma(RegressionModel):
         # Define model
         # Note that scipy.optimize and emcee forces the the parameters to be a vector:
         # (log k, log p, log sigma_alpha, log sigma_beta, a, b, alpha_1...alpha_k, beta_1...beta_k)
+        fix_k, fix_p = k, p
+
         def log_likelihood(x):
-            k = 1 # exp(x[0])
-            p = exp(x[1])
-            p, k = numpy.clip((p, k), 0, 30)  # can otherwise give weird results
-            log_sigma_alpha = x[2]
-            log_sigma_beta = x[3]
+            k = exp(x[0]) if fix_k is None else fix_k
+            p = exp(x[1]) if fix_p is None else fix_p
+            log_sigma_alpha = x[2] if n_features > 1 else 0
+            log_sigma_beta = x[3] if n_features > 1 else 0
             a = x[4]
             b = x[5]
             alpha = x[6:6+n_features]
@@ -62,7 +66,7 @@ class GeneralizedGamma(RegressionModel):
                       log(p) + (k*p) * log(lambd) \
                       - gammaln(k) + (k*p-1) * log(T) \
                       - (T*lambd)**p
-            cdf = gammainc(k, (T*lambd)**p)
+            cdf = my_gammainc(k, (T*lambd)**p)
 
             LL_observed = log(c) + log_pdf
             LL_censored = log((1-c) + c * (1 - cdf))
@@ -78,17 +82,26 @@ class GeneralizedGamma(RegressionModel):
                 return -numpy.inf
             else:
                 if isinstance(x, numpy.ndarray):
-                    print('%9.6f %9.6f %9.6f %9.6f -> %9.6f %30s' % (k, p, exp(log_sigma_alpha), exp(log_sigma_beta), LL, ''), end='\r')
+                    print('%9.6f %9.6f %9.6f %9.6f -> %9.6f %30s' % (k, p, exp(log_sigma_alpha), exp(log_sigma_beta), LL, '')) #, end='\r')
                 return LL
 
         x0 = numpy.zeros(6+2*n_features)
         print('\nFinding MAP:')
         neg_log_likelihood = lambda x: -log_likelihood(x)
+        fix_k = 1.0
         res = scipy.optimize.minimize(
             neg_log_likelihood,
             x0,
             jac=autograd.grad(neg_log_likelihood),
             method='SLSQP',
+        )
+        x0 = res.x
+        print('\nFinding MAP (again, letting k vary):')
+        fix_k = k
+        res = scipy.optimize.minimize(
+            neg_log_likelihood,
+            x0,
+            method='Powell',
         )
         x0 = res.x
         print('\nStarting MCMC:')
