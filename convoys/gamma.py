@@ -38,6 +38,6 @@ def gammainc(k, x):
 g_eps = 1e-6
 defvjp(
     gammainc,
-    lambda ans, k, x: lambda g: g * (gammainc_orig(k + g_eps, x) - gammainc_orig(k, x)) / g_eps,
-    lambda ans, k, x: lambda g: g * (gammainc_orig(k, x + g_eps) - gammainc_orig(k, x)) / g_eps,
+    lambda ans, k, x: lambda g: g * (gammainc_orig(k + g_eps, x) - ans) / g_eps,
+    lambda ans, k, x: lambda g: g * (gammainc_orig(k, x + g_eps) - ans) / g_eps,
 )

@@ -45,10 +45,15 @@ def test_gammainc(k=2.5, x=4.2, g_eps=1e-7):
     assert f_grad_x(x) == pytest.approx(f_grad_x_numeric(x))
 
     # Verify the derivative wrt x when x is a vector
-    f_grad_x = autograd.jacobian(lambda x: convoys.gamma.gammainc(1.0, x))
-    f_grad_x_correct = autograd.jacobian(lambda x: 1.0 - autograd.numpy.exp(-x))
+    f_grad_x = autograd.grad(lambda x: autograd.numpy.sum(convoys.gamma.gammainc(1.0, x)))
+    f_grad_x_correct = autograd.grad(lambda x: autograd.numpy.sum(1.0 - autograd.numpy.exp(-x)))
     xs = numpy.array([1., 2., 3.])
     assert f_grad_x(xs) == pytest.approx(f_grad_x_correct(xs))
+
+    # Verify the derivative wrt k when x is a vector
+    xs = numpy.array([1., 2., 3.])
+    f_grad_k = autograd.grad(lambda k: autograd.numpy.sum(convoys.gamma.gammainc(k, xs)))
+    assert f_grad_k(xs).shape == (3,)
 
 
 @flaky.flaky

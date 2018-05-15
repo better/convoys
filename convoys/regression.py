@@ -74,6 +74,7 @@ class GeneralizedGamma(RegressionModel):
             LL_prior_b = -log_sigma_beta**2 - dot(beta, beta) / (2*exp(log_sigma_beta)**2) - n_features*log_sigma_beta
 
             LL = LL_prior_a + LL_prior_b + LL_data
+
             if isnan(LL):
                 return -numpy.inf
             else:
@@ -99,25 +100,31 @@ class GeneralizedGamma(RegressionModel):
                 nwalkers=nwalkers,
                 dim=dim,
                 lnpostfn=log_likelihood)
-            p0 = [x0 + 1e-4 * numpy.random.randn(dim) for i in range(nwalkers)]
-            sampler.run_mcmc(p0, 500)
-            print('\nDumping results:')
-            print(sampler.chain.shape)
-            samples = sampler.chain[:,100:,].reshape((-1, dim))
-            print(samples.shape)
-            import corner
-            fig = corner.corner(samples)
-            fig.savefig('samples.png')
+            mcmc_initial_noise = 1e-3
+            p0 = [x0 + mcmc_initial_noise * numpy.random.randn(dim) for i in range(nwalkers)]
+            sampler.run_mcmc(p0, 200)
+            data = sampler.chain[:,100:,].reshape((-1, dim)).T
+        else:
+            data = x0
 
-    def cdf(self, x, t, ci=None, n=1000):
+        # The `data` array is either 1D (in the case of MAP) or 2D (in the case of MCMC)
+        self.params = {
+            'k': exp(data[0]),
+            'p': exp(data[1]),
+            'a': data[4],
+            'b': data[5],
+            'alpha': data[6:6+n_features],
+            'beta': data[6+n_features:6+2*n_features],
+            }
+
+    def cdf(self, x, t, ci=None):
         t = numpy.array(t)
-        a = LinearCombination.sample(self.params['a'], x, ci, n)
-        b = LinearCombination.sample(self.params['b'], x, ci, n)
-        return tf_utils.predict(
-            expit(b) * gammainc(
-                self.params['k'],
-                numpy.multiply.outer(t, numpy.exp(a))**self.params['p']),
-            ci)
+        lambd = exp(dot(x, self.params['alpha']) + self.params['a'])
+        c = expit(dot(x, self.params['beta']) + self.params['b'])
+        M = c * gammainc(
+            self.params['k'],
+            numpy.multiply.outer(t, lambd)**self.params['p'])
+        return tf_utils.predict(M, ci)
 
     def rvs(self, x, n_curves=1, n_samples=1, T=None):
         # Samples values from this distribution
