@@ -1,10 +1,8 @@
-import math
-from numpy import exp, log, vectorize
+from autograd.numpy import exp, log
+from numpy import vectorize
 import mpmath
-from autograd import grad
 from autograd.extend import primitive, defvjp
 from autograd.scipy.special import gamma
-import scipy.special
 
 # See https://en.wikipedia.org/wiki/Incomplete_gamma_function#Derivatives
 
