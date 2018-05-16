@@ -9,6 +9,6 @@ before_install:
 install:
   - pip install pytest flaky -r requirements.txt
 script:
-  - py.test --cov=convoys .
+  - py.test -s -v --cov=convoys .
 after_success:
   - coveralls
