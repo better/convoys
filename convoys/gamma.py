@@ -1,4 +1,5 @@
 from autograd.extend import primitive, defvjp
+from autograd.numpy.numpy_vjps import unbroadcast_f  # This is not documented
 from scipy.special import gammainc as gammainc_orig
 
 
@@ -38,6 +39,6 @@ def gammainc(k, x):
 g_eps = 1e-6
 defvjp(
     gammainc,
-    lambda ans, k, x: lambda g: g * (gammainc_orig(k + g_eps, x) - ans) / g_eps,
-    lambda ans, k, x: lambda g: g * (gammainc_orig(k, x + g_eps) - ans) / g_eps,
+    lambda ans, k, x: unbroadcast_f(k, lambda g: g * (gammainc_orig(k + g_eps, x) - ans) / g_eps),
+    lambda ans, k, x: unbroadcast_f(x, lambda g: g * (gammainc_orig(k, x + g_eps) - ans) / g_eps),
 )
