@@ -118,14 +118,14 @@ class GeneralizedGamma(RegressionModel):
             'p': exp(data[1]),
             'a': data[4],
             'b': data[5],
-            'alpha': data[6:6+n_features],
-            'beta': data[6+n_features:6+2*n_features],
+            'alpha': data[6:6+n_features].T,
+            'beta': data[6+n_features:6+2*n_features].T,
             }
 
     def cdf(self, x, t, ci=None):
         t = numpy.array(t)
-        lambd = exp(dot(x, self.params['alpha']) + self.params['a'])
-        c = expit(dot(x, self.params['beta']) + self.params['b'])
+        lambd = exp(dot(self.params['alpha'], x) + self.params['a'])
+        c = expit(dot(self.params['beta'], x) + self.params['b'])
         M = c * gammainc(
             self.params['k'],
             numpy.multiply.outer(t, lambd)**self.params['p'])
@@ -138,22 +138,24 @@ class GeneralizedGamma(RegressionModel):
             T = numpy.zeros((n_curves, n_samples))
         else:
             assert T.shape == (n_curves, n_samples)
-        a = LinearCombination.sample(self.params['a'], x, 1, n_curves)
-        b = LinearCombination.sample(self.params['b'], x, 1, n_curves)
         B = numpy.zeros((n_curves, n_samples), dtype=numpy.bool)
         C = numpy.zeros((n_curves, n_samples))
-        for i, (a, b) in enumerate(zip(a, b)):
+        n = len(self.params['k'])
+        for i in range(n_curves):
+            k = self.params['k'][i%n]
+            p = self.params['k'][i%n]
+            lambd = exp(dot(x, self.params['alpha'][i%n]) + self.params['a'][i%n])
+            c = expit(dot(x, self.params['beta'][i%n]) + self.params['b'][i%n])
             z = numpy.random.uniform(size=(n_samples,))
-            cdf_now = expit(b) * gammainc(
-                self.params['k'],
-                numpy.multiply.outer(T[i], numpy.exp(a))**self.params['p'])
-            cdf_final = expit(b)
+            cdf_now = c * gammainc(
+                k,
+                numpy.multiply.outer(T[i], lambd)**p)  # why is this outer?
             adjusted_z = cdf_now + (1 - cdf_now) * z
-            B[i] = (adjusted_z < cdf_final)
-            y = adjusted_z / cdf_final
-            x = gammaincinv(self.params['k'], y)
-            # x = (t * exp(a))**p
-            C[i] = x**(1./self.params['p']) / numpy.exp(a)
+            B[i] = (adjusted_z < c)
+            y = adjusted_z / c
+            x = gammaincinv(k, y)
+            # x = (t * lambd)**p
+            C[i] = x**(1./p) / lambd
             C[i][~B[i]] = 0
 
         return B, C

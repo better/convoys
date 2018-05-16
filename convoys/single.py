@@ -138,7 +138,10 @@ class Nonparametric(SingleModel):
         c = expit(betas)
         survived_until = expit(zs)
         f = c * (1 - survived_until)
-        m = tf_utils.predict(f, ci)
+        if ci:
+            m = tf_utils.predict(f, ci)
+        else:
+            m = f
         res = numpy.zeros(t.shape + (3,) if ci else t.shape)
         for indexes, value in numpy.ndenumerate(t):
             j = self.get_j(value)
