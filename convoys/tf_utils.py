@@ -24,7 +24,7 @@ def optimize(sess, target, method='SLSQP'):
 
 def predict(func_values, ci):
     if ci is None:
-        return func_values
+        return numpy.mean(func_values, axis=-1)
     else:
         # Replace the last axis with a 3-element vector
         y = numpy.mean(func_values, axis=-1)

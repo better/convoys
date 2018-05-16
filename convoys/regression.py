@@ -105,9 +105,12 @@ class GeneralizedGamma(RegressionModel):
             nsteps = numpy.ceil(1000. / nwalkers)
             print('\nStarting MCMC with %d walkers and %d steps:' % (nwalkers, nburnin+nsteps))
             sampler.run_mcmc(p0, nburnin+nsteps)
+            print('\n')
             data = sampler.chain[:,nburnin:,].reshape((-1, dim)).T
         else:
+            # Should be very easy to support, we just need to modify tf_utils.predict a bit
             data = x0
+            raise Exception('TODO: this is not supported yet')
 
         # The `data` array is either 1D (in the case of MAP) or 2D (in the case of MCMC)
         self.params = {
