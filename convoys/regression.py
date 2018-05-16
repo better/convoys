@@ -79,7 +79,7 @@ class GeneralizedGamma(RegressionModel):
                 return -numpy.inf
             else:
                 if isinstance(x, numpy.ndarray):
-                    print('%9.6f %9.6f %9.6f %9.6f -> %9.6f %30s' % (k, p, exp(log_sigma_alpha), exp(log_sigma_beta), LL, ''), end='\r')
+                    print('%9.6e %9.6e %9.6e %9.6e -> %9.6e %30s' % (k, p, exp(log_sigma_alpha), exp(log_sigma_beta), LL, ''), end='\r')
                 return LL
 
         x0 = numpy.zeros(6+2*n_features)
@@ -92,18 +92,20 @@ class GeneralizedGamma(RegressionModel):
             method='SLSQP',
         )
         x0 = res.x
-        print('\nStarting MCMC:')
         if self._method == 'MCMC':
-            nwalkers = 100
             dim, = x0.shape
+            nwalkers = 5*dim
             sampler = emcee.EnsembleSampler(
                 nwalkers=nwalkers,
                 dim=dim,
                 lnpostfn=log_likelihood)
             mcmc_initial_noise = 1e-3
             p0 = [x0 + mcmc_initial_noise * numpy.random.randn(dim) for i in range(nwalkers)]
-            sampler.run_mcmc(p0, 200)
-            data = sampler.chain[:,100:,].reshape((-1, dim)).T
+            nburnin = 20
+            nsteps = numpy.ceil(1000. / nwalkers)
+            print('\nStarting MCMC with %d walkers and %d steps:' % (nwalkers, nburnin+nsteps))
+            sampler.run_mcmc(p0, nburnin+nsteps)
+            data = sampler.chain[:,nburnin:,].reshape((-1, dim)).T
         else:
             data = x0
 
