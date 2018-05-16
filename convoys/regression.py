@@ -1,11 +1,11 @@
 import autograd
 import emcee
 import numpy
-from scipy.special import gammainc, gammaincinv
-from autograd.scipy.special import expit, gammaln # , gammainc
+from scipy.special import gammaincinv
+from autograd.scipy.special import expit, gammaln
 from autograd.numpy import isnan, exp, dot, log, sum
-import scipy.stats
-import tensorflow as tf
+import scipy.optimize
+import sys
 import warnings
 from convoys import tf_utils
 from convoys.gamma import gammainc
@@ -23,8 +23,6 @@ class GeneralizedGamma(RegressionModel):
         self._method = method
 
     def fit(self, X, B, T, W=None, k=None, p=None):
-        # Note on using Powell: tf.igamma returns the wrong gradient wrt k
-        # https://github.com/tensorflow/tensorflow/issues/17995
         # Sanity check input:
         if W is None:
             W = [1] * len(X)
@@ -39,8 +37,9 @@ class GeneralizedGamma(RegressionModel):
         n_features = X.shape[1]
 
         # Define model
-        # Note that scipy.optimize and emcee forces the the parameters to be a vector:
-        # (log k, log p, log sigma_alpha, log sigma_beta, a, b, alpha_1...alpha_k, beta_1...beta_k)
+        # scipy.optimize and emcee forces the the parameters to be a vector:
+        # (log k, log p, log sigma_alpha, log sigma_beta,
+        #  a, b, alpha_1...alpha_k, beta_1...beta_k)
         fix_k, fix_p = k, p
 
         def log_likelihood(x):
@@ -57,9 +56,9 @@ class GeneralizedGamma(RegressionModel):
 
             # PDF: p*lambda^(k*p) / gamma(k) * t^(k*p-1) * exp(-(x*lambda)^p)
             log_pdf = \
-                      log(p) + (k*p) * log(lambd) \
-                      - gammaln(k) + (k*p-1) * log(T) \
-                      - (T*lambd)**p
+                log(p) + (k*p) * log(lambd) \
+                - gammaln(k) + (k*p-1) * log(T) \
+                - (T*lambd)**p
             cdf = gammainc(k, (T*lambd)**p)
 
             LL_observed = log(c) + log_pdf
@@ -70,25 +69,29 @@ class GeneralizedGamma(RegressionModel):
                 W * (1 - B) * LL_censored, 0)
 
             # TODO: explain these prior terms
-            LL_prior_a = -log_sigma_alpha**2 - dot(alpha, alpha) / (2*exp(log_sigma_alpha)**2) - n_features*log_sigma_alpha
-            LL_prior_b = -log_sigma_beta**2 - dot(beta, beta) / (2*exp(log_sigma_beta)**2) - n_features*log_sigma_beta
+            LL_prior_a = -log_sigma_alpha**2 \
+                - dot(alpha, alpha) / (2*exp(log_sigma_alpha)**2) \
+                - n_features*log_sigma_alpha
+            LL_prior_b = -log_sigma_beta**2 \
+                - dot(beta, beta) / (2*exp(log_sigma_beta)**2) \
+                - n_features*log_sigma_beta
 
             LL = LL_prior_a + LL_prior_b + LL_data
 
             if isnan(LL):
                 return -numpy.inf
-            else:
-                if isinstance(x, numpy.ndarray):
-                    print('%9.6e %9.6e %9.6e %9.6e -> %9.6e %30s' % (k, p, exp(log_sigma_alpha), exp(log_sigma_beta), LL, ''), end='\r')
-                return LL
+            if isinstance(x, numpy.ndarray):
+                sys.stdout.write('%9.6e %9.6e %9.6e %9.6e -> %9.6e %30s\r'
+                                 % (k, p, exp(log_sigma_alpha),
+                                    exp(log_sigma_beta), LL, ''))
+            return LL
 
         x0 = numpy.zeros(6+2*n_features)
         print('\nFinding MAP:')
-        neg_log_likelihood = lambda x: -log_likelihood(x)
         res = scipy.optimize.minimize(
-            neg_log_likelihood,
+            lambda x: -log_likelihood(x),
             x0,
-            jac=autograd.grad(neg_log_likelihood),
+            jac=autograd.grad(lambda x: -log_likelihood(x)),
             method='SLSQP',
         )
         x0 = res.x
@@ -100,19 +103,21 @@ class GeneralizedGamma(RegressionModel):
                 dim=dim,
                 lnpostfn=log_likelihood)
             mcmc_initial_noise = 1e-3
-            p0 = [x0 + mcmc_initial_noise * numpy.random.randn(dim) for i in range(nwalkers)]
+            p0 = [x0 + mcmc_initial_noise * numpy.random.randn(dim)
+                  for i in range(nwalkers)]
             nburnin = 20
             nsteps = numpy.ceil(1000. / nwalkers)
-            print('\nStarting MCMC with %d walkers and %d steps:' % (nwalkers, nburnin+nsteps))
+            print('\nStarting MCMC with %d walkers and %d steps:' % (
+                    nwalkers, nburnin+nsteps))
             sampler.run_mcmc(p0, nburnin+nsteps)
             print('\n')
-            data = sampler.chain[:,nburnin:,].reshape((-1, dim)).T
+            data = sampler.chain[:, nburnin:, :].reshape((-1, dim)).T
         else:
-            # Should be very easy to support, we just need to modify tf_utils.predict a bit
+            # Should be easy to support, just need to modify tf_utils.predict
             data = x0
             raise Exception('TODO: this is not supported yet')
 
-        # The `data` array is either 1D (in the case of MAP) or 2D (in the case of MCMC)
+        # The `data` array is either 1D (for MAP) or 2D (for MCMC)
         self.params = {
             'k': exp(data[0]),
             'p': exp(data[1]),
