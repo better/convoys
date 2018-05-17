@@ -3,4 +3,3 @@ emcee
 matplotlib>=2.0.0
 numpy
 scipy
-tensorflow>=1.6.0

@@ -3,7 +3,7 @@ import numpy
 import random
 from matplotlib import pyplot
 from convoys.multi import Exponential, Weibull, Gamma, GeneralizedGamma, \
-    KaplanMeier, Nonparametric
+    KaplanMeier
 
 
 def get_timescale(t):
@@ -61,7 +61,6 @@ def get_groups(data, group_min_size, max_groups):
 
 _models = {
     'kaplan-meier': KaplanMeier,
-    'nonparametric': Nonparametric,
     'exponential': Exponential,
     'weibull': Weibull,
     'gamma': Gamma,

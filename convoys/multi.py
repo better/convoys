@@ -65,7 +65,3 @@ class GeneralizedGamma(RegressionToMulti):
 
 class KaplanMeier(SingleToMulti):
     base_model_cls = single.KaplanMeier
-
-
-class Nonparametric(SingleToMulti):
-    base_model_cls = single.Nonparametric

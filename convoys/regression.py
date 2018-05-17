@@ -7,8 +7,18 @@ from autograd.numpy import isnan, exp, dot, log, sum
 import scipy.optimize
 import sys
 import warnings
-from convoys import tf_utils
 from convoys.gamma import gammainc
+
+
+def predict(func_values, ci):
+    if ci is None:
+        return numpy.mean(func_values, axis=-1)
+    else:
+        # Replace the last axis with a 3-element vector
+        y = numpy.mean(func_values, axis=-1)
+        y_lo = numpy.percentile(func_values, (1-ci)*50, axis=-1)
+        y_hi = numpy.percentile(func_values, (1+ci)*50, axis=-1)
+        return numpy.stack((y, y_lo, y_hi), axis=-1)
 
 
 class RegressionModel(object):
@@ -113,7 +123,7 @@ class GeneralizedGamma(RegressionModel):
             print('\n')
             data = sampler.chain[:, nburnin:, :].reshape((-1, dim)).T
         else:
-            # Should be easy to support, just need to modify tf_utils.predict
+            # Should be easy to support, just need to modify predict(...)
             data = x0
             raise Exception('TODO: this is not supported yet')
 
@@ -134,7 +144,7 @@ class GeneralizedGamma(RegressionModel):
         M = c * gammainc(
             self.params['k'],
             numpy.multiply.outer(t, lambd)**self.params['p'])
-        return tf_utils.predict(M, ci)
+        return predict(M, ci)
 
     def rvs(self, x, n_curves=1, n_samples=1, T=None):
         # Samples values from this distribution

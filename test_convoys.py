@@ -137,27 +137,6 @@ def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=100000):
     assert 0.90*k < numpy.mean(model.params['k']) < 1.10*k
 
 
-@flaky.flaky
-def test_nonparametric_model(c=0.3, lambd=0.1, k=0.5, n=10000):
-    C = scipy.stats.bernoulli.rvs(c, size=(n,))
-    N = scipy.stats.uniform.rvs(scale=30./lambd, size=(n,))
-    E = numpy.array([sample_weibull(k, lambd) for r in range(n)])
-    B, T = generate_censored_data(N, E, C)
-
-    m = convoys.single.Nonparametric()
-    m.fit(B, T)
-
-    assert 0.90*c < m.cdf(float('inf')) < 1.10*c
-
-    # Check shapes of results
-    assert m.cdf(float('inf')).shape == ()
-    assert m.cdf(float('inf'), ci=0.95).shape == (3,)
-    assert m.cdf(1).shape == ()
-    assert m.cdf([1, 2, 3, 4]).shape == (4,)
-    assert m.cdf(1, ci=0.95).shape == (3,)
-    assert m.cdf([1, 2, 3, 4], ci=0.95).shape == (4, 3)
-
-
 def _test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=10000, model='weibull', extra_model=None):
     C = numpy.array([bool(random.random() < cs[r % len(cs)]) for r in range(n)])
     N = scipy.stats.expon.rvs(scale=10./lambd, size=(n,))
@@ -189,11 +168,6 @@ def test_plot_cohorts_kaplan_meier():
 @flaky.flaky
 def test_plot_cohorts_weibull():
     _test_plot_cohorts(model='weibull')
-
-
-@flaky.flaky
-def test_plot_cohorts_nonparametric():
-    _test_plot_cohorts(model='nonparametric')
 
 
 @flaky.flaky
