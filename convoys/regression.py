@@ -1,45 +1,24 @@
+import autograd
+import emcee
 import numpy
-from scipy.special import expit, gammainc, gammaincinv
-import scipy.stats
-import tensorflow as tf
+from scipy.special import gammaincinv
+from autograd.scipy.special import expit, gammaln
+from autograd.numpy import isnan, exp, dot, log, sum
+import scipy.optimize
+import sys
 import warnings
-from convoys import tf_utils
+from convoys.gamma import gammainc
 
 
-class LinearCombination:
-    def __init__(self, X, k):
-        self.beta = tf.Variable(tf.zeros([k]))
-        self.b = tf.Variable(tf.zeros([]))
-        self.y = tf.squeeze(tf.matmul(X, tf.expand_dims(self.beta, -1)), 1) + self.b
-        self.log_sigma = tf.Variable(-1.0)
-        self.sigma = tf.exp(self.log_sigma)
-        # log PDF of normal distribution
-        self.LL_term = \
-            -tf.reduce_sum(self.beta**2) / (2*self.sigma**2) + \
-            -k*self.log_sigma
-
-    def params(self, sess, LL):
-        return sess.run([
-            self.beta,
-            self.b,
-            tf.hessians(-LL, [self.beta])[0],
-            tf.hessians(-LL, [self.b])[0],
-            self.sigma,
-        ])
-
-    @staticmethod
-    def sample(params, x, ci, n):
-        beta, b, beta_hessian, b_hessian, sigma = params
-        mean = numpy.dot(x, beta) + b
-        if ci is None:
-            return mean
-        else:
-            x = numpy.array(x)
-            # TODO: if x is a zero vector, this triggers some weird warning
-            # TODO: we shouldn't assume that beta and b are independent
-            inv_var_beta = numpy.dot(numpy.dot(x.T, beta_hessian), x)
-            inv_var_b = b_hessian**2
-            return mean + scipy.stats.norm.rvs(scale=(1/inv_var_beta + 1/inv_var_b)**0.5, size=(n,))
+def predict(func_values, ci):
+    if ci is None:
+        return numpy.mean(func_values, axis=-1)
+    else:
+        # Replace the last axis with a 3-element vector
+        y = numpy.mean(func_values, axis=-1)
+        y_lo = numpy.percentile(func_values, (1-ci)*50, axis=-1)
+        y_hi = numpy.percentile(func_values, (1+ci)*50, axis=-1)
+        return numpy.stack((y, y_lo, y_hi), axis=-1)
 
 
 class RegressionModel(object):
@@ -50,9 +29,10 @@ class GeneralizedGamma(RegressionModel):
     # https://en.wikipedia.org/wiki/Generalized_gamma_distribution
     # Note however that lambda is a^-1 in WP's notation
     # Note also that k = d/p so d = k*p
-    def fit(self, X, B, T, W=None, k=None, p=None, method='Powell'):
-        # Note on using Powell: tf.igamma returns the wrong gradient wrt k
-        # https://github.com/tensorflow/tensorflow/issues/17995
+    def __init__(self, method='MCMC'):
+        self._method = method
+
+    def fit(self, X, B, T, W=None, k=None, p=None):
         # Sanity check input:
         if W is None:
             W = [1] * len(X)
@@ -64,58 +44,107 @@ class GeneralizedGamma(RegressionModel):
                           'T <= 0 or B not 0/1 or W < 0' % n_removed)
         X, B, T, W = (numpy.array([z[i] for z in XBTW], dtype=numpy.float32)
                       for i in range(4))
-
         n_features = X.shape[1]
-        a = LinearCombination(X, n_features)
-        b = LinearCombination(X, n_features)
-        lambd = tf.exp(a.y)
-        c = tf.sigmoid(b.y)
 
-        if k is None:
-            log_k_var = tf.Variable(tf.zeros([]), name='log_k')
-            k = tf.exp(log_k_var)
+        # Define model
+        # scipy.optimize and emcee forces the the parameters to be a vector:
+        # (log k, log p, log sigma_alpha, log sigma_beta,
+        #  a, b, alpha_1...alpha_k, beta_1...beta_k)
+        fix_k, fix_p = k, p
+
+        def log_likelihood(x):
+            k = exp(x[0]) if fix_k is None else fix_k
+            p = exp(x[1]) if fix_p is None else fix_p
+            log_sigma_alpha = x[2]
+            log_sigma_beta = x[3]
+            a = x[4]
+            b = x[5]
+            alpha = x[6:6+n_features]
+            beta = x[6+n_features:6+2*n_features]
+            lambd = exp(dot(X, alpha)+a)
+            c = expit(dot(X, beta)+b)
+
+            # PDF: p*lambda^(k*p) / gamma(k) * t^(k*p-1) * exp(-(x*lambda)^p)
+            log_pdf = \
+                log(p) + (k*p) * log(lambd) \
+                - gammaln(k) + (k*p-1) * log(T) \
+                - (T*lambd)**p
+            cdf = gammainc(k, (T*lambd)**p)
+
+            LL_observed = log(c) + log_pdf
+            LL_censored = log((1-c) + c * (1 - cdf))
+
+            LL_data = sum(
+                W * B * LL_observed +
+                W * (1 - B) * LL_censored, 0)
+
+            # TODO: explain these prior terms
+            LL_prior_a = -log_sigma_alpha**2 \
+                - dot(alpha, alpha) / (2*exp(log_sigma_alpha)**2) \
+                - n_features*log_sigma_alpha
+            LL_prior_b = -log_sigma_beta**2 \
+                - dot(beta, beta) / (2*exp(log_sigma_beta)**2) \
+                - n_features*log_sigma_beta
+
+            LL = LL_prior_a + LL_prior_b + LL_data
+
+            if isnan(LL):
+                return -numpy.inf
+            if isinstance(x, numpy.ndarray):
+                sys.stdout.write('%9.6e %9.6e %9.6e %9.6e -> %9.6e %30s\r'
+                                 % (k, p, exp(log_sigma_alpha),
+                                    exp(log_sigma_beta), LL, ''))
+            return LL
+
+        x0 = numpy.zeros(6+2*n_features)
+        print('\nFinding MAP:')
+        res = scipy.optimize.minimize(
+            lambda x: -log_likelihood(x),
+            x0,
+            jac=autograd.grad(lambda x: -log_likelihood(x)),
+            method='SLSQP',
+        )
+        x0 = res.x
+        if self._method == 'MCMC':
+            dim, = x0.shape
+            nwalkers = 5*dim
+            sampler = emcee.EnsembleSampler(
+                nwalkers=nwalkers,
+                dim=dim,
+                lnpostfn=log_likelihood)
+            mcmc_initial_noise = 1e-3
+            p0 = [x0 + mcmc_initial_noise * numpy.random.randn(dim)
+                  for i in range(nwalkers)]
+            nburnin = 20
+            nsteps = numpy.ceil(1000. / nwalkers)
+            print('\nStarting MCMC with %d walkers and %d steps:' % (
+                    nwalkers, nburnin+nsteps))
+            sampler.run_mcmc(p0, nburnin+nsteps)
+            print('\n')
+            data = sampler.chain[:, nburnin:, :].reshape((-1, dim)).T
         else:
-            k = tf.constant(k, tf.float32)
+            # Should be easy to support, just need to modify predict(...)
+            data = x0
+            raise Exception('TODO: this is not supported yet')
 
-        if p is None:
-            log_p_var = tf.Variable(tf.zeros([]), name='log_p')
-            p = tf.exp(log_p_var)
-        else:
-            p = tf.constant(p, tf.float32)
-
-        # PDF: p*lambda^(k*p) / gamma(k) * t^(k*p-1) * exp(-(x*lambda)^p)
-        log_pdf = \
-            tf.log(p) + (k*p) * tf.log(lambd) \
-            - tf.lgamma(k) + (k*p-1) * tf.log(T) \
-            - (T*lambd)**p
-        cdf = tf.igamma(k, (T*lambd)**p)
-
-        LL_observed = tf.log(c) + log_pdf
-        LL_censored = tf.log((1-c) + c * (1 - cdf))
-
-        LL = tf.reduce_sum(
-            W * B * LL_observed +
-            W * (1 - B) * LL_censored, 0) +\
-            a.LL_term + b.LL_term
-
-        with tf.Session() as sess:
-            tf_utils.optimize(sess, LL, method)
-            self.params = {
-                'a': a.params(sess, LL),
-                'b': b.params(sess, LL),
-                'k': sess.run(k),
-                'p': sess.run(p),
+        # The `data` array is either 1D (for MAP) or 2D (for MCMC)
+        self.params = {
+            'k': exp(data[0]),
+            'p': exp(data[1]),
+            'a': data[4],
+            'b': data[5],
+            'alpha': data[6:6+n_features].T,
+            'beta': data[6+n_features:6+2*n_features].T,
             }
 
-    def cdf(self, x, t, ci=None, n=1000):
+    def cdf(self, x, t, ci=None):
         t = numpy.array(t)
-        a = LinearCombination.sample(self.params['a'], x, ci, n)
-        b = LinearCombination.sample(self.params['b'], x, ci, n)
-        return tf_utils.predict(
-            expit(b) * gammainc(
-                self.params['k'],
-                numpy.multiply.outer(t, numpy.exp(a))**self.params['p']),
-            ci)
+        lambd = exp(dot(self.params['alpha'], x) + self.params['a'])
+        c = expit(dot(self.params['beta'], x) + self.params['b'])
+        M = c * gammainc(
+            self.params['k'],
+            numpy.multiply.outer(t, lambd)**self.params['p'])
+        return predict(M, ci)
 
     def rvs(self, x, n_curves=1, n_samples=1, T=None):
         # Samples values from this distribution
@@ -124,22 +153,24 @@ class GeneralizedGamma(RegressionModel):
             T = numpy.zeros((n_curves, n_samples))
         else:
             assert T.shape == (n_curves, n_samples)
-        a = LinearCombination.sample(self.params['a'], x, 1, n_curves)
-        b = LinearCombination.sample(self.params['b'], x, 1, n_curves)
         B = numpy.zeros((n_curves, n_samples), dtype=numpy.bool)
         C = numpy.zeros((n_curves, n_samples))
-        for i, (a, b) in enumerate(zip(a, b)):
+        n = len(self.params['k'])
+        for i in range(n_curves):
+            k = self.params['k'][i%n]
+            p = self.params['k'][i%n]
+            lambd = exp(dot(x, self.params['alpha'][i%n]) + self.params['a'][i%n])
+            c = expit(dot(x, self.params['beta'][i%n]) + self.params['b'][i%n])
             z = numpy.random.uniform(size=(n_samples,))
-            cdf_now = expit(b) * gammainc(
-                self.params['k'],
-                numpy.multiply.outer(T[i], numpy.exp(a))**self.params['p'])
-            cdf_final = expit(b)
+            cdf_now = c * gammainc(
+                k,
+                numpy.multiply.outer(T[i], lambd)**p)  # why is this outer?
             adjusted_z = cdf_now + (1 - cdf_now) * z
-            B[i] = (adjusted_z < cdf_final)
-            y = adjusted_z / cdf_final
-            x = gammaincinv(self.params['k'], y)
-            # x = (t * exp(a))**p
-            C[i] = x**(1./self.params['p']) / numpy.exp(a)
+            B[i] = (adjusted_z < c)
+            y = adjusted_z / c
+            x = gammaincinv(k, y)
+            # x = (t * lambd)**p
+            C[i] = x**(1./p) / lambd
             C[i][~B[i]] = 0
 
         return B, C
@@ -147,12 +178,12 @@ class GeneralizedGamma(RegressionModel):
 
 class Exponential(GeneralizedGamma):
     def fit(self, X, B, T, W=None):
-        super(Exponential, self).fit(X, B, T, W, k=1, p=1, method='CG')
+        super(Exponential, self).fit(X, B, T, W, k=1, p=1)
 
 
 class Weibull(GeneralizedGamma):
     def fit(self, X, B, T, W=None):
-        super(Weibull, self).fit(X, B, T, W, k=1, method='CG')
+        super(Weibull, self).fit(X, B, T, W, k=1)
 
 
 class Gamma(GeneralizedGamma):
