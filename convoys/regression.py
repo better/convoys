@@ -95,9 +95,12 @@ class GeneralizedGamma(RegressionModel):
                                     exp(log_sigma_beta), LL, ''))
             return LL
 
+        # Generalized Gamma is a bit sensitive to the starting point!
         x0 = numpy.zeros(6+2*n_features)
-        x0[0] = -1 if fix_k is None else log(fix_k)  # Seems like a better starting point
+        x0[0] = -1 if fix_k is None else log(fix_k)
         x0[1] = -1 if fix_p is None else log(fix_p)
+
+        # Find the maximum a posteriori of the distribution
         print('\nFinding MAP:')
         res = scipy.optimize.minimize(
             lambda x: -log_likelihood(x),
@@ -106,6 +109,8 @@ class GeneralizedGamma(RegressionModel):
             method='SLSQP',
         )
         x0 = res.x
+
+        # Let's sample from the posterior to compute uncertainties
         if self._method == 'MCMC':
             dim, = x0.shape
             nwalkers = 5*dim
