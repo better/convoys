@@ -32,7 +32,7 @@ class GeneralizedGamma(RegressionModel):
     def __init__(self, method='MCMC'):
         self._method = method
 
-    def fit(self, X, B, T, W=None, k=None, p=None):
+    def fit(self, X, B, T, W=None, fix_k=None, fix_p=None):
         # Sanity check input:
         if W is None:
             W = [1] * len(X)
@@ -50,7 +50,6 @@ class GeneralizedGamma(RegressionModel):
         # scipy.optimize and emcee forces the the parameters to be a vector:
         # (log k, log p, log sigma_alpha, log sigma_beta,
         #  a, b, alpha_1...alpha_k, beta_1...beta_k)
-        fix_k, fix_p = k, p
 
         def log_likelihood(x):
             k = exp(x[0]) if fix_k is None else fix_k
@@ -97,6 +96,8 @@ class GeneralizedGamma(RegressionModel):
             return LL
 
         x0 = numpy.zeros(6+2*n_features)
+        x0[0] = -1 if fix_k is None else log(fix_k)  # Seems like a better starting point
+        x0[1] = -1 if fix_p is None else log(fix_p)
         print('\nFinding MAP:')
         res = scipy.optimize.minimize(
             lambda x: -log_likelihood(x),
@@ -178,14 +179,14 @@ class GeneralizedGamma(RegressionModel):
 
 class Exponential(GeneralizedGamma):
     def fit(self, X, B, T, W=None):
-        super(Exponential, self).fit(X, B, T, W, k=1, p=1)
+        super(Exponential, self).fit(X, B, T, W, fix_k=1, fix_p=1)
 
 
 class Weibull(GeneralizedGamma):
     def fit(self, X, B, T, W=None):
-        super(Weibull, self).fit(X, B, T, W, k=1)
+        super(Weibull, self).fit(X, B, T, W, fix_k=1)
 
 
 class Gamma(GeneralizedGamma):
     def fit(self, X, B, T, W=None):
-        super(Gamma, self).fit(X, B, T, W, p=1)
+        super(Gamma, self).fit(X, B, T, W, fix_p=1)
