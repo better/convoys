@@ -99,18 +99,10 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
 
         if ci is not None:
             p_y, p_y_lo, p_y_hi = m.cdf(j, t, ci=ci).T
-            p_y_final, p_y_lo_final, p_y_hi_final = m.cdf(j, float('inf'), ci=0.95)
-            if str(p_y_final) != 'nan':
-                label += ' projected: %.2f%% (%.2f%% - %.2f%%)' % (100.*p_y_final, 100.*p_y_lo_final, 100.*p_y_hi_final)
-            result.append((group, p_y_final, p_y_lo_final, p_y_hi_final))
             pyplot.plot(t, 100. * p_y, color=color, linewidth=1.5, alpha=0.7, label=label)
             pyplot.fill_between(t, 100. * p_y_lo, 100. * p_y_hi, color=color, alpha=0.2)
         else:
             p_y = m.cdf(j, t).T
-            p_y_final = m.cdf(j, float('inf'), ci=None)
-            if str(p_y_final) != 'nan':
-                label += ' projected: %.2f%%' % (100.*p_y_final,)
-            result.append((group, p_y_final))
             pyplot.plot(t, 100. * p_y, color=color, linewidth=1.5, alpha=0.7, label=label)
 
         if extra_model is not None:
@@ -126,4 +118,4 @@ def plot_cohorts(data, t_max=None, title=None, group_min_size=0, max_groups=100,
     pyplot.ylabel('Conversion rate %')
     pyplot.legend()
     pyplot.gca().grid(True)
-    return m, result
+    return m
