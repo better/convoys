@@ -21,6 +21,52 @@ def predict(func_values, ci):
         return numpy.stack((y, y_lo, y_hi), axis=-1)
 
 
+def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p):
+    k = exp(x[0]) if fix_k is None else fix_k
+    p = exp(x[1]) if fix_p is None else fix_p
+    log_sigma_alpha = x[2]
+    log_sigma_beta = x[3]
+    a = x[4]
+    b = x[5]
+    n_features = int((len(x)-6)/2)
+    alpha = x[6:6+n_features]
+    beta = x[6+n_features:6+2*n_features]
+    lambd = exp(dot(X, alpha)+a)
+    c = expit(dot(X, beta)+b)
+
+    # PDF: p*lambda^(k*p) / gamma(k) * t^(k*p-1) * exp(-(x*lambda)^p)
+    log_pdf = \
+              log(p) + (k*p) * log(lambd) \
+              - gammaln(k) + (k*p-1) * log(T) \
+              - (T*lambd)**p
+    cdf = gammainc(k, (T*lambd)**p)
+
+    LL_observed = log(c) + log_pdf
+    LL_censored = log((1-c) + c * (1 - cdf))
+
+    LL_data = sum(
+        W * B * LL_observed +
+        W * (1 - B) * LL_censored, 0)
+
+    # TODO: explain these prior terms
+    LL_prior_a = -log_sigma_alpha**2 \
+                 - dot(alpha, alpha) / (2*exp(log_sigma_alpha)**2) \
+                 - n_features*log_sigma_alpha
+    LL_prior_b = -log_sigma_beta**2 \
+                 - dot(beta, beta) / (2*exp(log_sigma_beta)**2) \
+                 - n_features*log_sigma_beta
+
+    LL = LL_prior_a + LL_prior_b + LL_data
+
+    if isnan(LL):
+        return -numpy.inf
+    if isinstance(x, numpy.ndarray):
+        pass # sys.stdout.write('%9.6e %9.6e %9.6e %9.6e -> %9.6e %30s\r'
+    # % (k, p, exp(log_sigma_alpha),
+    # exp(log_sigma_beta), LL, ''))
+    return LL
+
+
 class RegressionModel(object):
     pass
 
@@ -46,66 +92,21 @@ class GeneralizedGamma(RegressionModel):
                       for i in range(4))
         n_features = X.shape[1]
 
-        # Define model
         # scipy.optimize and emcee forces the the parameters to be a vector:
         # (log k, log p, log sigma_alpha, log sigma_beta,
         #  a, b, alpha_1...alpha_k, beta_1...beta_k)
-
-        def log_likelihood(x):
-            k = exp(x[0]) if fix_k is None else fix_k
-            p = exp(x[1]) if fix_p is None else fix_p
-            log_sigma_alpha = x[2]
-            log_sigma_beta = x[3]
-            a = x[4]
-            b = x[5]
-            alpha = x[6:6+n_features]
-            beta = x[6+n_features:6+2*n_features]
-            lambd = exp(dot(X, alpha)+a)
-            c = expit(dot(X, beta)+b)
-
-            # PDF: p*lambda^(k*p) / gamma(k) * t^(k*p-1) * exp(-(x*lambda)^p)
-            log_pdf = \
-                log(p) + (k*p) * log(lambd) \
-                - gammaln(k) + (k*p-1) * log(T) \
-                - (T*lambd)**p
-            cdf = gammainc(k, (T*lambd)**p)
-
-            LL_observed = log(c) + log_pdf
-            LL_censored = log((1-c) + c * (1 - cdf))
-
-            LL_data = sum(
-                W * B * LL_observed +
-                W * (1 - B) * LL_censored, 0)
-
-            # TODO: explain these prior terms
-            LL_prior_a = -log_sigma_alpha**2 \
-                - dot(alpha, alpha) / (2*exp(log_sigma_alpha)**2) \
-                - n_features*log_sigma_alpha
-            LL_prior_b = -log_sigma_beta**2 \
-                - dot(beta, beta) / (2*exp(log_sigma_beta)**2) \
-                - n_features*log_sigma_beta
-
-            LL = LL_prior_a + LL_prior_b + LL_data
-
-            if isnan(LL):
-                return -numpy.inf
-            if isinstance(x, numpy.ndarray):
-                sys.stdout.write('%9.6e %9.6e %9.6e %9.6e -> %9.6e %30s\r'
-                                 % (k, p, exp(log_sigma_alpha),
-                                    exp(log_sigma_beta), LL, ''))
-            return LL
-
         # Generalized Gamma is a bit sensitive to the starting point!
         x0 = numpy.zeros(6+2*n_features)
         x0[0] = -1 if fix_k is None else log(fix_k)
         x0[1] = -1 if fix_p is None else log(fix_p)
+        args = (X, B, T, W, fix_k, fix_p)
 
         # Find the maximum a posteriori of the distribution
         print('\nFinding MAP:')
         res = scipy.optimize.minimize(
-            lambda x: -log_likelihood(x),
+            lambda x: -generalized_gamma_LL(x, *args),
             x0,
-            jac=autograd.grad(lambda x: -log_likelihood(x)),
+            jac=autograd.grad(lambda x: -generalized_gamma_LL(x, *args)),
             method='SLSQP',
         )
         x0 = res.x
@@ -117,7 +118,10 @@ class GeneralizedGamma(RegressionModel):
             sampler = emcee.EnsembleSampler(
                 nwalkers=nwalkers,
                 dim=dim,
-                lnpostfn=log_likelihood)
+                lnpostfn=generalized_gamma_LL,
+                args=args,
+                pool=emcee.interruptible_pool.InterruptiblePool(),
+            )
             mcmc_initial_noise = 1e-3
             p0 = [x0 + mcmc_initial_noise * numpy.random.randn(dim)
                   for i in range(nwalkers)]
