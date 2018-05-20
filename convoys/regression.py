@@ -24,10 +24,8 @@ def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p):
     c = expit(dot(X, beta)+b)
 
     # PDF: p*lambda^(k*p) / gamma(k) * t^(k*p-1) * exp(-(x*lambda)^p)
-    log_pdf = \
-              log(p) + (k*p) * log(lambd) \
-              - gammaln(k) + (k*p-1) * log(T) \
-              - (T*lambd)**p
+    log_pdf = log(p) + (k*p) * log(lambd) - gammaln(k) \
+              + (k*p-1) * log(T) - (T*lambd)**p
     cdf = gammainc(k, (T*lambd)**p)
 
     LL_observed = log(c) + log_pdf
