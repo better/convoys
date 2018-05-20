@@ -10,17 +10,6 @@ import warnings
 from convoys.gamma import gammainc
 
 
-def predict(func_values, ci):
-    if ci is None:
-        return numpy.mean(func_values, axis=-1)
-    else:
-        # Replace the last axis with a 3-element vector
-        y = numpy.mean(func_values, axis=-1)
-        y_lo = numpy.percentile(func_values, (1-ci)*50, axis=-1)
-        y_hi = numpy.percentile(func_values, (1+ci)*50, axis=-1)
-        return numpy.stack((y, y_lo, y_hi), axis=-1)
-
-
 def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p):
     k = exp(x[0]) if fix_k is None else fix_k
     p = exp(x[1]) if fix_p is None else fix_p
@@ -61,9 +50,9 @@ def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p):
     if isnan(LL):
         return -numpy.inf
     if isinstance(x, numpy.ndarray):
-        pass # sys.stdout.write('%9.6e %9.6e %9.6e %9.6e -> %9.6e %30s\r'
-    # % (k, p, exp(log_sigma_alpha),
-    # exp(log_sigma_beta), LL, ''))
+        sys.stdout.write('%9.6e %9.6e %9.6e %9.6e -> %9.6e %30s\r'
+                         % (k, p, exp(log_sigma_alpha),
+                            exp(log_sigma_beta), LL, ''))
     return LL
 
 
@@ -75,8 +64,8 @@ class GeneralizedGamma(RegressionModel):
     # https://en.wikipedia.org/wiki/Generalized_gamma_distribution
     # Note however that lambda is a^-1 in WP's notation
     # Note also that k = d/p so d = k*p
-    def __init__(self, method='MCMC'):
-        self._method = method
+    def __init__(self, ci=False):
+        self._ci = ci
 
     def fit(self, X, B, T, W=None, fix_k=None, fix_p=None):
         # Sanity check input:
@@ -97,7 +86,7 @@ class GeneralizedGamma(RegressionModel):
         #  a, b, alpha_1...alpha_k, beta_1...beta_k)
         # Generalized Gamma is a bit sensitive to the starting point!
         x0 = numpy.zeros(6+2*n_features)
-        x0[0] = -1 if fix_k is None else log(fix_k)
+        x0[0] = +1 if fix_k is None else log(fix_k)
         x0[1] = -1 if fix_p is None else log(fix_p)
         args = (X, B, T, W, fix_k, fix_p)
 
@@ -112,15 +101,14 @@ class GeneralizedGamma(RegressionModel):
         x0 = res.x
 
         # Let's sample from the posterior to compute uncertainties
-        if self._method == 'MCMC':
+        if self._ci:
             dim, = x0.shape
             nwalkers = 5*dim
             sampler = emcee.EnsembleSampler(
                 nwalkers=nwalkers,
                 dim=dim,
                 lnpostfn=generalized_gamma_LL,
-                args=args,
-                pool=emcee.interruptible_pool.InterruptiblePool(),
+                args=args
             )
             mcmc_initial_noise = 1e-3
             p0 = [x0 + mcmc_initial_noise * numpy.random.randn(dim)
@@ -133,9 +121,7 @@ class GeneralizedGamma(RegressionModel):
             print('\n')
             data = sampler.chain[:, nburnin:, :].reshape((-1, dim)).T
         else:
-            # Should be easy to support, just need to modify predict(...)
             data = x0
-            raise Exception('TODO: this is not supported yet')
 
         # The `data` array is either 1D (for MAP) or 2D (for MCMC)
         self.params = {
@@ -154,7 +140,18 @@ class GeneralizedGamma(RegressionModel):
         M = c * gammainc(
             self.params['k'],
             numpy.multiply.outer(t, lambd)**self.params['p'])
-        return predict(M, ci)
+
+        if not self._ci:
+            assert not ci
+            return M
+        elif ci is None:
+            return numpy.mean(M, axis=-1)
+        else:
+            # Replace the last axis with a 3-element vector
+            y = numpy.mean(M, axis=-1)
+            y_lo = numpy.percentile(M, (1-ci)*50, axis=-1)
+            y_hi = numpy.percentile(M, (1+ci)*50, axis=-1)
+            return numpy.stack((y, y_lo, y_hi), axis=-1)
 
     def rvs(self, x, n_curves=1, n_samples=1, T=None):
         # Samples values from this distribution
