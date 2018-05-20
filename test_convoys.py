@@ -70,7 +70,7 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=10000):
     N = scipy.stats.uniform.rvs(scale=5./lambd, size=(n,))  # time now
     E = scipy.stats.expon.rvs(scale=1./lambd, size=(n,))  # time of event
     B, T = generate_censored_data(N, E, C)
-    model = convoys.regression.Exponential()
+    model = convoys.regression.Exponential(ci=True)
     model.fit(X, B, T)
     assert model.cdf([1], float('inf')).shape == ()
     assert 0.80*c < model.cdf([1], float('inf')) < 1.30*c
@@ -94,6 +94,12 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=10000):
         d = 1 - numpy.exp(-lambd*t)
         assert 0.70*d < (convert_times < t).mean() < 1.30*d
 
+    # Fit model without ci
+    model = convoys.regression.Exponential(ci=False)
+    model.fit(X, B, T)
+    assert model.cdf([1], 0).shape == ()
+    assert model.cdf([1], [0, 1, 2, 3]).shape == (4,)
+
 
 @flaky.flaky
 def test_weibull_regression_model(cs=[0.3, 0.5, 0.7],
@@ -107,7 +113,7 @@ def test_weibull_regression_model(cs=[0.3, 0.5, 0.7],
                      for r in range(n)])
     B, T = generate_censored_data(N, E, C)
 
-    model = convoys.regression.Weibull()
+    model = convoys.regression.Weibull(ci=True)
     model.fit(X, B, T)
 
     # Validate shape of results
@@ -123,7 +129,6 @@ def test_weibull_regression_model(cs=[0.3, 0.5, 0.7],
     for r, c in enumerate(cs):
         x = [int(r == j) for j in range(len(cs))]
         assert 0.80 * c < model.cdf(x, float('inf')) < 1.30 * c
-        expected_time = 1./lambd * scipy.special.gamma(1 + 1/k)
 
 
 @flaky.flaky

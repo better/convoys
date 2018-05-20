@@ -61,10 +61,10 @@ def get_groups(data, group_min_size, max_groups):
 
 _models = {
     'kaplan-meier': KaplanMeier,
-    'exponential': Exponential,
-    'weibull': Weibull,
-    'gamma': Gamma,
-    'generalized-gamma': GeneralizedGamma,
+    'exponential': lambda: Exponential(ci=True),
+    'weibull': lambda: Weibull(ci=True),
+    'gamma': lambda: Gamma(ci=True),
+    'generalized-gamma': lambda: GeneralizedGamma(ci=True),
 }
 
 
