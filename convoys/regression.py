@@ -160,12 +160,12 @@ class GeneralizedGamma(RegressionModel):
             assert T.shape == (n_curves, n_samples)
         B = numpy.zeros((n_curves, n_samples), dtype=numpy.bool)
         C = numpy.zeros((n_curves, n_samples))
-        n = len(self.params['k'])
-        for i in range(n_curves):
-            k = self.params['k'][i%n]
-            p = self.params['k'][i%n]
-            lambd = exp(dot(x, self.params['alpha'][i%n]) + self.params['a'][i%n])
-            c = expit(dot(x, self.params['beta'][i%n]) + self.params['b'][i%n])
+        for i, j in enumerate(numpy.random.randint(len(self.params['k']),
+                                                   size=n_curves)):
+            k = self.params['k'][j]
+            p = self.params['k'][j]
+            lambd = exp(dot(x, self.params['alpha'][j]) + self.params['a'][j])
+            c = expit(dot(x, self.params['beta'][j]) + self.params['b'][j])
             z = numpy.random.uniform(size=(n_samples,))
             cdf_now = c * gammainc(
                 k,
