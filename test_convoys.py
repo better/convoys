@@ -75,6 +75,7 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=10000):
     assert model.cdf([1], float('inf')).shape == ()
     assert 0.80*c < model.cdf([1], float('inf')) < 1.30*c
     assert model.cdf([1], 0).shape == ()
+    assert model.cdf([[1], [2]], 0).shape == (2,)
     assert model.cdf([1], [0, 1, 2, 3]).shape == (4,)
     for t in [1, 3, 10]:
         d = 1 - numpy.exp(-lambd*t)

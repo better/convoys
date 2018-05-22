@@ -132,9 +132,10 @@ class GeneralizedGamma(RegressionModel):
             }
 
     def cdf(self, x, t, ci=None):
+        x = numpy.array(x)
         t = numpy.array(t)
-        lambd = exp(dot(self.params['alpha'], x) + self.params['a'])
-        c = expit(dot(self.params['beta'], x) + self.params['b'])
+        lambd = exp(dot(x, self.params['alpha'].T) + self.params['a'])
+        c = expit(dot(x, self.params['beta'].T) + self.params['b'])
         M = c * gammainc(
             self.params['k'],
             numpy.multiply.outer(t, lambd)**self.params['p'])
@@ -154,6 +155,7 @@ class GeneralizedGamma(RegressionModel):
     def rvs(self, x, n_curves=1, n_samples=1, T=None):
         # Samples values from this distribution
         # T is optional and means we already observed non-conversion until T
+        assert self._ci  # Need to be fit with MCMC
         if T is None:
             T = numpy.zeros((n_curves, n_samples))
         else:
