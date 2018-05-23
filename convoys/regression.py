@@ -73,7 +73,7 @@ class GeneralizedGamma(RegressionModel):
                 if t > 0 and 0 <= float(b) <= 1 and w >= 0]
         if len(XBTW) < len(X):
             n_removed = len(X) - len(XBTW)
-            warnings.warn('Warning! Removed %d/%d entries from inputs where ' \
+            warnings.warn('Warning! Removed %d/%d entries from inputs where '
                           'T <= 0 or B not 0/1 or W < 0' % (n_removed, len(X)))
         X, B, T, W = (numpy.array([z[i] for z in XBTW], dtype=numpy.float32)
                       for i in range(4))
