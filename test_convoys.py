@@ -168,13 +168,15 @@ def _generate_dataframe(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=1000):
 
 def test_convert_dataframe():
     df = _generate_dataframe()
-    unit, (G, B, T) = convoys.utils.get_arrays(df, groups='groups', created='created', converted='converted', now='now')
+    unit, (G, B, T) = convoys.utils.get_arrays(
+        df, groups='groups', created='created', converted='converted', now='now')
     # TODO: assert things
 
 
 def _test_plot_cohorts(model='weibull', extra_model=None):
     df = _generate_dataframe()
-    unit, (G, B, T) = convoys.utils.get_arrays(df, groups='groups', created='created', converted='converted', now='now')
+    unit, (G, B, T) = convoys.utils.get_arrays(
+        df, groups='groups', created='created', converted='converted', now='now')
     matplotlib.pyplot.clf()
     convoys.plotting.plot_cohorts(G, B, T, model=model, extra_model=extra_model)
     matplotlib.pyplot.savefig('%s-%s.png' % (model, extra_model)

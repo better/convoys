@@ -1,4 +1,3 @@
-import datetime
 import numpy
 from matplotlib import pyplot
 import convoys.multi
@@ -13,7 +12,8 @@ _models = {
 }
 
 
-def plot_cohorts(G, B, T, t_max=None, title=None, model='kaplan-meier', ci=0.95, extra_model=None):
+def plot_cohorts(G, B, T, t_max=None, title=None, model='kaplan-meier',
+                 ci=0.95, extra_model=None):
     # Set x scale
     if t_max is None:
         t_max = max(T)
@@ -32,7 +32,6 @@ def plot_cohorts(G, B, T, t_max=None, title=None, model='kaplan-meier', ci=0.95,
     colors = [colors[i % len(colors)] for i in range(len(groups))]
     t = numpy.linspace(0, t_max, 1000)
     y_max = 0
-    result = []
     for j, (group, color) in enumerate(zip(groups, colors)):
         n = sum(1 for g in G if g == j)  # TODO: slow
         k = sum(1 for g, b in zip(G, B) if g == j and b)  # TODO: slow
@@ -40,11 +39,14 @@ def plot_cohorts(G, B, T, t_max=None, title=None, model='kaplan-meier', ci=0.95,
 
         if ci is not None:
             p_y, p_y_lo, p_y_hi = m.cdf(j, t, ci=ci).T
-            pyplot.plot(t, 100. * p_y, color=color, linewidth=1.5, alpha=0.7, label=label)
-            pyplot.fill_between(t, 100. * p_y_lo, 100. * p_y_hi, color=color, alpha=0.2)
+            pyplot.plot(t, 100. * p_y, color=color, linewidth=1.5,
+                        alpha=0.7, label=label)
+            pyplot.fill_between(t, 100. * p_y_lo, 100. * p_y_hi,
+                                color=color, alpha=0.2)
         else:
             p_y = m.cdf(j, t).T
-            pyplot.plot(t, 100. * p_y, color=color, linewidth=1.5, alpha=0.7, label=label)
+            pyplot.plot(t, 100. * p_y, color=color, linewidth=1.5,
+                        alpha=0.7, label=label)
 
         if extra_model is not None:
             extra_p_y = extra_m.cdf(j, t)

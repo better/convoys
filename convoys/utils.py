@@ -49,6 +49,7 @@ def get_arrays(data, features=None, groups=None, created=None, converted=None, n
 
     TODO: more doc
     '''
+    print(data.dtypes)
     if groups is not None:
         group2j = dict((group, j) for j, group in enumerate(get_groups(data[groups], group_min_size, max_groups)))
 
