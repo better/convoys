@@ -3,6 +3,7 @@ import datetime
 import flaky
 import matplotlib
 import numpy
+import pandas
 import pytest
 import random
 import scipy.special
@@ -10,8 +11,10 @@ import scipy.stats
 matplotlib.use('Agg')  # Needed for matplotlib to run in Travis
 import convoys
 import convoys.gamma
+import convoys.plotting
 import convoys.regression
 import convoys.single
+import convoys.utils
 
 
 def sample_weibull(k, lambd):
@@ -147,22 +150,33 @@ def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=10000):
     assert 0.80*k < numpy.mean(model.params['k']) < 1.30*k
 
 
-def _test_plot_cohorts(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=1000,
-                       model='weibull', extra_model=None):
-    C = numpy.array([bool(random.random() < cs[r % len(cs)]) for r in range(n)])
+def _generate_dataframe(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=1000):
+    groups = [r % len(cs) for r in range(n)]
+    C = numpy.array([bool(random.random() < cs[g]) for g in groups])
     N = scipy.stats.expon.rvs(scale=10./lambd, size=(n,))
     E = numpy.array([sample_weibull(k, lambd) for r in range(n)])
     B, T = generate_censored_data(N, E, C)
-    data = []
-    x2t = lambda x: datetime.datetime(2000, 1, 1) + datetime.timedelta(days=x)
-    for i, (b, t, n) in enumerate(zip(B, T, N)):
-        data.append(('Group %d' % (i % len(cs)),  # group name
-                     x2t(0),  # created at
-                     x2t(t) if b else None,  # converted at
-                     x2t(n)))  # now
 
+    x2t = lambda x: datetime.datetime(2000, 1, 1) + datetime.timedelta(days=x)
+    return pandas.DataFrame(data=dict(
+        groups=['Group %d' % g for g in groups],
+        created=[x2t(0) for g in groups],
+        converted=[x2t(t) if b else None for t, b in zip(T, B)],
+        now=[x2t(n) for n in N]
+    ))
+
+
+def test_convert_dataframe():
+    df = _generate_dataframe()
+    unit, (G, B, T) = convoys.utils.get_arrays(df, groups='groups', created='created', converted='converted', now='now')
+    # TODO: assert things
+
+
+def _test_plot_cohorts(model='weibull', extra_model=None):
+    df = _generate_dataframe()
+    unit, (G, B, T) = convoys.utils.get_arrays(df, groups='groups', created='created', converted='converted', now='now')
     matplotlib.pyplot.clf()
-    convoys.plot_cohorts(data, model=model, extra_model=extra_model)
+    convoys.plotting.plot_cohorts(G, B, T, model=model, extra_model=extra_model)
     matplotlib.pyplot.savefig('%s-%s.png' % (model, extra_model)
                               if extra_model is not None else '%s.png' % model)
 
