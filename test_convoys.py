@@ -177,7 +177,11 @@ def _test_plot_cohorts(model='weibull', extra_model=None):
     unit, (G, B, T) = convoys.utils.get_arrays(
         df, groups='groups', created='created', converted='converted', now='now')
     matplotlib.pyplot.clf()
-    convoys.plotting.plot_cohorts(G, B, T, model=model, extra_model=extra_model)
+    convoys.plotting.plot_cohorts(G, B, T, model=model, ci=0.95)
+    matplotlib.pyplot.legend()
+    if extra_model:
+        convoys.plotting.plot_cohorts(G, B, T, model=extra_model,
+                                      plot_args=dict(linestyle='--'))
     matplotlib.pyplot.savefig('%s-%s.png' % (model, extra_model)
                               if extra_model is not None else '%s.png' % model)
 

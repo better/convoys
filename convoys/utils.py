@@ -1,5 +1,4 @@
 import datetime
-import numpy
 import pandas
 
 
@@ -42,7 +41,8 @@ def get_groups(data, group_min_size, max_groups):
     return sorted(groups)
 
 
-def get_arrays(data, features=None, groups=None, created=None, converted=None, now=None, group_min_size=0, max_groups=-1):
+def get_arrays(data, features=None, groups=None, created=None,
+               converted=None, now=None, group_min_size=0, max_groups=-1):
     ''' Converts a dataframe to a list of numpy arrays.
 
     Each input refers to a column in the dataframe.
@@ -58,8 +58,9 @@ def get_arrays(data, features=None, groups=None, created=None, converted=None, n
         elif 'features' in data.columns:
             features = 'features'
         else:
-            raise Exception('neither of the `features` or `groups` parameters was provided'
-                            ' and there was no `features` or `groups` dataframe column')
+            raise Exception('Neither of the `features` or `groups` parameters was'
+                            ' provided, and there was no `features` or `groups`'
+                            ' dataframe column')
     if groups is not None:
         group2j = dict((group, j) for j, group in enumerate(get_groups(data[groups], group_min_size, max_groups)))
         data = data[data[groups].isin(group2j.keys())]  # Remove rows for rare groups
