@@ -174,8 +174,7 @@ def test_convert_dataframe():
 
 def _test_plot_cohorts(model='weibull', extra_model=None):
     df = _generate_dataframe()
-    unit, (G, B, T) = convoys.utils.get_arrays(
-        df, groups='groups', created='created', converted='converted', now='now')
+    unit, (G, B, T) = convoys.utils.get_arrays(df)
     matplotlib.pyplot.clf()
     convoys.plotting.plot_cohorts(G, B, T, model=model, ci=0.95)
     matplotlib.pyplot.legend()

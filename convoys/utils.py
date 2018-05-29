@@ -58,12 +58,15 @@ def get_arrays(data, features=None, groups=None, created=None,
         elif 'features' in data.columns:
             features = 'features'
         else:
-            raise Exception('Neither of the `features` or `groups` parameters was'
-                            ' provided, and there was no `features` or `groups`'
-                            ' dataframe column')
+            raise Exception('Neither of the `features` or `groups` parameters'
+                            ' was provided, and there was no `features` or'
+                            ' `groups` dataframe column')
     if groups is not None:
-        group2j = dict((group, j) for j, group in enumerate(get_groups(data[groups], group_min_size, max_groups)))
-        data = data[data[groups].isin(group2j.keys())]  # Remove rows for rare groups
+        group2j = dict(
+            (group, j) for j, group in
+            enumerate(get_groups(data[groups], group_min_size, max_groups)))
+        # Remove rows for rare groups
+        data = data[data[groups].isin(group2j.keys())]
         G = data[groups].apply(lambda g: group2j[g]).values
         res.append(G)
     else:
