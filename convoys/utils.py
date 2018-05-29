@@ -49,29 +49,48 @@ def get_arrays(data, features=None, groups=None, created=None, converted=None, n
 
     TODO: more doc
     '''
-    print(data.dtypes)
+    res = []
+
+    # First, construct either the `X` or the `G` array
+    if features is None and groups is None:
+        if 'groups' in data.columns:
+            groups = 'groups'
+        elif 'features' in data.columns:
+            features = 'features'
+        else:
+            raise Exception('neither of the `features` or `groups` parameters was provided'
+                            ' and there was no `features` or `groups` dataframe column')
     if groups is not None:
         group2j = dict((group, j) for j, group in enumerate(get_groups(data[groups], group_min_size, max_groups)))
+        data = data[data[groups].isin(group2j.keys())]  # Remove rows for rare groups
+        G = data[groups].apply(lambda g: group2j[g]).values
+        res.append(G)
+    else:
+        X = data[features].values
+        res.append(X)
 
-    # TODO: sanity check inputs
-
-    X, G, B = [], [], []
-    T_raw = []  # might be timedeltas or numerical
+    # Next, construct the `B` and `T` arrays
+    if converted is None:
+        if 'converted' in data.columns:
+            converted = 'converted'
+        else:
+            raise Exception('The `converted` parameter was not provided'
+                            ' and there was no `converted` dataframe column')
+    if now is None and 'now' in data.columns:
+        now = 'now'
+    if created is None and 'created' in data.columns:
+        created = 'created'
+    B = ~pandas.isnull(data[converted]).values
+    res.append(B)
+    T_raw = []
     for i, row in data.iterrows():
-        if groups is not None:
-            if row[groups] not in group2j:
-                continue
-            G.append(group2j[row[groups]])
-        if features is not None:
-            X.append(row[features])
+        # TODO: this stuff should be vectorized, kind of ugly
         if not pandas.isnull(row[converted]):
-            B.append(True)
             if created is not None:
                 T_raw.append(row[converted] - row[created])
             else:
                 T_raw.append(row[converted])
         else:
-            B.append(False)
             if created is not None:
                 if now is not None:
                     T_raw.append(row[now] - row[created])
@@ -79,17 +98,8 @@ def get_arrays(data, features=None, groups=None, created=None, converted=None, n
                     T_raw.append(datetime.datetime.now(tzinfo=row[created].tzinfo) - row[created_at])
             else:
                 T_raw.append(row[now])
-
     unit, converter = get_timescale(max(T_raw))
     T = [converter(t) for t in T_raw]
-    X, G, B, T = (numpy.array(z) for z in (X, G, B, T))
-
-    res = []
-    if groups is not None:
-        res.append(G)
-    elif features is not None:
-        res.append(X)
-    res.append(B)
     res.append(T)
 
     return unit, tuple(res)

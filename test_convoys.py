@@ -168,8 +168,7 @@ def _generate_dataframe(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=1000):
 
 def test_convert_dataframe():
     df = _generate_dataframe()
-    unit, (G, B, T) = convoys.utils.get_arrays(
-        df, groups='groups', created='created', converted='converted', now='now')
+    unit, (G, B, T) = convoys.utils.get_arrays(df)
     # TODO: assert things
 
 
