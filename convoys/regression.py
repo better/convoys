@@ -67,10 +67,34 @@ class RegressionModel(object):
 class GeneralizedGamma(RegressionModel):
     ''' Generalization of Gamma, Weibull, and Exponential
 
-    See https://en.wikipedia.org/wiki/Generalized_gamma_distribution
-    Note however that lambda is a^-1 in WP's notation
-    Note also that k = d/p so d = k*p
+    This mostly follows the `Wikipedia article
+    <https://en.wikipedia.org/wiki/Generalized_gamma_distribution>`_, although
+    our notation is slightly different:
+
+    The cumulative density function is:
+
+    :math:`P(t' > t) = \\gamma(k, (t\\lambda)^p)`
+
+    where :math:`\\gamma(a, x)` is the `lower regularized incomplete
+    gamma function
+    <https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.gammainc.html>`_.
+
+    The probability density function is:
+
+    :math:`P(t) = p\\lambda^{kp} t^{kp-1} \exp(-(x\\lambda)^p) / \\Gamma(k)`
+
+    Since our goal is to model the conversion rate, we assume the conversion
+    rate converges to a final value :math:`c = \mathrm{expit}(\mathbf{\\beta^Tx} + b)`
+    where :math:`\\mathrm{expit}` is the sigmoid function :math:`f(z) = 1/(1+e^{-z})`,
+    :math:`\\mathbf{\\beta}` is an unknown vector we are solving for (with corresponding
+    intercept :math:`b`), and :math:`\\mathbf{x}` are the feature vector (inputs).
+
+    We also assume that the rate parameter :math:`\\lambda` is determined by
+    :math:`\\lambda = exp(\mathbf{\\alpha^Tx} + a)` where
+    :math:`\\mathrm{\\alpha}` is another unknown vector we are trying to solve for
+    (with corresponding intercept :math:`a`).
     '''
+    # PDF: p*lambda^(k*p) / gamma(k) * t^(k*p-1) * exp(-(x*lambda)^p)
     def __init__(self, ci=False):
         self._ci = ci
 
@@ -193,15 +217,52 @@ class GeneralizedGamma(RegressionModel):
 
 
 class Exponential(GeneralizedGamma):
+    ''' Specialization of :class:`.GeneralizedGamma` where :math:`k=1, p=1`.
+
+    The cumulative density function is:
+
+    :math:`P(t' > t) = 1 - \\exp(-t\\lambda)`
+
+    The probability density function is:
+
+    :math:`P(t) = \\lambda\\exp(t\\lambda)`
+
+    See documentation for :class:`GeneralizedGamma`.'''
     def fit(self, X, B, T, W=None):
         super(Exponential, self).fit(X, B, T, W, fix_k=1, fix_p=1)
 
 
 class Weibull(GeneralizedGamma):
+    ''' Specialization of :class:`.GeneralizedGamma` where :math:`k=1`.
+
+    The cumulative density function is:
+
+    :math:`P(t' > t) = 1 - \\exp((t\\lambda)^p)`
+
+    The probability density function is:
+
+    :math:`P(t) = p\\lambda(t\\lambda)^{p-1}\\exp(-(t\\lambda)^p)`
+
+    See documentation for :class:`GeneralizedGamma`.'''
     def fit(self, X, B, T, W=None):
         super(Weibull, self).fit(X, B, T, W, fix_k=1)
 
 
 class Gamma(GeneralizedGamma):
+    ''' Specialization of :class:`.GeneralizedGamma` where :math:`p=1`.
+
+    The cumulative density function is:
+
+    :math:`P(t' > t) = \\gamma(k, t\\lambda)`
+
+    where :math:`\\gamma(a, x)` is the `lower regularized incomplete
+    gamma function
+    <https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.gammainc.html>`_.
+
+    The probability density function is:
+
+    :math:`P(t) = \\lambda^k t^{k-1} \exp(-x\\lambda) / \\Gamma(k)`
+
+    See documentation for :class:`GeneralizedGamma`.'''
     def fit(self, X, B, T, W=None):
         super(Gamma, self).fit(X, B, T, W, fix_p=1)
