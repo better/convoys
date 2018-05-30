@@ -10,10 +10,10 @@ import warnings
 from convoys.gamma import gammainc
 
 
-__all__ = ['GeneralizedGamma',
+__all__ = ['Exponential',
            'Weibull',
            'Gamma',
-           'Exponential']
+           'GeneralizedGamma']
 
 
 def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p):
@@ -71,6 +71,8 @@ class GeneralizedGamma(RegressionModel):
     <https://en.wikipedia.org/wiki/Generalized_gamma_distribution>`_, although
     our notation is slightly different:
 
+    **Shape of the probability function**
+
     The cumulative density function is:
 
     :math:`P(t' > t) = \\gamma(k, (t\\lambda)^p)`
@@ -82,6 +84,8 @@ class GeneralizedGamma(RegressionModel):
     The probability density function is:
 
     :math:`P(t) = p\\lambda^{kp} t^{kp-1} \exp(-(x\\lambda)^p) / \\Gamma(k)`
+
+    **Modeling conversion rate**
 
     Since our goal is to model the conversion rate, we assume the conversion
     rate converges to a final value
@@ -99,8 +103,25 @@ class GeneralizedGamma(RegressionModel):
 
     where :math:`\\mathrm{\\alpha}` is another unknown vector we are
     trying to solve for (with corresponding intercept :math:`a`).
+
+    We also assume that the :math:`\\mathbf{\\alpha}, \\mathbf{\\beta}`
+    vectors have a normal distribution
+
+    :math:`\\alpha_i \sim \\mathcal{N}(0, \\sigma_{\\alpha}), \\beta_i \sim \\mathcal{N}(0, \\sigma_{\\beta})`
+
+    where hyperparameters :math:`\\sigma_{\\alpha}, \\sigma_{\\beta}` are lognormally distributed
+
+    :math:`\\log \\sigma_{\\alpha} \sim \\mathcal{N}(0, 1), \\log \\sigma_{\\beta} \sim \\mathcal{N}(0, 1)`
+
+    **List of parameters**
+
+    The full model fits vectors :math:`\\mathbf{\\alpha, \\beta}` and scalars
+    :math:`a, b, k, p, \\sigma_{\\alpha}, \\sigma_{\\beta}`.
+
+    **Full likelihood function**
+
+    TODO
     '''
-    # PDF: p*lambda^(k*p) / gamma(k) * t^(k*p-1) * exp(-(x*lambda)^p)
     def __init__(self, ci=False):
         self._ci = ci
 
@@ -231,7 +252,12 @@ class Exponential(GeneralizedGamma):
 
     The probability density function is:
 
-    :math:`P(t) = \\lambda\\exp(t\\lambda)`
+    :math:`P(t) = \\lambda\\exp(-t\\lambda)`
+
+    The exponential distribution is the most simple distribution.
+    From a conversion perspective, you can interpret it as having
+    two competing final states where the probability of transitioning
+    from the initial state to converted or dead is constant.
 
     See documentation for :class:`GeneralizedGamma`.'''
     def fit(self, X, B, T, W=None):
@@ -243,7 +269,7 @@ class Weibull(GeneralizedGamma):
 
     The cumulative density function is:
 
-    :math:`P(t' > t) = 1 - \\exp((t\\lambda)^p)`
+    :math:`P(t' > t) = 1 - \\exp(-(t\\lambda)^p)`
 
     The probability density function is:
 
