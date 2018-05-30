@@ -1,4 +1,6 @@
-.. autosummary::
+Full API documentation
+======================
 
-   convoys.regression
+.. toctree::
 
+   api/convoys

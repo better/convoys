@@ -10,6 +10,12 @@ import warnings
 from convoys.gamma import gammainc
 
 
+__all__ = ['GeneralizedGamma',
+           'Weibull',
+           'Gamma',
+           'Exponential']
+
+
 def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p):
     k = exp(x[0]) if fix_k is None else fix_k
     p = exp(x[1]) if fix_p is None else fix_p
@@ -59,9 +65,12 @@ class RegressionModel(object):
 
 
 class GeneralizedGamma(RegressionModel):
-    # https://en.wikipedia.org/wiki/Generalized_gamma_distribution
-    # Note however that lambda is a^-1 in WP's notation
-    # Note also that k = d/p so d = k*p
+    ''' Generalization of Gamma, Weibull, and Exponential
+
+    See https://en.wikipedia.org/wiki/Generalized_gamma_distribution
+    Note however that lambda is a^-1 in WP's notation
+    Note also that k = d/p so d = k*p
+    '''
     def __init__(self, ci=False):
         self._ci = ci
 
