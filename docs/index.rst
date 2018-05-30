@@ -6,12 +6,14 @@ Full API documentation
 
 .. automodule:: convoys.regression
    :members:
+   :inherited-members:
 
 .. automodule:: convoys.single
    :members:
 
 .. automodule:: convoys.multi
    :members:
+   :inherited-members:
 
 .. automodule:: convoys.utils
    :members:

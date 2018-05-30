@@ -144,7 +144,14 @@ class GeneralizedGamma(RegressionModel):
         self._ci = ci
 
     def fit(self, X, B, T, W=None, fix_k=None, fix_p=None):
-        # Sanity check input:
+        '''Fits the model.
+
+        :param X: numpy matrix of shape :math:`k \cdot n`
+        :param B: numpy vector of shape :math:`n`
+        :param T: numpy vector of shape :math:`n`
+        :param W: (optional) numpy vector of shape :math:`n`
+        '''
+
         if W is None:
             W = [1] * len(X)
         XBTW = [(x, b, t, w) for x, b, t, w in zip(X, B, T, W)

@@ -10,7 +10,13 @@ class SingleModel:
 
 
 class KaplanMeier(SingleModel):
+    ''' Implementation of the Kaplan-Meier nonparametric method. '''
     def fit(self, B, T):
+        ''' Fits the model
+
+        :param B: numpy vector of shape :math:`n`
+        :param T: numpy vector of shape :math:`n`
+        '''
         # See https://www.math.wustl.edu/~sawyer/handouts/greenwood.pdf
         n = len(T)
         self._ts = []
