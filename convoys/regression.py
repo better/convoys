@@ -84,15 +84,21 @@ class GeneralizedGamma(RegressionModel):
     :math:`P(t) = p\\lambda^{kp} t^{kp-1} \exp(-(x\\lambda)^p) / \\Gamma(k)`
 
     Since our goal is to model the conversion rate, we assume the conversion
-    rate converges to a final value :math:`c = \\sigma(\mathbf{\\beta^Tx} + b)`
+    rate converges to a final value
+
+    :math:`c = \\sigma(\mathbf{\\beta^Tx} + b)`
+
     where :math:`\\sigma(z) = 1/(1+e^{-z})` is the sigmoid function,
-    :math:`\\mathbf{\\beta}` is an unknown vector we are solving for (with corresponding
-    intercept :math:`b`), and :math:`\\mathbf{x}` are the feature vector (inputs).
+    :math:`\\mathbf{\\beta}` is an unknown vector we are solving for (with
+    corresponding  intercept :math:`b`), and :math:`\\mathbf{x}` are the
+    feature vector (inputs).
 
     We also assume that the rate parameter :math:`\\lambda` is determined by
-    :math:`\\lambda = exp(\mathbf{\\alpha^Tx} + a)` where
-    :math:`\\mathrm{\\alpha}` is another unknown vector we are trying to solve for
-    (with corresponding intercept :math:`a`).
+
+    :math:`\\lambda = exp(\mathbf{\\alpha^Tx} + a)`
+
+    where :math:`\\mathrm{\\alpha}` is another unknown vector we are
+    trying to solve for (with corresponding intercept :math:`a`).
     '''
     # PDF: p*lambda^(k*p) / gamma(k) * t^(k*p-1) * exp(-(x*lambda)^p)
     def __init__(self, ci=False):
