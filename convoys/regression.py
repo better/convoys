@@ -84,8 +84,8 @@ class GeneralizedGamma(RegressionModel):
     :math:`P(t) = p\\lambda^{kp} t^{kp-1} \exp(-(x\\lambda)^p) / \\Gamma(k)`
 
     Since our goal is to model the conversion rate, we assume the conversion
-    rate converges to a final value :math:`c = \mathrm{expit}(\mathbf{\\beta^Tx} + b)`
-    where :math:`\\mathrm{expit}` is the sigmoid function :math:`f(z) = 1/(1+e^{-z})`,
+    rate converges to a final value :math:`c = \\sigma(\mathbf{\\beta^Tx} + b)`
+    where :math:`\\sigma(z) = 1/(1+e^{-z})` is the sigmoid function,
     :math:`\\mathbf{\\beta}` is an unknown vector we are solving for (with corresponding
     intercept :math:`b`), and :math:`\\mathbf{x}` are the feature vector (inputs).
 
