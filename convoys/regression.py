@@ -75,7 +75,7 @@ class GeneralizedGamma(RegressionModel):
 
     The cumulative density function is:
 
-    :math:`P(t' > t) = \\gamma(k, (t\\lambda)^p)`
+    :math:`P(t' < t) = \\gamma(k, (t\\lambda)^p)`
 
     where :math:`\\gamma(a, x)` is the `lower regularized incomplete
     gamma function
@@ -128,7 +128,7 @@ class GeneralizedGamma(RegressionModel):
     entry will never convert, which has probability :math:`1-c`. Or,
     it will convert at some later point that we have not observed yet,
     with probability given by the cumulative density function
-    :math:`P(t' > t)`
+    :math:`P(t' < t)`
 
     **Solving the optimization problem**
 
@@ -273,7 +273,7 @@ class Exponential(GeneralizedGamma):
 
     The cumulative density function is:
 
-    :math:`P(t' > t) = 1 - \\exp(-t\\lambda)`
+    :math:`P(t' < t) = 1 - \\exp(-t\\lambda)`
 
     The probability density function is:
 
@@ -294,7 +294,7 @@ class Weibull(GeneralizedGamma):
 
     The cumulative density function is:
 
-    :math:`P(t' > t) = 1 - \\exp(-(t\\lambda)^p)`
+    :math:`P(t' < t) = 1 - \\exp(-(t\\lambda)^p)`
 
     The probability density function is:
 
@@ -310,7 +310,7 @@ class Gamma(GeneralizedGamma):
 
     The cumulative density function is:
 
-    :math:`P(t' > t) = \\gamma(k, t\\lambda)`
+    :math:`P(t' < t) = \\gamma(k, t\\lambda)`
 
     where :math:`\\gamma(a, x)` is the `lower regularized incomplete
     gamma function
