@@ -2,25 +2,35 @@ from autograd.extend import primitive, defvjp
 from autograd.numpy.numpy_vjps import unbroadcast_f  # This is not documented
 from scipy.special import gammainc as gammainc_orig
 
+__all__ = ['gammainc']
+
 
 @primitive
 def gammainc(k, x):
     ''' Janky hack to make autograd compute gradients of gammainc.
 
     There are two problems with autograd.scipy.special.gammainc:
+
     1. It doesn't let you take the gradient with respect to k
     2. The gradient with respect to x is really slow
 
     As a really stupid workaround, because we don't need the numbers to
     be 100% exact, we just approximate the gradient.
 
-    Side note 1: if you truly want to compute the correct derivative, see:
-    https://en.wikipedia.org/wiki/Incomplete_gamma_function#Derivatives
-    T(3, s, x) = mpmath.meijerg(a_s=([], [0, 0]), b_s=([s-1, -1, -1], []), z=x)
+    Side note 1: if you truly want to compute the correct derivative, see the
+    `Wikipedia articule about the Incomplete gamma function
+    <https://en.wikipedia.org/wiki/Incomplete_gamma_function#Derivatives>`_
+    where the T(3, s, x) function can be implemented as
+
+    .. code-block:: python
+
+       def T3(s, x):
+           return mpmath.meijerg(a_s=([], [0, 0]), b_s=([s-1, -1, -1], []), z=x)
+
     I wasted a few hours on this but sadly it turns out to be extremely slow.
 
-    Side note 2: TensorFlow actually has a similar bug:
-    https://github.com/tensorflow/tensorflow/issues/17995
+    Side note 2: TensorFlow actually has a `similar bug
+    <https://github.com/tensorflow/tensorflow/issues/17995>`_
     '''
     return gammainc_orig(k, x)
 
