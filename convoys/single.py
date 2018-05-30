@@ -2,6 +2,8 @@ import numpy
 from scipy.special import expit, logit
 import scipy.stats
 
+__all__ = ['KaplanMeier']
+
 
 class SingleModel:
     pass  # TODO
