@@ -118,9 +118,27 @@ class GeneralizedGamma(RegressionModel):
     The full model fits vectors :math:`\\mathbf{\\alpha, \\beta}` and scalars
     :math:`a, b, k, p, \\sigma_{\\alpha}, \\sigma_{\\beta}`.
 
-    **Full likelihood function**
+    **Likelihood and censorship**
 
-    TODO
+    For entries that convert, the contribution to the likelihood is simply
+    the probability density given by the probability distribution function
+    :math:`P(t)` times the final conversion rate :math:`c`.
+
+    For entries that *did not* convert, there is two options. Either the
+    entry will never convert, which has probability :math:`1-c`. Or,
+    it will convert at some later point that we have not observed yet,
+    with probability given by the cumulative density function
+    :math:`P(t' > t)`
+
+    **Solving the optimization problem**
+
+    To find the MAP (max a posteriori), `scipy.optimize.minimize
+    <https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html#scipy.optimize.minimize>`_
+    with the SLSQP method.
+
+    If `ci == True`, then `emcee <http://dfm.io/emcee/current/>`_ is used
+    to sample from the full posterior in order to generate uncertainty
+    estimates for all parameters.
     '''
     def __init__(self, ci=False):
         self._ci = ci

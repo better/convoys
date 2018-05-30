@@ -47,7 +47,6 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
-    'autoapi.sphinx',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -113,10 +112,3 @@ html_static_path = ['_static']
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
-
-# Custom overrides
-autoapi_modules = {
-    'convoys': {
-        'output': 'api',
-    }
-}

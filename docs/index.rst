@@ -1,6 +1,6 @@
 Full API documentation
 ======================
 
-.. toctree::
+.. automodule:: convoys.regression
+   :members:
 
-   api/convoys

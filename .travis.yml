@@ -6,7 +6,7 @@ python:
 before_install:
   - pip install pytest pytest-cov
   - pip install coveralls
-  - pip install sphinx autoapi
+  - pip install sphinx
 install:
   - pip install pytest flaky -r requirements.txt
 script:
