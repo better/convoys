@@ -1,0 +1,4 @@
+.. autosummary::
+
+   convoys.regression
+
