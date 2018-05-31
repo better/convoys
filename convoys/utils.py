@@ -1,6 +1,8 @@
 import datetime
 import pandas
 
+__all__ = ['get_arrays']
+
 
 def get_timescale(t):
     ''' Take a datetime or a numerical type, return two things:

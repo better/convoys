@@ -6,9 +6,11 @@ python:
 before_install:
   - pip install pytest pytest-cov
   - pip install coveralls
+  - pip install sphinx
 install:
   - pip install pytest flaky -r requirements.txt
 script:
   - py.test -s -v --cov=convoys .
+  - sphinx-build -M html docs/ docs/_build/
 after_success:
   - coveralls

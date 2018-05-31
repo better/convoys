@@ -10,6 +10,12 @@ import warnings
 from convoys.gamma import gammainc
 
 
+__all__ = ['Exponential',
+           'Weibull',
+           'Gamma',
+           'GeneralizedGamma']
+
+
 def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p):
     k = exp(x[0]) if fix_k is None else fix_k
     p = exp(x[1]) if fix_p is None else fix_p
@@ -59,14 +65,96 @@ class RegressionModel(object):
 
 
 class GeneralizedGamma(RegressionModel):
-    # https://en.wikipedia.org/wiki/Generalized_gamma_distribution
-    # Note however that lambda is a^-1 in WP's notation
-    # Note also that k = d/p so d = k*p
+    ''' Generalization of Gamma, Weibull, and Exponential
+
+    This mostly follows the `Wikipedia article
+    <https://en.wikipedia.org/wiki/Generalized_gamma_distribution>`_, although
+    our notation is slightly different:
+
+    **Shape of the probability function**
+
+    The cumulative density function is:
+
+    :math:`P(t' < t) = \\gamma(k, (t\\lambda)^p)`
+
+    where :math:`\\gamma(a, x)` is the `lower regularized incomplete
+    gamma function
+    <https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.gammainc.html>`_.
+
+    The probability density function is:
+
+    :math:`P(t) = p\\lambda^{kp} t^{kp-1} \exp(-(x\\lambda)^p) / \\Gamma(k)`
+
+    **Modeling conversion rate**
+
+    Since our goal is to model the conversion rate, we assume the conversion
+    rate converges to a final value
+
+    :math:`c = \\sigma(\mathbf{\\beta^Tx} + b)`
+
+    where :math:`\\sigma(z) = 1/(1+e^{-z})` is the sigmoid function,
+    :math:`\\mathbf{\\beta}` is an unknown vector we are solving for (with
+    corresponding  intercept :math:`b`), and :math:`\\mathbf{x}` are the
+    feature vector (inputs).
+
+    We also assume that the rate parameter :math:`\\lambda` is determined by
+
+    :math:`\\lambda = exp(\mathbf{\\alpha^Tx} + a)`
+
+    where :math:`\\mathrm{\\alpha}` is another unknown vector we are
+    trying to solve for (with corresponding intercept :math:`a`).
+
+    We also assume that the :math:`\\mathbf{\\alpha}, \\mathbf{\\beta}`
+    vectors have a normal distribution
+
+    :math:`\\alpha_i \sim \\mathcal{N}(0, \\sigma_{\\alpha})`,
+    :math:`\\beta_i \sim \\mathcal{N}(0, \\sigma_{\\beta})`
+
+    where hyperparameters :math:`\\sigma_{\\alpha}, \\sigma_{\\beta}`
+    are lognormally distributed:
+
+    :math:`\\log \\sigma_{\\alpha} \sim \\mathcal{N}(0, 1)`,
+    :math:`\\log \\sigma_{\\beta} \sim \\mathcal{N}(0, 1)`
+
+    **List of parameters**
+
+    The full model fits vectors :math:`\\mathbf{\\alpha, \\beta}` and scalars
+    :math:`a, b, k, p, \\sigma_{\\alpha}, \\sigma_{\\beta}`.
+
+    **Likelihood and censorship**
+
+    For entries that convert, the contribution to the likelihood is simply
+    the probability density given by the probability distribution function
+    :math:`P(t)` times the final conversion rate :math:`c`.
+
+    For entries that *did not* convert, there is two options. Either the
+    entry will never convert, which has probability :math:`1-c`. Or,
+    it will convert at some later point that we have not observed yet,
+    with probability given by the cumulative density function
+    :math:`P(t' < t)`
+
+    **Solving the optimization problem**
+
+    To find the MAP (max a posteriori), `scipy.optimize.minimize
+    <https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html#scipy.optimize.minimize>`_
+    with the SLSQP method.
+
+    If `ci == True`, then `emcee <http://dfm.io/emcee/current/>`_ is used
+    to sample from the full posterior in order to generate uncertainty
+    estimates for all parameters.
+    '''
     def __init__(self, ci=False):
         self._ci = ci
 
     def fit(self, X, B, T, W=None, fix_k=None, fix_p=None):
-        # Sanity check input:
+        '''Fits the model.
+
+        :param X: numpy matrix of shape :math:`k \cdot n`
+        :param B: numpy vector of shape :math:`n`
+        :param T: numpy vector of shape :math:`n`
+        :param W: (optional) numpy vector of shape :math:`n`
+        '''
+
         if W is None:
             W = [1] * len(X)
         XBTW = [(x, b, t, w) for x, b, t, w in zip(X, B, T, W)
@@ -184,15 +272,57 @@ class GeneralizedGamma(RegressionModel):
 
 
 class Exponential(GeneralizedGamma):
+    ''' Specialization of :class:`.GeneralizedGamma` where :math:`k=1, p=1`.
+
+    The cumulative density function is:
+
+    :math:`P(t' < t) = 1 - \\exp(-t\\lambda)`
+
+    The probability density function is:
+
+    :math:`P(t) = \\lambda\\exp(-t\\lambda)`
+
+    The exponential distribution is the most simple distribution.
+    From a conversion perspective, you can interpret it as having
+    two competing final states where the probability of transitioning
+    from the initial state to converted or dead is constant.
+
+    See documentation for :class:`GeneralizedGamma`.'''
     def fit(self, X, B, T, W=None):
         super(Exponential, self).fit(X, B, T, W, fix_k=1, fix_p=1)
 
 
 class Weibull(GeneralizedGamma):
+    ''' Specialization of :class:`.GeneralizedGamma` where :math:`k=1`.
+
+    The cumulative density function is:
+
+    :math:`P(t' < t) = 1 - \\exp(-(t\\lambda)^p)`
+
+    The probability density function is:
+
+    :math:`P(t) = p\\lambda(t\\lambda)^{p-1}\\exp(-(t\\lambda)^p)`
+
+    See documentation for :class:`GeneralizedGamma`.'''
     def fit(self, X, B, T, W=None):
         super(Weibull, self).fit(X, B, T, W, fix_k=1)
 
 
 class Gamma(GeneralizedGamma):
+    ''' Specialization of :class:`.GeneralizedGamma` where :math:`p=1`.
+
+    The cumulative density function is:
+
+    :math:`P(t' < t) = \\gamma(k, t\\lambda)`
+
+    where :math:`\\gamma(a, x)` is the `lower regularized incomplete
+    gamma function
+    <https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.gammainc.html>`_.
+
+    The probability density function is:
+
+    :math:`P(t) = \\lambda^k t^{k-1} \exp(-x\\lambda) / \\Gamma(k)`
+
+    See documentation for :class:`GeneralizedGamma`.'''
     def fit(self, X, B, T, W=None):
         super(Gamma, self).fit(X, B, T, W, fix_p=1)

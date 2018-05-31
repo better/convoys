@@ -2,6 +2,8 @@ import numpy
 from matplotlib import pyplot
 import convoys.multi
 
+__all__ = ['plot_cohorts']
+
 
 _models = {
     'kaplan-meier': lambda ci: convoys.multi.KaplanMeier(),

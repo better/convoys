@@ -2,4 +2,4 @@
 
 [![Coverage Status](https://img.shields.io/coveralls/better/convoys/master.svg?style=flat)](https://coveralls.io/github/better/convoys?branch=master)
 
-TODO: more info coming later
+See (work in progress) [documentation](https://opensource.better.engineering/convoys/).
