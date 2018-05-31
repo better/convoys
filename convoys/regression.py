@@ -107,11 +107,14 @@ class GeneralizedGamma(RegressionModel):
     We also assume that the :math:`\\mathbf{\\alpha}, \\mathbf{\\beta}`
     vectors have a normal distribution
 
-    :math:`\\alpha_i \sim \\mathcal{N}(0, \\sigma_{\\alpha}), \\beta_i \sim \\mathcal{N}(0, \\sigma_{\\beta})`
+    :math:`\\alpha_i \sim \\mathcal{N}(0, \\sigma_{\\alpha})`,
+    :math:`\\beta_i \sim \\mathcal{N}(0, \\sigma_{\\beta})`
 
-    where hyperparameters :math:`\\sigma_{\\alpha}, \\sigma_{\\beta}` are lognormally distributed
+    where hyperparameters :math:`\\sigma_{\\alpha}, \\sigma_{\\beta}`
+    are lognormally distributed:
 
-    :math:`\\log \\sigma_{\\alpha} \sim \\mathcal{N}(0, 1), \\log \\sigma_{\\beta} \sim \\mathcal{N}(0, 1)`
+    :math:`\\log \\sigma_{\\alpha} \sim \\mathcal{N}(0, 1)`,
+    :math:`\\log \\sigma_{\\beta} \sim \\mathcal{N}(0, 1)`
 
     **List of parameters**
 
