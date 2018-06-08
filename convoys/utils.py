@@ -64,14 +64,14 @@ def get_arrays(data, features=None, groups=None, created=None,
                             ' was provided, and there was no `features` or'
                             ' `groups` dataframe column')
     if groups is not None:
-        group2j = dict(
-            (group, j) for j, group in
-            enumerate(get_groups(data[groups], group_min_size, max_groups)))
+        groups_list = get_groups(data[groups], group_min_size, max_groups)
+        group2j = dict((group, j) for j, group in enumerate(groups_list))
         # Remove rows for rare groups
         data = data[data[groups].isin(group2j.keys())]
-        G = data[groups].apply(lambda g: group2j[g]).values
+        G = data[groups].apply(lambda g: group2j.get(g, -1)).values
         res.append(G)
     else:
+        groups_list = []
         X = data[features].values
         res.append(X)
 
@@ -108,4 +108,4 @@ def get_arrays(data, features=None, groups=None, created=None,
     T = [converter(t) for t in T_raw]
     res.append(T)
 
-    return unit, tuple(res)
+    return unit, groups_list, tuple(res)

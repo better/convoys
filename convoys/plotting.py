@@ -15,12 +15,13 @@ _models = {
 
 
 def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
-                 ci=None, plot_args={}, plot_ci_args={}):
+                 ci=None, plot_args={}, plot_ci_args={}, groups=None):
     # Set x scale
     if t_max is None:
         t_max = max(T)
 
-    groups = set(G)  # TODO: fix
+    if groups is None:
+        groups = set(G)
 
     # Fit model
     m = _models[model](ci=bool(ci))
