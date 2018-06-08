@@ -1,3 +1,9 @@
+Quick start example
+===================
+
+.. include:: example.rst
+
+
 Full API documentation
 ======================
 
