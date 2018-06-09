@@ -1,0 +1,30 @@
+Motivation
+----------
+
+Prediction conversions is a really important problem for ecommerce, online advertising, and many other applications.
+In many cases when conversions are relatively quick, you can measure the response (e.g. whether the user bought the product) and use models like `logistic regression <https://en.wikipedia.org/wiki/Logistic_regression>`_ to predict conversion.
+
+If conversions have substantial time lag (which is often the case) it gets a bit trickier.
+You know who converted, but if someone did not convert, they might still convert in the future.
+
+The "hacky" way to address this is to define conversion as *conversion at time X*.
+This turns the problem into a simple binary classification problem, but the drawback is you are losing data by *binarizing* it.
+First of all, you can not learn from users that are younger than X.
+You also can not learn from users that convert *after* X.
+
+Survival analysis to the rescue
+-------------------------------
+
+Luckily, there is a somewhat similar field called `survival analysis <https://en.wikipedia.org/wiki/Survival_analysis>`_.
+It introduces the concept of *censored data*, which is data that we have not observed yet.
+`Lifelines <http://lifelines.readthedocs.io/en/latest/>`_ is a great Python package with excellent documentation that implements many classic models for survival analysis.
+
+Unfortunately, survival analysis assumes that *everyone dies* in the end.
+This is not a realistic assumption when you model conversion rates since not everyone will convert, even given infinite amount of time.
+Typically conversion rates stabilize at some fraction eventually.
+
+Predicting lagged conversions
+-----------------------------
+
+It turns out we can model conversions by essentially thinking of conversions as a logistic regression model *multiplied by* a distribution over time which is usually a `Weibull distribution <https://en.wikipedia.org/wiki/Weibull_distribution>`_ or something similar.
+Convoys implements a few of these models with some utility functions for data conversion and plotting.

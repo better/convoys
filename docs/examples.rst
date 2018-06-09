@@ -1,3 +1,12 @@
+The main use case for something like Convoys is definitely for online advertising, ecommerce, or similar applications.
+However, there are several places these models can be useful, which we will illustrate with some very different types of datasets.
+
+Example 1: NY Department of Buildings violations
+------------------------------------------------
+
+Example 2: Age of marriage
+--------------------------
+
 This example looks at time until marriage.
 Since not everyone marries, it's a great example where `survival analysis <https://en.wikipedia.org/wiki/Survival_analysis>`_ would not be correct
 (although *most* people marry, so the difference isn't that huge).

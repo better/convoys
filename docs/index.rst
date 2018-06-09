@@ -1,7 +1,12 @@
-Quick start example
+Convoys
+=======
+
+.. include:: introduction.rst
+
+Examples
 ===================
 
-.. include:: example.rst
+.. include:: examples.rst
 
 
 Full API documentation
