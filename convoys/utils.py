@@ -4,7 +4,7 @@ import pandas
 __all__ = ['get_arrays']
 
 
-def get_timescale(t):
+def get_timescale(t, unit):
     ''' Take a datetime or a numerical type, return two things:
 
     1. A unit
@@ -16,14 +16,16 @@ def get_timescale(t):
     if not isinstance(t, datetime.timedelta):
         # Assume numeric type
         return '', lambda x: x
-    elif t >= datetime.timedelta(days=1):
+    elif t >= datetime.timedelta(days=1) or unit == 'Years':
+        return 'Years', get_timedelta_converter(1./(365.25*24*60*60))
+    elif t >= datetime.timedelta(days=1) or unit == 'Days':
         return 'Days', get_timedelta_converter(1./(24*60*60))
-    elif t >= datetime.timedelta(hours=1):
+    elif t >= datetime.timedelta(hours=1) or unit == 'Hours':
         return 'Hours', get_timedelta_converter(1./(60*60))
-    elif t >= datetime.timedelta(minutes=1):
+    elif t >= datetime.timedelta(minutes=1) or unit == 'Minutes':
         return 'Minutes', get_timedelta_converter(1./60)
     else:
-        return 'Minutes', get_timedelta_converter(1)
+        return 'Seconds', get_timedelta_converter(1)
 
 
 def get_groups(data, group_min_size, max_groups):
@@ -44,7 +46,8 @@ def get_groups(data, group_min_size, max_groups):
 
 
 def get_arrays(data, features=None, groups=None, created=None,
-               converted=None, now=None, group_min_size=0, max_groups=-1):
+               converted=None, now=None, unit=None,
+               group_min_size=0, max_groups=-1):
     ''' Converts a dataframe to a list of numpy arrays.
 
     Each input refers to a column in the dataframe.
@@ -104,7 +107,7 @@ def get_arrays(data, features=None, groups=None, created=None,
                     T_raw.append(datetime.datetime.now(tzinfo=row[created].tzinfo) - row[created_at])
             else:
                 T_raw.append(row[now])
-    unit, converter = get_timescale(max(T_raw))
+    unit, converter = get_timescale(max(T_raw), unit)
     T = [converter(t) for t in T_raw]
     res.append(T)
 
