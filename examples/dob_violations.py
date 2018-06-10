@@ -35,7 +35,8 @@ def run():
         lambda d: '%d-%d' % (5*(d.year//5), 5*(d.year//5)+4)
     )
     unit, groups, (G, B, T) = convoys.utils.get_arrays(
-        df, groups='bucket', created='issue_date', converted='disposition_date',
+        df, groups='bucket', created='issue_date',
+        converted='disposition_date',
         unit='Years', group_min_size=500)
     convoys.plotting.plot_cohorts(G, B, T, model='kaplan-meier',
                                   groups=groups, t_max=30)
