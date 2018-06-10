@@ -7,7 +7,6 @@ import convoys.utils
 def run():
     print('loading data')
     df = pandas.read_pickle('examples/marriage.pickle')
-    df = df.sample(n=10000)  # Subsample to make it faster
     print(df)
 
     _, groups, (G, B, T) = convoys.utils.get_arrays(

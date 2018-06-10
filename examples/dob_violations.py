@@ -8,7 +8,6 @@ import convoys.utils
 def run():
     print('loading data')
     df = pandas.read_pickle('examples/dob_violations.pickle')
-    df = df.sample(n=10000)  # Subsample to make it faster
     print(df['issue_date'])
     print(df['issue_date'].dtype)
     print(df['issue_date'] < datetime.date(2018, 1, 1))
