@@ -168,15 +168,15 @@ def _generate_dataframe(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=1000):
 
 def test_convert_dataframe():
     df = _generate_dataframe()
-    unit, (G, B, T) = convoys.utils.get_arrays(df)
+    unit, groups, (G, B, T) = convoys.utils.get_arrays(df)
     # TODO: assert things
 
 
 def _test_plot_cohorts(model='weibull', extra_model=None):
     df = _generate_dataframe()
-    unit, (G, B, T) = convoys.utils.get_arrays(df)
+    unit, groups, (G, B, T) = convoys.utils.get_arrays(df)
     matplotlib.pyplot.clf()
-    convoys.plotting.plot_cohorts(G, B, T, model=model, ci=0.95)
+    convoys.plotting.plot_cohorts(G, B, T, model=model, ci=0.95, groups=groups)
     matplotlib.pyplot.legend()
     if extra_model:
         convoys.plotting.plot_cohorts(G, B, T, model=extra_model,
@@ -198,3 +198,13 @@ def test_plot_cohorts_weibull():
 @flaky.flaky
 def test_plot_cohorts_two_models():
     _test_plot_cohorts(model='kaplan-meier', extra_model='weibull')
+
+
+def test_marriage_example():
+    from examples.marriage import run
+    run()
+
+
+def test_dob_violations_example():
+    from examples.dob_violations import run
+    run()
