@@ -2,8 +2,16 @@ Convoys
 =======
 
 Convoys is a simple library that fits a few statistical model useful for modeling time-lagged conversion rates.
+You can check out the `Github repo <https://github.com/better/convoys>`_ for more source code!
 
-You can check out the `Github repo <https://github.com/better/convoys>`_ for more information and discussion!
+Installation
+------------
+
+The easiest way right now is to install it straight from Github using Pip:
+
+::
+
+    pip install -e git://github.com/better/convoys#egg=convoys
 
 .. include:: introduction.rst
 
