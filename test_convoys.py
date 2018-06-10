@@ -198,3 +198,13 @@ def test_plot_cohorts_weibull():
 @flaky.flaky
 def test_plot_cohorts_two_models():
     _test_plot_cohorts(model='kaplan-meier', extra_model='weibull')
+
+
+def test_marriage_example():
+    from examples.marriage import run
+    run()
+
+
+def test_dob_violations_example():
+    from examples.dob_violations import run
+    run()
