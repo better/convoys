@@ -7,6 +7,7 @@ import convoys.utils
 def run():
     print('loading data')
     df = pandas.read_pickle('examples/marriage.pickle')
+    df = df.sample(1000)  # speed up
     print(df)
 
     _, groups, (G, B, T) = convoys.utils.get_arrays(
@@ -20,7 +21,7 @@ def run():
     convoys.plotting.plot_cohorts(G, B, T, model='kaplan-meier',
                                   groups=groups,
                                   plot_args={'linestyle': '--'})
-    pyplot.savefig('marriage-combned.png')
+    pyplot.savefig('marriage-combined.png')
 
 
 if __name__ == '__main__':
