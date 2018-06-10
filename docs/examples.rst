@@ -78,7 +78,9 @@ This will show something like this:
 
 .. image:: images/dob-violations-combined.png
 
-As you can see, the Weibull distribution fits the nonparametric Kaplan-Meier plot really well.
+The dashed lines are the Kaplan-Meier curves, whereas the solid ones with the shaded area are the Weibull model (with corresponding uncertainty intervals).
+They match really well!
+
 It looks like disposition has gotten consistently faster over the years, which is good to see.
 The weird vertical jumps in Kaplan-Meier is just an artifact of how the model is fit, where the last observation ends up being drawn in a funny way.
 
