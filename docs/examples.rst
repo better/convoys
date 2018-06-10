@@ -1,22 +1,22 @@
 The main use case for something like Convoys is definitely for online advertising, ecommerce, or similar applications.
 However, there are several places these models can be useful, which we will illustrate with some very different types of datasets.
 
-Example 1: NY Department of Buildings violations
-------------------------------------------------
+Example 1: NYC Department of Buildings violations
+-------------------------------------------------
 
 We are going to look at complaints received by the Department of Buildings in NYC.
 The dataset is `available here <https://data.cityofnewyork.us/Housing-Development/DOB-Complaints-Received/eabe-havv>`_.
 
-First, lets load it:
+First, lets load it. There is a `pandas <https://pandas.pydata.org/>`_ DataFrame in the examples/ directory that contains a subsampl of the full dataset (10,000 rows out of the 1.3M rows).
 
 .. code-block:: python
 
-    f = open('examples/dob_violations.pickle', 'rb')
-    df = pickle.load(f)
-    df = df.sample(n=10000)  # Subsample to make it faster
+    df = pandas.read_pickle('examples/dob_violations.pickle')
 
+We are going to look at time delay from issue to disposition (when the case was finally resolved, or closed).
 The next step is to convert it to numpy arrays so that we can work with it.
-Convoys comes with a utility function :func:`convoys.utils.get_arrays` that handles the conversion for you:
+Convoys comes with a utility function :func:`convoys.utils.get_arrays` that handles the conversion for you.
+Several of the arguments are references to columns in the dataframe, in this case *type*, *issue_date*, and *disposition_date*.
 
 .. code-block:: python
 
@@ -104,9 +104,7 @@ This just gives one more degree of freedom to fit the model.
 
 .. code-block:: python
 
-    f = open('examples/marriage.pickle', 'rb')
-    df = pickle.load(f)
-    df = df.sample(n=10000)  # Subsample to make it faster
+    df = pandas.read_pickle('examples/marriage.pickle')
     _, groups, (G, B, T) = convoys.utils.get_arrays(
         df, groups='sex', created='born', converted='married')
 
