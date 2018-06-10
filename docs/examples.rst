@@ -26,7 +26,7 @@ Convoys comes with a utility function :func:`convoys.utils.get_arrays` that hand
 
 
 This will create three numpy arrays that we can use to plot.
-Let's start with a nonparametric Kaplan-Meier estimator:
+Let's start with a nonparametric :class:`Kaplan-Meier <convoys.single.KaplanMeier>` estimator and plot it using the :func:`convoys.plotting.plot_cohorts` function.
 
 .. code-block:: python
 
@@ -39,7 +39,11 @@ This should show something similar to this:
 
 .. image:: images/dob-violations-kaplan-meier.png
 
-Now, let's plot a Weibull distribution:
+The fact that some complaints take 30 years to resolve is pretty baffling.
+I have no idea why it's so bad!
+
+Anyway, let's fit a :class:`Weibull <convoys.regression.Weibull>` distribution.
+This is a *parametric* model, meaning it will fit a mathematical model with a few unknowns by finding the values of those unknowns that optimizes the fit.
 
 .. code-block:: python
 
@@ -55,7 +59,8 @@ This should show something similar to this:
 As you can see, the Weibull distribution fits the nonparametric plot fairly well!
 
 One of the benefits of parametric models is that you can extrapolate them to see the final conversion rate.
-Let's try to fit the Weibull model to see how different cohorts of reported violations are cleared:
+Let's try to fit the Weibull model to see how different cohorts of reported violations are cleared.
+Let's also plot the Kaplan-Meier and the Weibull model on top of each other so that we can compare visually how well the model fits.
 
 .. code-block:: python
 
@@ -87,7 +92,7 @@ Since not everyone marries, it's a great example where `survival analysis <https
 There's a dataset in the repo that contains year born, year married, and a number of attributes for a random sample of a few hundred thousand Americans.
 The data is included as a Pandas dataframe.
 
-Let's fit a generalized Gamma distribution!
+Let's fit a :class:`generalized Gamma distribution <convoys.regression.GeneralizedGamma>`!
 Why that distribution?
 Unlike the previous example, we expect some kind of time lag before the first conversion even start to happen.
 A Gamma distribution is a sum of *k* exponentials, which can be interpreted as various life phases a person goes through (newborn, toddler, etc).

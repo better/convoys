@@ -1,7 +1,7 @@
 Motivation
 ----------
 
-Prediction conversions is a really important problem for ecommerce, online advertising, and many other applications.
+Predicting conversions is a really important problem for ecommerce, online advertising, and many other applications.
 In many cases when conversions are relatively quick, you can measure the response (e.g. whether the user bought the product) and use models like `logistic regression <https://en.wikipedia.org/wiki/Logistic_regression>`_ to predict conversion.
 
 If conversions have substantial time lag (which is often the case) it gets a bit trickier.
@@ -12,6 +12,7 @@ The "hacky" way to address this is to define conversion as *conversion at time X
 This turns the problem into a simple binary classification problem, but the drawback is you are losing data by *binarizing* it.
 First of all, you can not learn from users that are younger than X.
 You also can not learn from users that convert *after* X.
+For an excellent introduction to this problem (and distributions like the `Weibull distribution <https://en.wikipedia.org/wiki/Weibull_distribution>`_), here's a blog post about `implementing a recurrent neural network to predict churn <https://ragulpr.github.io/2016/12/22/WTTE-RNN-Hackless-churn-modeling/>`_.
 
 Survival analysis to the rescue
 -------------------------------
