@@ -6,6 +6,7 @@ In many cases when conversions are relatively quick, you can measure the respons
 
 If conversions have substantial time lag (which is often the case) it gets a bit trickier.
 You know who converted, but if someone did not convert, they might still convert in the future.
+In other words, conversions are observed, but non-conversions are not observed.
 
 The "hacky" way to address this is to define conversion as *conversion at time X*.
 This turns the problem into a simple binary classification problem, but the drawback is you are losing data by *binarizing* it.
