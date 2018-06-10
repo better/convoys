@@ -1,14 +1,13 @@
 from matplotlib import pyplot
 import datetime
-import pickle
+import pandas
 import convoys.plotting
 import convoys.utils
 
 
 def run():
     print('loading data')
-    f = open('examples/dob_violations.pickle', 'rb')
-    df = pickle.load(f)
+    df = pandas.read_pickle('examples/dob_violations.pickle')
     df = df.sample(n=10000)  # Subsample to make it faster
     print(df['issue_date'])
     print(df['issue_date'].dtype)

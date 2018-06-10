@@ -1,13 +1,12 @@
 from matplotlib import pyplot
-import pickle
+import pandas
 import convoys.plotting
 import convoys.utils
 
 
 def run():
     print('loading data')
-    f = open('examples/marriage.pickle', 'rb')
-    df = pickle.load(f)
+    df = pandas.read_pickle('examples/marriage.pickle')
     df = df.sample(n=10000)  # Subsample to make it faster
     print(df)
 
