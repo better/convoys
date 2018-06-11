@@ -1,3 +1,6 @@
+Examples
+===================
+
 The main use case for something like Convoys is definitely for online advertising, ecommerce, or similar applications.
 However, there are several places these models can be useful, which we will illustrate with some very different types of datasets.
 
@@ -120,4 +123,5 @@ This will generate something like this:
 
 As you can see, marriage data does not quite follow a generalized Gamma distribution.
 This is not quite shocking, since many complex real world phenomenon are not always possible to model mathematically.
+One reason the model isn't perfect is there's an inherent bias in the dataset we use, where it only includes people who are still alive.
 Some resources `suggest <http://data.princeton.edu/pop509/ParametricSurvival.pdf>`_ fitting a "Coale-McNeil" model to this instead, which seems like an interesting future addition to Convoys.
