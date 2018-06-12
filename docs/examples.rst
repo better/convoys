@@ -25,7 +25,7 @@ Several of the arguments are references to columns in the dataframe, in this cas
 
     unit, groups, (G, B, T) = convoys.utils.get_arrays(
         df, groups='type', created='issue_date', converted='disposition_date',
-        unit='Years', group_min_size=100)
+        unit='years', group_min_size=100)
 
 
 This will create three numpy arrays that we can use to plot.
@@ -70,9 +70,9 @@ Let's also plot the Kaplan-Meier and the Weibull model on top of each other so t
     df['bucket'] = df['issue_date'].apply(lambda d: '%d-%d' % (5*(d.year//5), 5*(d.year//5)+4))
     unit, groups, (G, B, T) = convoys.utils.get_arrays(
         df, groups='bucket', created='issue_date', converted='disposition_date',
-        unit='Years', group_min_size=500)
+        unit='years', group_min_size=500)
     convoys.plotting.plot_cohorts(G, B, T, model='kaplan-meier', groups=groups, t_max=30)
-    convoys.plotting.plot_cohorts(G, B, T, model='weibull', groups=groups, t_max=30, plot_args={'linestyle': '--'}, ci=0.95)
+    convoys.plotting.plot_cohorts(G, B, T, model='weibull', groups=groups, t_max=30, plot_kwargs={'linestyle': '--'}, ci=0.95)
     pyplot.legend()
     pyplot.show()
 
@@ -114,7 +114,7 @@ This just gives one more degree of freedom to fit the model.
     pyplot.figure(figsize=(12, 9))
     convoys.plotting.plot_cohorts(G, B, T, model='generalized-gamma', groups=groups)
     pyplot.legend()
-    convoys.plotting.plot_cohorts(G, B, T, model='kaplan-meier', groups=groups, plot_args={'linestyle': '--'})
+    convoys.plotting.plot_cohorts(G, B, T, model='kaplan-meier', groups=groups, plot_kwargs={'linestyle': '--'})
     pyplot.savefig('marriage-combined.png')
 
 This will generate something like this:

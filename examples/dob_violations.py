@@ -17,7 +17,7 @@ def run():
     unit, groups, (G, B, T) = convoys.utils.get_arrays(
         df, groups='type', created='issue_date',
         converted='disposition_date',
-        unit='Years', group_min_size=100)
+        unit='years', group_min_size=100)
 
     for model in ['kaplan-meier', 'weibull']:
         print('plotting', model)
@@ -25,7 +25,7 @@ def run():
         convoys.plotting.plot_cohorts(G, B, T, model=model, ci=0.95,
                                       groups=groups, t_max=30)
         pyplot.legend()
-        pyplot.xlabel('Years')
+        pyplot.xlabel(unit)
         pyplot.savefig('dob-violations-%s.png' % model)
 
     pyplot.figure(figsize=(9, 6))
@@ -35,14 +35,14 @@ def run():
     unit, groups, (G, B, T) = convoys.utils.get_arrays(
         df, groups='bucket', created='issue_date',
         converted='disposition_date',
-        unit='Years', group_min_size=500)
+        unit='years', group_min_size=500)
     convoys.plotting.plot_cohorts(G, B, T, model='kaplan-meier',
                                   groups=groups, t_max=30)
     convoys.plotting.plot_cohorts(G, B, T, model='weibull',
                                   groups=groups, t_max=30, ci=0.95,
-                                  plot_args={'linestyle': '--'})
+                                  plot_kwargs={'linestyle': '--'})
     pyplot.legend()
-    pyplot.xlabel('Years')
+    pyplot.xlabel(unit)
     pyplot.savefig('dob-violations-combined.png')
 
 
