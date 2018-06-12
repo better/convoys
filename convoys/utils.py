@@ -107,7 +107,7 @@ def get_arrays(data, features=None, groups=None, created=None,
                 if now is not None:
                     T_raw.append(_sub(row[now], row[created]))
                 else:
-                    T_raw.append(_sub(datetime.datetime.now() - row[created_at]))
+                    T_raw.append(_sub(datetime.datetime.now(), row[created]))
             else:
                 T_raw.append(row[now])
     unit, converter = get_timescale(max(T_raw), unit)
