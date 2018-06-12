@@ -41,11 +41,10 @@ def get_groups(data, group_min_size, max_groups):
 
 def _sub(a, b):
     # Computes a - b for a bunch of different cases
-    if isinstance(a, datetime.date):
-        return a - b
-    elif isinstance(a, datetime.datetime) and a.tzinfo is not None:
+    if isinstance(a, datetime.datetime) and a.tzinfo is not None:
         return a.astimezone(b.tzinfo) - b
     else:
+        # Either naive timestamps or numerical type
         return a - b
 
 
