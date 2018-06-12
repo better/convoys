@@ -208,3 +208,21 @@ def test_marriage_example():
 def test_dob_violations_example():
     from examples.dob_violations import run
     run()
+
+
+def test_other_data():
+    data = pandas.read_pickle('examples/data.pickle')
+    unit, groups, (G, B, T) = convoys.utils.get_arrays(
+        data, groups='group', created='created_at', converted='action_at', now='now',
+        unit='days', max_groups=10, group_min_size=100)
+    convoys.plotting.plot_cohorts(G, B, T,
+                 model='generalized-gamma',
+                 groups=groups,
+                 ci=0.95)
+    matplotlib.pyplot.legend()
+    convoys.plotting.plot_cohorts(G, B, T,
+                 model='kaplan-meier',
+                 groups=groups,
+                 plot_kwargs={'linestyle': '--'})
+    matplotlib.pyplot.xlabel(unit)
+    matplotlib.pyplot.savefig('test.png')
