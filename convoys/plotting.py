@@ -15,10 +15,11 @@ _models = {
 
 
 def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
-                 ci=None, plot_args={}, plot_ci_args={}, groups=None):
+                 ci=None, plot_kwargs={}, plot_ci_kwargs={}, groups=None):
     # Set x scale
     if t_max is None:
-        t_max = max(T)
+        _, t_max = pyplot.gca().get_xlim()
+        t_max = max(t_max, max(T))
 
     if groups is None:
         groups = set(G)
@@ -31,7 +32,7 @@ def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
     colors = pyplot.get_cmap('tab10').colors
     colors = [colors[i % len(colors)] for i in range(len(groups))]
     t = numpy.linspace(0, t_max, 1000)
-    y_max = 0
+    _, y_max = pyplot.gca().get_ylim()
     for j, (group, color) in enumerate(zip(groups, colors)):
         n = sum(1 for g in G if g == j)  # TODO: slow
         k = sum(1 for g, b in zip(G, B) if g == j and b)  # TODO: slow
@@ -39,14 +40,12 @@ def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
 
         if ci is not None:
             p_y, p_y_lo, p_y_hi = m.cdf(j, t, ci=ci).T
-            pyplot.plot(t, 100. * p_y, color=color, linewidth=1.5,
-                        alpha=0.7, label=label, **plot_args)
             pyplot.fill_between(t, 100. * p_y_lo, 100. * p_y_hi,
-                                color=color, alpha=0.2, **plot_ci_args)
+                                color=color, alpha=0.2, **plot_ci_kwargs)
         else:
             p_y = m.cdf(j, t).T
-            pyplot.plot(t, 100. * p_y, color=color, linewidth=1.5,
-                        alpha=0.7, label=label, **plot_args)
+        pyplot.plot(t, 100. * p_y, color=color, linewidth=1.5,
+                    alpha=0.7, label=label, **plot_kwargs)
 
         y_max = max(y_max, 110. * max(p_y))
 

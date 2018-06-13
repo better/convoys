@@ -16,16 +16,10 @@ def get_timescale(t, unit):
     if not isinstance(t, datetime.timedelta):
         # Assume numeric type
         return '', lambda x: x
-    elif t >= datetime.timedelta(days=1) or unit == 'Years':
-        return 'Years', get_timedelta_converter(1./(365.25*24*60*60))
-    elif t >= datetime.timedelta(days=1) or unit == 'Days':
-        return 'Days', get_timedelta_converter(1./(24*60*60))
-    elif t >= datetime.timedelta(hours=1) or unit == 'Hours':
-        return 'Hours', get_timedelta_converter(1./(60*60))
-    elif t >= datetime.timedelta(minutes=1) or unit == 'Minutes':
-        return 'Minutes', get_timedelta_converter(1./60)
-    else:
-        return 'Seconds', get_timedelta_converter(1)
+    for u, f in [('years', 365.25*24*60*60), ('days', 24*60*60),
+                 ('hours', 60*60), ('minutes', 60), ('seconds', 1)]:
+        if t >= datetime.timedelta(seconds=f):
+            return u, get_timedelta_converter(1./f)
 
 
 def get_groups(data, group_min_size, max_groups):
@@ -43,6 +37,15 @@ def get_groups(data, group_min_size, max_groups):
     if max_groups >= 0:
         groups = sorted(groups, key=group2count.get, reverse=True)[:max_groups]
     return sorted(groups)
+
+
+def _sub(a, b):
+    # Computes a - b for a bunch of different cases
+    if isinstance(a, datetime.datetime) and a.tzinfo is not None:
+        return a.astimezone(b.tzinfo) - b
+    else:
+        # Either naive timestamps or numerical type
+        return a - b
 
 
 def get_arrays(data, features=None, groups=None, created=None,
@@ -96,15 +99,15 @@ def get_arrays(data, features=None, groups=None, created=None,
         # TODO: this stuff should be vectorized, kind of ugly
         if not pandas.isnull(row[converted]):
             if created is not None:
-                T_raw.append(row[converted] - row[created])
+                T_raw.append(_sub(row[converted], row[created]))
             else:
                 T_raw.append(row[converted])
         else:
             if created is not None:
                 if now is not None:
-                    T_raw.append(row[now] - row[created])
+                    T_raw.append(_sub(row[now], row[created]))
                 else:
-                    T_raw.append(datetime.datetime.now(tzinfo=row[created].tzinfo) - row[created_at])
+                    T_raw.append(_sub(datetime.datetime.now(), row[created]))
             else:
                 T_raw.append(row[now])
     unit, converter = get_timescale(max(T_raw), unit)

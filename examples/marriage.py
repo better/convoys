@@ -20,7 +20,7 @@ def run():
     pyplot.xlabel('Age of marriage')
     convoys.plotting.plot_cohorts(G, B, T, model='kaplan-meier',
                                   groups=groups,
-                                  plot_args={'linestyle': '--'})
+                                  plot_kwargs={'linestyle': '--'})
     pyplot.savefig('marriage-combined.png')
 
 

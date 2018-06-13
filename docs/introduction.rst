@@ -37,9 +37,9 @@ Luckily, there is a somewhat similar field called `survival analysis <https://en
 It introduces the concept of *censored data*, which is data that we have not observed yet.
 `Lifelines <http://lifelines.readthedocs.io/en/latest/>`_ is a great Python package with excellent documentation that implements many classic models for survival analysis.
 
-Unfortunately, survival analysis assumes that *everyone dies* in the end.
-This is not a realistic assumption when you model conversion rates since not everyone will convert, even given infinite amount of time.
+Unfortunately, fitting a distribution such as Weibull is not enough in the case of conversion rates, since not everyone converts in the end.
 Typically conversion rates stabilize at some fraction eventually.
+For that reason, we have to make the model a bit more complex and introduce the possibility that some items may never convert.
 
 Predicting lagged conversions
 -----------------------------
