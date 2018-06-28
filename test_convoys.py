@@ -159,7 +159,7 @@ def _generate_dataframe(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=1000):
 
     x2t = lambda x: datetime.datetime(2000, 1, 1) + datetime.timedelta(days=x)
     return pandas.DataFrame(data=dict(
-        groups=['Group %d' % g for g in groups],
+        group=['Group %d' % g for g in groups],
         created=[x2t(0) for g in groups],
         converted=[x2t(t) if b else None for t, b in zip(T, B)],
         now=[x2t(n) for n in N]
