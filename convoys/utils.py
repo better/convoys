@@ -61,12 +61,12 @@ def get_arrays(data, features=None, groups=None, created=None,
 
     # First, construct either the `X` or the `G` array
     if features is None and groups is None:
-        if 'groups' in data.columns:
-            groups = 'groups'
+        if 'group' in data.columns:
+            groups = 'group'
         elif 'features' in data.columns:
             features = 'features'
         else:
-            raise Exception('Neither of the `features` or `groups` parameters'
+            raise Exception('Neither of the `features` or `group` parameters'
                             ' was provided, and there was no `features` or'
                             ' `groups` dataframe column')
     if groups is not None:
