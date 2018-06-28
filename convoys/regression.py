@@ -253,7 +253,7 @@ class GeneralizedGamma(RegressionModel):
         for i, j in enumerate(numpy.random.randint(len(self.params['k']),
                                                    size=n_curves)):
             k = self.params['k'][j]
-            p = self.params['k'][j]
+            p = self.params['p'][j]
             lambd = exp(dot(x, self.params['alpha'][j]) + self.params['a'][j])
             c = expit(dot(x, self.params['beta'][j]) + self.params['b'][j])
             z = numpy.random.uniform(size=(n_samples,))
