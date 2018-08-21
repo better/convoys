@@ -91,7 +91,7 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=10000):
     assert 0.80*c < y < 1.30*c
 
     # Check the random variates
-    will_convert, convert_at = model.rvs([1], n_curves=1, n_samples=10000)
+    will_convert, convert_at = model.rvs([1], n_curves=10000, n_samples=1)
     assert 0.80*c < numpy.mean(will_convert) < 1.30*c
     convert_times = convert_at[will_convert]
     for t in [1, 3, 10]:

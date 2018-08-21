@@ -265,9 +265,9 @@ class GeneralizedGamma(RegressionModel):
             adjusted_z = cdf_now + (1 - cdf_now) * z
             B[i] = (adjusted_z < c)
             y = adjusted_z / c
-            x = gammaincinv(k, y)
+            w = gammaincinv(k, y)
             # x = (t * lambd)**p
-            C[i] = x**(1./p) / lambd
+            C[i] = w**(1./p) / lambd
             C[i][~B[i]] = 0
 
         return B, C
