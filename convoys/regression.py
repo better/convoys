@@ -205,7 +205,8 @@ class GeneralizedGamma(RegressionModel):
                     nwalkers, nburnin+nsteps))
             sampler.run_mcmc(p0, nburnin+nsteps)
             print('\n')
-            result['samples'] = sampler.chain[:, nburnin:, :].reshape((-1, dim)).T
+            result['samples'] = sampler.chain[:, nburnin:, :] \
+                                       .reshape((-1, dim)).T
 
         # The `data` array is either 1D (for MAP) or 2D (for MCMC)
         self.params = {k: {
