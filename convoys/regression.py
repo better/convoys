@@ -194,7 +194,7 @@ class GeneralizedGamma(RegressionModel):
             mcmc_initial_noise = 1e-3
             p0 = [result['map'] + mcmc_initial_noise * numpy.random.randn(dim)
                   for i in range(n_walkers)]
-            n_burnin = 20
+            n_burnin = 200
             n_steps = numpy.ceil(1000. / n_walkers)
             n_iterations = n_burnin + n_steps
             sys.stdout.write('\n')
