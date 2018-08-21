@@ -147,7 +147,7 @@ def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=10000):
     model = convoys.regression.Gamma()
     model.fit(X, B, T)
     assert 0.80*c < model.cdf([1], float('inf')) < 1.30*c
-    assert 0.80*k < numpy.mean(model.params['k']) < 1.30*k
+    assert 0.80*k < numpy.mean(model.params['map']['k']) < 1.30*k
 
 
 def _generate_dataframe(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=1000):
