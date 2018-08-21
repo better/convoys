@@ -53,10 +53,6 @@ def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p):
 
     if isnan(LL):
         return -numpy.inf
-    if isinstance(x, numpy.ndarray):
-        sys.stdout.write('%9.6e %9.6e %9.6e %9.6e -> %9.6e %30s\r'
-                         % (k, p, exp(log_sigma_alpha),
-                            exp(log_sigma_beta), LL, ''))
     return LL
 
 
@@ -177,7 +173,6 @@ class GeneralizedGamma(RegressionModel):
         args = (X, B, T, W, fix_k, fix_p)
 
         # Find the maximum a posteriori of the distribution
-        print('\nFinding MAP:')
         res = scipy.optimize.minimize(
             lambda x: -generalized_gamma_LL(x, *args),
             x0,
@@ -194,21 +189,22 @@ class GeneralizedGamma(RegressionModel):
                 nwalkers=nwalkers,
                 dim=dim,
                 lnpostfn=generalized_gamma_LL,
-                args=args
+                args=args,
             )
             mcmc_initial_noise = 1e-3
             p0 = [result['map'] + mcmc_initial_noise * numpy.random.randn(dim)
                   for i in range(nwalkers)]
             nburnin = 20
             nsteps = numpy.ceil(1000. / nwalkers)
-            print('\nStarting MCMC with %d walkers and %d steps:' % (
-                    nwalkers, nburnin+nsteps))
-            sampler.run_mcmc(p0, nburnin+nsteps)
-            print('\n')
+            sys.stdout.write('\n')
+            for i, _ in enumerate(sampler.sample(p0, iterations=nburnin+nsteps)):
+                sys.stdout.write('MCMC in %d dimensions with %d walkers: %6d/%-6d\r' % (
+                    dim, nwalkers, i+1, nburnin+nsteps))
+                sys.stdout.flush()
+            sys.stdout.write('\n')
             result['samples'] = sampler.chain[:, nburnin:, :] \
                                        .reshape((-1, dim)).T
 
-        # The `data` array is either 1D (for MAP) or 2D (for MCMC)
         self.params = {k: {
             'k': exp(data[0]),
             'p': exp(data[1]),
