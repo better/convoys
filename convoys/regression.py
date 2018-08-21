@@ -53,10 +53,6 @@ def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p):
 
     if isnan(LL):
         return -numpy.inf
-    if isinstance(x, numpy.ndarray):
-        sys.stdout.write('%9.6e %9.6e %9.6e %9.6e -> %9.6e %30s\r'
-                         % (k, p, exp(log_sigma_alpha),
-                            exp(log_sigma_beta), LL, ''))
     return LL
 
 
@@ -177,7 +173,6 @@ class GeneralizedGamma(RegressionModel):
         args = (X, B, T, W, fix_k, fix_p)
 
         # Find the maximum a posteriori of the distribution
-        print('\nFinding MAP:')
         res = scipy.optimize.minimize(
             lambda x: -generalized_gamma_LL(x, *args),
             x0,
@@ -189,26 +184,28 @@ class GeneralizedGamma(RegressionModel):
         # Let's sample from the posterior to compute uncertainties
         if self._ci:
             dim, = res.x.shape
-            nwalkers = 5*dim
+            n_walkers = 5*dim
             sampler = emcee.EnsembleSampler(
-                nwalkers=nwalkers,
+                nwalkers=n_walkers,
                 dim=dim,
                 lnpostfn=generalized_gamma_LL,
-                args=args
+                args=args,
             )
             mcmc_initial_noise = 1e-3
             p0 = [result['map'] + mcmc_initial_noise * numpy.random.randn(dim)
-                  for i in range(nwalkers)]
-            nburnin = 20
-            nsteps = numpy.ceil(1000. / nwalkers)
-            print('\nStarting MCMC with %d walkers and %d steps:' % (
-                    nwalkers, nburnin+nsteps))
-            sampler.run_mcmc(p0, nburnin+nsteps)
-            print('\n')
-            result['samples'] = sampler.chain[:, nburnin:, :] \
+                  for i in range(n_walkers)]
+            n_burnin = 20
+            n_steps = numpy.ceil(1000. / n_walkers)
+            n_iterations = n_burnin + n_steps
+            sys.stdout.write('\n')
+            for i, _ in enumerate(sampler.sample(p0, iterations=n_iterations)):
+                sys.stdout.write('MCMC (%d walkers): %6d/%-6d (%6.2f%%)\r' % (
+                        n_walkers, i+1, n_iterations, 100.*(i+1)/n_iterations))
+                sys.stdout.flush()
+            sys.stdout.write('\n')
+            result['samples'] = sampler.chain[:, n_burnin:, :] \
                                        .reshape((-1, dim)).T
 
-        # The `data` array is either 1D (for MAP) or 2D (for MCMC)
         self.params = {k: {
             'k': exp(data[0]),
             'p': exp(data[1]),
