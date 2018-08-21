@@ -184,11 +184,11 @@ class GeneralizedGamma(RegressionModel):
             jac=autograd.grad(lambda x: -generalized_gamma_LL(x, *args)),
             method='SLSQP',
         )
-        x0 = res.x
+        result = {'map': res.x}
 
         # Let's sample from the posterior to compute uncertainties
         if self._ci:
-            dim, = x0.shape
+            dim, = res.x.shape
             nwalkers = 5*dim
             sampler = emcee.EnsembleSampler(
                 nwalkers=nwalkers,
@@ -197,7 +197,7 @@ class GeneralizedGamma(RegressionModel):
                 args=args
             )
             mcmc_initial_noise = 1e-3
-            p0 = [x0 + mcmc_initial_noise * numpy.random.randn(dim)
+            p0 = [result['map'] + mcmc_initial_noise * numpy.random.randn(dim)
                   for i in range(nwalkers)]
             nburnin = 20
             nsteps = numpy.ceil(1000. / nwalkers)
@@ -205,34 +205,34 @@ class GeneralizedGamma(RegressionModel):
                     nwalkers, nburnin+nsteps))
             sampler.run_mcmc(p0, nburnin+nsteps)
             print('\n')
-            data = sampler.chain[:, nburnin:, :].reshape((-1, dim)).T
-        else:
-            data = x0
+            result['samples'] = sampler.chain[:, nburnin:, :].reshape((-1, dim)).T
 
         # The `data` array is either 1D (for MAP) or 2D (for MCMC)
-        self.params = {
+        self.params = {k: {
             'k': exp(data[0]),
             'p': exp(data[1]),
             'a': data[4],
             'b': data[5],
             'alpha': data[6:6+n_features].T,
             'beta': data[6+n_features:6+2*n_features].T,
-            }
+        } for k, data in result.items()}
 
     def cdf(self, x, t, ci=None):
         x = numpy.array(x)
         t = numpy.array(t)
-        lambd = exp(dot(x, self.params['alpha'].T) + self.params['a'])
-        c = expit(dot(x, self.params['beta'].T) + self.params['b'])
+        if ci is None:
+            params = self.params['map']
+        else:
+            assert self._ci
+            params = self.params['samples']
+        lambd = exp(dot(x, params['alpha'].T) + params['a'])
+        c = expit(dot(x, params['beta'].T) + params['b'])
         M = c * gammainc(
-            self.params['k'],
-            numpy.multiply.outer(t, lambd)**self.params['p'])
+            params['k'],
+            numpy.multiply.outer(t, lambd)**params['p'])
 
-        if not self._ci:
-            assert not ci
+        if not ci:
             return M
-        elif ci is None:
-            return numpy.mean(M, axis=-1)
         else:
             # Replace the last axis with a 3-element vector
             y = numpy.mean(M, axis=-1)
@@ -250,12 +250,13 @@ class GeneralizedGamma(RegressionModel):
             assert T.shape == (n_curves, n_samples)
         B = numpy.zeros((n_curves, n_samples), dtype=numpy.bool)
         C = numpy.zeros((n_curves, n_samples))
-        for i, j in enumerate(numpy.random.randint(len(self.params['k']),
+        params = self.params['samples']
+        for i, j in enumerate(numpy.random.randint(len(params['k']),
                                                    size=n_curves)):
-            k = self.params['k'][j]
-            p = self.params['p'][j]
-            lambd = exp(dot(x, self.params['alpha'][j]) + self.params['a'][j])
-            c = expit(dot(x, self.params['beta'][j]) + self.params['b'][j])
+            k = params['k'][j]
+            p = params['p'][j]
+            lambd = exp(dot(x, params['alpha'][j]) + params['a'][j])
+            c = expit(dot(x, params['beta'][j]) + params['b'][j])
             z = numpy.random.uniform(size=(n_samples,))
             cdf_now = c * gammainc(
                 k,
