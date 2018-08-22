@@ -173,12 +173,11 @@ class GeneralizedGamma(RegressionModel):
         args = (X, B, T, W, fix_k, fix_p)
 
         # Callback for progress to stdout
-        n_iterations = [0]  # Dumb hack to make the scope right
         sys.stdout.write('\n')
-        def callback(x):
-            n_iterations[0] += 1
-            sys.stdout.write('Finding MAP: %13d\r' %
-                             n_iterations[0])
+
+        def callback(x, x_history=[]):
+            x_history.append(x)
+            sys.stdout.write('Finding MAP: %13d\r' % len(x_history))
             sys.stdout.flush()
 
         # Find the maximum a posteriori of the distribution
