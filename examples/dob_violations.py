@@ -37,9 +37,9 @@ def run():
         converted='disposition_date',
         unit='years', group_min_size=500)
     convoys.plotting.plot_cohorts(G, B, T, model='kaplan-meier',
-                                  groups=groups, t_max=30)
+                                  groups=groups, t_max=30, ci=0.95)
     convoys.plotting.plot_cohorts(G, B, T, model='weibull',
-                                  groups=groups, t_max=30, ci=0.95,
+                                  groups=groups, t_max=30,
                                   plot_kwargs={'linestyle': '--'})
     pyplot.legend()
     pyplot.xlabel(unit)
