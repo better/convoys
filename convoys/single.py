@@ -1,5 +1,4 @@
 import numpy
-import warnings
 from scipy.special import expit, logit
 import scipy.stats
 import warnings
