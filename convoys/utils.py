@@ -18,8 +18,9 @@ def get_timescale(t, unit):
         return '', lambda x: x
     for u, f in [('years', 365.25*24*60*60), ('days', 24*60*60),
                  ('hours', 60*60), ('minutes', 60), ('seconds', 1)]:
-        if t >= datetime.timedelta(seconds=f):
+        if u == unit or (unit is None and t >= datetime.timedelta(seconds=f)):
             return u, get_timedelta_converter(1./f)
+    raise Exception('Could not find unit for %f and %s' % (t, unit))
 
 
 def get_groups(data, group_min_size, max_groups):
