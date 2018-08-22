@@ -126,7 +126,6 @@ def test_weibull_regression_model(cs=[0.3, 0.5, 0.7],
     assert model.cdf(x, 1).shape == ()
     assert model.cdf(x, [1, 2, 3, 4]).shape == (4,)
 
-
     # Check results
     for r, c in enumerate(cs):
         x = [int(r == j) for j in range(len(cs))]
