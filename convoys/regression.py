@@ -19,8 +19,8 @@ __all__ = ['Exponential',
 def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p):
     k = exp(x[0]) if fix_k is None else fix_k
     p = exp(x[1]) if fix_p is None else fix_p
-    log_sigma_alpha = x[2]
-    log_sigma_beta = x[3]
+    sigma_alpha = x[2]
+    sigma_beta = x[3]
     a = x[4]
     b = x[5]
     n_features = int((len(x)-6)/2)
@@ -42,12 +42,10 @@ def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p):
         W * (1 - B) * LL_censored, 0)
 
     # TODO: explain these prior terms
-    LL_prior_a = -log_sigma_alpha**2 \
-                 - dot(alpha, alpha) / (2*exp(log_sigma_alpha)**2) \
-                 - n_features*log_sigma_alpha
-    LL_prior_b = -log_sigma_beta**2 \
-                 - dot(beta, beta) / (2*exp(log_sigma_beta)**2) \
-                 - n_features*log_sigma_beta
+    LL_prior_a = -dot(alpha, alpha) / (2*sigma_alpha**2) \
+                 -n_features*log(sigma_alpha**2)
+    LL_prior_b = -dot(beta, beta) / (2**sigma_beta**2) \
+                 -n_features*log(sigma_beta**2)
 
     LL = LL_prior_a + LL_prior_b + LL_data
 
@@ -170,6 +168,8 @@ class GeneralizedGamma(RegressionModel):
         x0 = numpy.zeros(6+2*n_features)
         x0[0] = +1 if fix_k is None else log(fix_k)
         x0[1] = -1 if fix_p is None else log(fix_p)
+        x0[2] = 1
+        x0[3] = 1
         args = (X, B, T, W, fix_k, fix_p)
 
         # Callback for progress to stdout
