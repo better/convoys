@@ -172,13 +172,24 @@ class GeneralizedGamma(RegressionModel):
         x0[1] = -1 if fix_p is None else log(fix_p)
         args = (X, B, T, W, fix_k, fix_p)
 
+        # Callback for progress to stdout
+        n_iterations = [0]  # Dumb hack to make the scope right
+        sys.stdout.write('\n')
+        def callback(x):
+            n_iterations[0] += 1
+            sys.stdout.write('Finding MAP: %13d\r' %
+                             n_iterations[0])
+            sys.stdout.flush()
+
         # Find the maximum a posteriori of the distribution
         res = scipy.optimize.minimize(
             lambda x: -generalized_gamma_LL(x, *args),
             x0,
             jac=autograd.grad(lambda x: -generalized_gamma_LL(x, *args)),
             method='SLSQP',
+            callback=callback,
         )
+        sys.stdout.write('\n')
         result = {'map': res.x}
 
         # TODO: should not use fixed k/p as search parameters
@@ -203,9 +214,8 @@ class GeneralizedGamma(RegressionModel):
             n_burnin = 200
             n_steps = numpy.ceil(1000. / n_walkers)
             n_iterations = n_burnin + n_steps
-            sys.stdout.write('\n')
             for i, _ in enumerate(sampler.sample(p0, iterations=n_iterations)):
-                sys.stdout.write('MCMC (%d walkers): %6d/%-6d (%6.2f%%)\r' % (
+                sys.stdout.write('MCMC (%3d walkers): %6d/%-6d (%6.2f%%)\r' % (
                         n_walkers, i+1, n_iterations, 100.*(i+1)/n_iterations))
                 sys.stdout.flush()
             sys.stdout.write('\n')
