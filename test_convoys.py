@@ -117,17 +117,15 @@ def test_weibull_regression_model(cs=[0.3, 0.5, 0.7],
                      for r in range(n)])
     B, T = generate_censored_data(N, E, C)
 
-    model = convoys.regression.Weibull(ci=True)
+    model = convoys.regression.Weibull()
     model.fit(X, B, T)
 
     # Validate shape of results
     x = numpy.ones((len(cs),))
     assert model.cdf(x, float('inf')).shape == ()
-    assert model.cdf(x, float('inf'), ci=0.95).shape == (3,)
     assert model.cdf(x, 1).shape == ()
-    assert model.cdf(x, 1, ci=True).shape == (3,)
     assert model.cdf(x, [1, 2, 3, 4]).shape == (4,)
-    assert model.cdf(x, [1, 2, 3, 4], ci=True).shape == (4, 3)
+
 
     # Check results
     for r, c in enumerate(cs):
