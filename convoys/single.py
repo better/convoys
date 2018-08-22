@@ -1,6 +1,8 @@
 import numpy
+import warnings
 from scipy.special import expit, logit
 import scipy.stats
+import warnings
 
 __all__ = ['KaplanMeier']
 
@@ -18,10 +20,17 @@ class KaplanMeier(SingleModel):
         :param T: numpy vector of shape :math:`n`
         '''
         # See https://www.math.wustl.edu/~sawyer/handouts/greenwood.pdf
+        BT = [(b, t) for b, t in zip(B, T)
+              if t > 0 and 0 <= float(b) <= 1]
+        if len(BT) < len(B):
+            n_removed = len(B) - len(BT)
+            warnings.warn('Warning! Removed %d/%d entries from inputs where '
+                          'T <= 0 or B not 0/1' % (n_removed, len(B)))
+        B, T = ([z[i] for z in BT] for i in range(2))
         n = len(T)
-        self._ts = []
-        self._ss = []
-        self._vs = []
+        self._ts = [0.0]
+        self._ss = [1.0]
+        self._vs = [0.0]
         sum_var_terms = 0.0
         prod_s_terms = 1.0
         for t, b in sorted(zip(T, B)):
@@ -38,7 +47,6 @@ class KaplanMeier(SingleModel):
             else:
                 self._vs.append(0)
             n -= 1
-        self.get_j = lambda t: numpy.searchsorted(self._ts, t)
 
     def _get_value_at(self, j, ci):
         if ci:
@@ -55,8 +63,8 @@ class KaplanMeier(SingleModel):
         t = numpy.array(t)
         res = numpy.zeros(t.shape + (3,) if ci else t.shape)
         for indexes, value in numpy.ndenumerate(t):
-            j = self.get_j(value)
-            if j == len(self._ts):
+            j = numpy.searchsorted(self._ts, value, side='right') - 1
+            if j >= len(self._ts) - 1:
                 # Make the plotting stop at the last value of t
                 res[indexes] = [float('nan')]*3 if ci else float('nan')
             else:
