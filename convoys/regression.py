@@ -182,8 +182,10 @@ class GeneralizedGamma(RegressionModel):
         result = {'map': res.x}
 
         # TODO: should not use fixed k/p as search parameters
-        if fix_k: result['map'][0] = log(fix_k)
-        if fix_p: result['map'][1] = log(fix_p)
+        if fix_k:
+            result['map'][0] = log(fix_k)
+        if fix_p:
+            result['map'][1] = log(fix_p)
 
         # Let's sample from the posterior to compute uncertainties
         if self._ci:
@@ -209,8 +211,10 @@ class GeneralizedGamma(RegressionModel):
             sys.stdout.write('\n')
             result['samples'] = sampler.chain[:, n_burnin:, :] \
                                        .reshape((-1, dim)).T
-            if fix_k: result['samples'][0, :] = log(fix_k)
-            if fix_p: result['samples'][1, :] = log(fix_p)
+            if fix_k:
+                result['samples'][0, :] = log(fix_k)
+            if fix_p:
+                result['samples'][1, :] = log(fix_p)
 
         self.params = {k: {
             'k': exp(data[0]),
