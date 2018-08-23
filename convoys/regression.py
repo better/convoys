@@ -44,11 +44,11 @@ def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p, hierarchical):
     if hierarchical:
         # Hierarchical model with sigmas ~ invgamma(1, 1)
         LL_prior_a = -4*log(sigma_alpha) - 1/sigma_alpha**2 \
-                     -dot(alpha, alpha) / (2*sigma_alpha**2) \
-                     -n_features*log(sigma_alpha**2)
+                     - dot(alpha, alpha) / (2*sigma_alpha**2) \
+                     - n_features*log(sigma_alpha**2)
         LL_prior_b = -4*log(sigma_beta) - 1/sigma_beta**2 \
-                     -dot(beta, beta) / (2**sigma_beta**2) \
-                     -n_features*log(sigma_beta**2)
+                     - dot(beta, beta) / (2**sigma_beta**2) \
+                     - n_features*log(sigma_beta**2)
         LL = LL_prior_a + LL_prior_b + LL_data
     else:
         LL = LL_data
