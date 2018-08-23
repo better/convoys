@@ -19,8 +19,8 @@ __all__ = ['Exponential',
 def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p, hierarchical):
     k = exp(x[0]) if fix_k is None else fix_k
     p = exp(x[1]) if fix_p is None else fix_p
-    sigma_alpha = x[2]
-    sigma_beta = x[3]
+    log_sigma_alpha = x[2]
+    log_sigma_beta = x[3]
     a = x[4]
     b = x[5]
     n_features = int((len(x)-6)/2)
@@ -43,12 +43,12 @@ def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p, hierarchical):
 
     if hierarchical:
         # Hierarchical model with sigmas ~ invgamma(1, 1)
-        LL_prior_a = -4*log(sigma_alpha) - 1/sigma_alpha**2 \
-                     - dot(alpha, alpha) / (2*sigma_alpha**2) \
-                     - n_features*log(sigma_alpha**2)
-        LL_prior_b = -4*log(sigma_beta) - 1/sigma_beta**2 \
-                     - dot(beta, beta) / (2**sigma_beta**2) \
-                     - n_features*log(sigma_beta**2)
+        LL_prior_a = -4*log_sigma_alpha - 1/exp(log_sigma_alpha)**2 \
+                     - dot(alpha, alpha) / (2*exp(log_sigma_alpha)**2) \
+                     - n_features*log_sigma_alpha
+        LL_prior_b = -4*log_sigma_beta - 1/exp(log_sigma_beta)**2 \
+                     - dot(beta, beta) / (2**exp(log_sigma_beta**2)) \
+                     - n_features*log_sigma_beta
         LL = LL_prior_a + LL_prior_b + LL_data
     else:
         LL = LL_data
@@ -172,8 +172,6 @@ class GeneralizedGamma(RegressionModel):
         x0 = numpy.zeros(6+2*n_features)
         x0[0] = +1 if fix_k is None else log(fix_k)
         x0[1] = -1 if fix_p is None else log(fix_p)
-        x0[2] = 1
-        x0[3] = 1
         args = (X, B, T, W, fix_k, fix_p, True)
 
         # Callback for progress to stdout
@@ -214,7 +212,7 @@ class GeneralizedGamma(RegressionModel):
             mcmc_initial_noise = 1e-3
             p0 = [result['map'] + mcmc_initial_noise * numpy.random.randn(dim)
                   for i in range(n_walkers)]
-            n_burnin = 30
+            n_burnin = 40
             n_steps = numpy.ceil(1000. / n_walkers)
             n_iterations = n_burnin + n_steps
             for i, _ in enumerate(sampler.sample(p0, iterations=n_iterations)):
