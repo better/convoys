@@ -16,7 +16,7 @@ __all__ = ['Exponential',
            'GeneralizedGamma']
 
 
-def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p):
+def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p, hierarchical):
     k = exp(x[0]) if fix_k is None else fix_k
     p = exp(x[1]) if fix_p is None else fix_p
     sigma_alpha = x[2]
@@ -41,13 +41,17 @@ def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p):
         W * B * LL_observed +
         W * (1 - B) * LL_censored, 0)
 
-    # TODO: explain these prior terms
-    LL_prior_a = -dot(alpha, alpha) / (2*sigma_alpha**2) \
-                 -n_features*log(sigma_alpha**2)
-    LL_prior_b = -dot(beta, beta) / (2**sigma_beta**2) \
-                 -n_features*log(sigma_beta**2)
-
-    LL = LL_prior_a + LL_prior_b + LL_data
+    if hierarchical:
+        # Hierarchical model with sigmas ~ invgamma(1, 1)
+        LL_prior_a = -4*sigma_alpha - 1/sigma_alpha**2 \
+                     -dot(alpha, alpha) / (2*sigma_alpha**2) \
+                     -n_features*log(sigma_alpha**2)
+        LL_prior_b = -4*sigma_beta - 1/sigma_beta**2 \
+                     -dot(beta, beta) / (2**sigma_beta**2) \
+                     -n_features*log(sigma_beta**2)
+        LL = LL_prior_a + LL_prior_b + LL_data
+    else:
+        LL = LL_data
 
     if isnan(LL):
         return -numpy.inf
@@ -104,11 +108,11 @@ class GeneralizedGamma(RegressionModel):
     :math:`\\alpha_i \sim \\mathcal{N}(0, \\sigma_{\\alpha})`,
     :math:`\\beta_i \sim \\mathcal{N}(0, \\sigma_{\\beta})`
 
-    where hyperparameters :math:`\\sigma_{\\alpha}, \\sigma_{\\beta}`
-    are lognormally distributed:
+    where hyperparameters :math:`\\sigma_{\\alpha}^2, \\sigma_{\\beta}^2`
+    are drawn from an inverse gamma distribution
 
-    :math:`\\log \\sigma_{\\alpha} \sim \\mathcal{N}(0, 1)`,
-    :math:`\\log \\sigma_{\\beta} \sim \\mathcal{N}(0, 1)`
+    :math:`\\sigma_{\\alpha}^2 \sim \\text{inv-gamma}(1, 1)`,
+    :math:`\\sigma_{\\beta}^2 \sim \\text{inv-gamma}(1, 1)`
 
     **List of parameters**
 
@@ -131,7 +135,7 @@ class GeneralizedGamma(RegressionModel):
 
     To find the MAP (max a posteriori), `scipy.optimize.minimize
     <https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html#scipy.optimize.minimize>`_
-    with the SLSQP method.
+    with the CG method.
 
     If `ci == True`, then `emcee <http://dfm.io/emcee/current/>`_ is used
     to sample from the full posterior in order to generate uncertainty
@@ -170,7 +174,7 @@ class GeneralizedGamma(RegressionModel):
         x0[1] = -1 if fix_p is None else log(fix_p)
         x0[2] = 1
         x0[3] = 1
-        args = (X, B, T, W, fix_k, fix_p)
+        args = (X, B, T, W, fix_k, fix_p, True)
 
         # Callback for progress to stdout
         sys.stdout.write('\n')
@@ -185,7 +189,7 @@ class GeneralizedGamma(RegressionModel):
             lambda x: -generalized_gamma_LL(x, *args),
             x0,
             jac=autograd.grad(lambda x: -generalized_gamma_LL(x, *args)),
-            method='SLSQP',
+            method='CG',
             callback=callback,
         )
         sys.stdout.write('\n')
