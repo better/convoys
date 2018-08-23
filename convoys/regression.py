@@ -43,10 +43,10 @@ def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p, hierarchical):
 
     if hierarchical:
         # Hierarchical model with sigmas ~ invgamma(1, 1)
-        LL_prior_a = -4*sigma_alpha - 1/sigma_alpha**2 \
+        LL_prior_a = -4*log(sigma_alpha) - 1/sigma_alpha**2 \
                      -dot(alpha, alpha) / (2*sigma_alpha**2) \
                      -n_features*log(sigma_alpha**2)
-        LL_prior_b = -4*sigma_beta - 1/sigma_beta**2 \
+        LL_prior_b = -4*log(sigma_beta) - 1/sigma_beta**2 \
                      -dot(beta, beta) / (2**sigma_beta**2) \
                      -n_features*log(sigma_beta**2)
         LL = LL_prior_a + LL_prior_b + LL_data
@@ -214,7 +214,7 @@ class GeneralizedGamma(RegressionModel):
             mcmc_initial_noise = 1e-3
             p0 = [result['map'] + mcmc_initial_noise * numpy.random.randn(dim)
                   for i in range(n_walkers)]
-            n_burnin = 100
+            n_burnin = 30
             n_steps = numpy.ceil(1000. / n_walkers)
             n_iterations = n_burnin + n_steps
             for i, _ in enumerate(sampler.sample(p0, iterations=n_iterations)):
