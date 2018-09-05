@@ -73,15 +73,15 @@ class GeneralizedGamma(RegressionModel):
 
     The cumulative density function is:
 
-    :math:`P(t' < t) = \\gamma(k, (t\\lambda)^p)`
+    :math:`P(k, (t\\lambda)^p)`
 
-    where :math:`\\gamma(a, x)` is the `lower regularized incomplete
-    gamma function
+    where :math:`P(a, x) = \\gamma(a, x) / \\Gamma(a)` is the `lower regularized
+    incomplete gamma function
     <https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.gammainc.html>`_.
 
     The probability density function is:
 
-    :math:`P(t) = p\\lambda^{kp} t^{kp-1} \exp(-(x\\lambda)^p) / \\Gamma(k)`
+    :math:`p\\lambda^{kp} t^{kp-1} \exp(-(t\\lambda)^p) / \\Gamma(k)`
 
     **Modeling conversion rate**
 
@@ -296,11 +296,11 @@ class Exponential(GeneralizedGamma):
 
     The cumulative density function is:
 
-    :math:`P(t' < t) = 1 - \\exp(-t\\lambda)`
+    :math:`1 - \\exp(-t\\lambda)`
 
     The probability density function is:
 
-    :math:`P(t) = \\lambda\\exp(-t\\lambda)`
+    :math:`\\lambda\\exp(-t\\lambda)`
 
     The exponential distribution is the most simple distribution.
     From a conversion perspective, you can interpret it as having
@@ -317,11 +317,11 @@ class Weibull(GeneralizedGamma):
 
     The cumulative density function is:
 
-    :math:`P(t' < t) = 1 - \\exp(-(t\\lambda)^p)`
+    :math:`1 - \\exp(-(t\\lambda)^p)`
 
     The probability density function is:
 
-    :math:`P(t) = p\\lambda(t\\lambda)^{p-1}\\exp(-(t\\lambda)^p)`
+    :math:`p\\lambda(t\\lambda)^{p-1}\\exp(-(t\\lambda)^p)`
 
     See documentation for :class:`GeneralizedGamma`.'''
     def fit(self, X, B, T, W=None):
@@ -331,17 +331,14 @@ class Weibull(GeneralizedGamma):
 class Gamma(GeneralizedGamma):
     ''' Specialization of :class:`.GeneralizedGamma` where :math:`p=1`.
 
-    The cumulative density function is:
-
-    :math:`P(t' < t) = \\gamma(k, t\\lambda)`
-
-    where :math:`\\gamma(a, x)` is the `lower regularized incomplete
-    gamma function
+    The cumulative density function is
+    :math:`P(k, t\\lambda)`
+    where :math:`P(a, x) = \\gamma(a, x) / \\Gamma(a)` is the `lower regularized
+    incomplete gamma function
     <https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.gammainc.html>`_.
 
-    The probability density function is:
-
-    :math:`P(t) = \\lambda^k t^{k-1} \exp(-x\\lambda) / \\Gamma(k)`
+    The probability density function is
+    :math:`\\lambda^k t^{k-1} \exp(-x\\lambda) / \\Gamma(k)`
 
     See documentation for :class:`GeneralizedGamma`.'''
     def fit(self, X, B, T, W=None):
