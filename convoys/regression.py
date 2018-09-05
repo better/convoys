@@ -67,7 +67,8 @@ class GeneralizedGamma(RegressionModel):
 
     This mostly follows the `Wikipedia article
     <https://en.wikipedia.org/wiki/Generalized_gamma_distribution>`_, although
-    our notation is slightly different:
+    our notation is slightly different. Also see `this paper
+    <http://data.princeton.edu/pop509/ParametricSurvival.pdf>`_ for an overview.
 
     **Shape of the probability function**
 
