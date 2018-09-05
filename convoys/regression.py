@@ -74,7 +74,7 @@ class GeneralizedGamma(RegressionModel):
 
     The cumulative density function is:
 
-    :math:`P(k, (t\\lambda)^p)`
+    :math:`F(t) = P(k, (t\\lambda)^p)`
 
     where :math:`P(a, x) = \\gamma(a, x) / \\Gamma(a)` is the `lower regularized
     incomplete gamma function
@@ -82,7 +82,7 @@ class GeneralizedGamma(RegressionModel):
 
     The probability density function is:
 
-    :math:`p\\lambda^{kp} t^{kp-1} \exp(-(t\\lambda)^p) / \\Gamma(k)`
+    :math:`f(t) = p\\lambda^{kp} t^{kp-1} \exp(-(t\\lambda)^p) / \\Gamma(k)`
 
     **Modeling conversion rate**
 
@@ -124,13 +124,13 @@ class GeneralizedGamma(RegressionModel):
 
     For entries that convert, the contribution to the likelihood is simply
     the probability density given by the probability distribution function
-    :math:`P(t)` times the final conversion rate :math:`c`.
+    :math:`f(t)` times the final conversion rate :math:`c`.
 
     For entries that *did not* convert, there is two options. Either the
     entry will never convert, which has probability :math:`1-c`. Or,
     it will convert at some later point that we have not observed yet,
     with probability given by the cumulative density function
-    :math:`P(t' < t)`
+    :math:`F(t)`.
 
     **Solving the optimization problem**
 
@@ -297,11 +297,11 @@ class Exponential(GeneralizedGamma):
 
     The cumulative density function is:
 
-    :math:`1 - \\exp(-t\\lambda)`
+    :math:`F(t) = 1 - \\exp(-t\\lambda)`
 
     The probability density function is:
 
-    :math:`\\lambda\\exp(-t\\lambda)`
+    :math:`f(t) = \\lambda\\exp(-t\\lambda)`
 
     The exponential distribution is the most simple distribution.
     From a conversion perspective, you can interpret it as having
@@ -318,11 +318,11 @@ class Weibull(GeneralizedGamma):
 
     The cumulative density function is:
 
-    :math:`1 - \\exp(-(t\\lambda)^p)`
+    :math:`F(t) = 1 - \\exp(-(t\\lambda)^p)`
 
     The probability density function is:
 
-    :math:`p\\lambda(t\\lambda)^{p-1}\\exp(-(t\\lambda)^p)`
+    :math:`f(t) = p\\lambda(t\\lambda)^{p-1}\\exp(-(t\\lambda)^p)`
 
     See documentation for :class:`GeneralizedGamma`.'''
     def fit(self, X, B, T, W=None):
@@ -332,14 +332,17 @@ class Weibull(GeneralizedGamma):
 class Gamma(GeneralizedGamma):
     ''' Specialization of :class:`.GeneralizedGamma` where :math:`p=1`.
 
-    The cumulative density function is
-    :math:`P(k, t\\lambda)`
+    The cumulative density function is:
+
+    :math:`F(t) = P(k, t\\lambda)`
+
     where :math:`P(a, x) = \\gamma(a, x) / \\Gamma(a)` is the `lower regularized
     incomplete gamma function
     <https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.gammainc.html>`_.
 
-    The probability density function is
-    :math:`\\lambda^k t^{k-1} \exp(-x\\lambda) / \\Gamma(k)`
+    The probability density function is:
+
+    :math:`f(t) = \\lambda^k t^{k-1} \exp(-x\\lambda) / \\Gamma(k)`
 
     See documentation for :class:`GeneralizedGamma`.'''
     def fit(self, X, B, T, W=None):
