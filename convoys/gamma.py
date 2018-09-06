@@ -7,9 +7,12 @@ __all__ = ['gammainc']
 
 @primitive
 def gammainc(k, x):
-    ''' Janky hack to make autograd compute gradients of gammainc.
+    ''' Lower regularized incomplete gamma function.
 
-    There are two problems with autograd.scipy.special.gammainc:
+    We rely on `scipy.special.gammainc 
+    <https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.gammainc.html>`_
+    for this. However, there is a number of issues using this function
+    together with `autograd <https://github.com/HIPS/autograd>`_:
 
     1. It doesn't let you take the gradient with respect to k
     2. The gradient with respect to x is really slow

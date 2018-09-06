@@ -67,21 +67,23 @@ class GeneralizedGamma(RegressionModel):
 
     This mostly follows the `Wikipedia article
     <https://en.wikipedia.org/wiki/Generalized_gamma_distribution>`_, although
-    our notation is slightly different:
+    our notation is slightly different. Also see `this paper
+    <http://data.princeton.edu/pop509/ParametricSurvival.pdf>`_ for an overview.
 
     **Shape of the probability function**
 
     The cumulative density function is:
 
-    :math:`P(t' < t) = \\gamma(k, (t\\lambda)^p)`
+    :math:`F(t) = P(k, (t\\lambda)^p)`
 
-    where :math:`\\gamma(a, x)` is the `lower regularized incomplete
-    gamma function
-    <https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.gammainc.html>`_.
+    where :math:`P(a, x) = \\gamma(a, x) / \\Gamma(a)` is the lower regularized
+    incomplete gamma function. See :meth:`convoys.gamma.gammainc`.
+    :math:`\\gamma(a, x)` is the incomplete gamma function and :math:`\\Gamma(a)`
+    is the standard gamma function.
 
     The probability density function is:
 
-    :math:`P(t) = p\\lambda^{kp} t^{kp-1} \exp(-(x\\lambda)^p) / \\Gamma(k)`
+    :math:`f(t) = p\\lambda^{kp} t^{kp-1} \exp(-(t\\lambda)^p) / \\Gamma(k)`
 
     **Modeling conversion rate**
 
@@ -123,13 +125,13 @@ class GeneralizedGamma(RegressionModel):
 
     For entries that convert, the contribution to the likelihood is simply
     the probability density given by the probability distribution function
-    :math:`P(t)` times the final conversion rate :math:`c`.
+    :math:`f(t)` times the final conversion rate :math:`c`.
 
     For entries that *did not* convert, there is two options. Either the
     entry will never convert, which has probability :math:`1-c`. Or,
     it will convert at some later point that we have not observed yet,
     with probability given by the cumulative density function
-    :math:`P(t' < t)`
+    :math:`F(t)`.
 
     **Solving the optimization problem**
 
@@ -296,11 +298,11 @@ class Exponential(GeneralizedGamma):
 
     The cumulative density function is:
 
-    :math:`P(t' < t) = 1 - \\exp(-t\\lambda)`
+    :math:`F(t) = 1 - \\exp(-t\\lambda)`
 
     The probability density function is:
 
-    :math:`P(t) = \\lambda\\exp(-t\\lambda)`
+    :math:`f(t) = \\lambda\\exp(-t\\lambda)`
 
     The exponential distribution is the most simple distribution.
     From a conversion perspective, you can interpret it as having
@@ -317,11 +319,11 @@ class Weibull(GeneralizedGamma):
 
     The cumulative density function is:
 
-    :math:`P(t' < t) = 1 - \\exp(-(t\\lambda)^p)`
+    :math:`F(t) = 1 - \\exp(-(t\\lambda)^p)`
 
     The probability density function is:
 
-    :math:`P(t) = p\\lambda(t\\lambda)^{p-1}\\exp(-(t\\lambda)^p)`
+    :math:`f(t) = p\\lambda(t\\lambda)^{p-1}\\exp(-(t\\lambda)^p)`
 
     See documentation for :class:`GeneralizedGamma`.'''
     def fit(self, X, B, T, W=None):
@@ -333,15 +335,14 @@ class Gamma(GeneralizedGamma):
 
     The cumulative density function is:
 
-    :math:`P(t' < t) = \\gamma(k, t\\lambda)`
+    :math:`F(t) = P(k, t\\lambda)`
 
-    where :math:`\\gamma(a, x)` is the `lower regularized incomplete
-    gamma function
-    <https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.gammainc.html>`_.
+    where :math:`P(a, x) = \\gamma(a, x) / \\Gamma(a)` is the lower regularized
+    incomplete gamma function. See :meth:`convoys.gamma.gammainc`.
 
     The probability density function is:
 
-    :math:`P(t) = \\lambda^k t^{k-1} \exp(-x\\lambda) / \\Gamma(k)`
+    :math:`f(t) = \\lambda^k t^{k-1} \exp(-x\\lambda) / \\Gamma(k)`
 
     See documentation for :class:`GeneralizedGamma`.'''
     def fit(self, X, B, T, W=None):
