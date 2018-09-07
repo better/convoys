@@ -16,7 +16,8 @@ __all__ = ['Exponential',
            'GeneralizedGamma']
 
 
-def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p, hierarchical):
+def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p,
+                         hierarchical, callback=None):
     k = exp(x[0]) if fix_k is None else fix_k
     p = exp(x[1]) if fix_p is None else fix_p
     log_sigma_alpha = x[2]
@@ -55,6 +56,8 @@ def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p, hierarchical):
 
     if isnan(LL):
         return -numpy.inf
+    if callback is not None:
+        callback(LL)
     return LL
 
 
@@ -179,18 +182,18 @@ class GeneralizedGamma(RegressionModel):
         # Callback for progress to stdout
         sys.stdout.write('\n')
 
-        def callback(x, x_history=[]):
-            x_history.append(x)
-            sys.stdout.write('Finding MAP: %13d\r' % len(x_history))
+        def callback(LL, value_history=[]):
+            value_history.append(LL)
+            sys.stdout.write('Finding MAP: %13d  (%18.6e)\r' %
+                             (len(value_history), value_history[-1]))
             sys.stdout.flush()
 
         # Find the maximum a posteriori of the distribution
         res = scipy.optimize.minimize(
-            lambda x: -generalized_gamma_LL(x, *args),
+            lambda x: -generalized_gamma_LL(x, *args, callback=callback),
             x0,
             jac=autograd.grad(lambda x: -generalized_gamma_LL(x, *args)),
-            method='CG',
-            callback=callback,
+            method='L-BFGS-B',
         )
         sys.stdout.write('\n')
         result = {'map': res.x}
