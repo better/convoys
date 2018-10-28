@@ -95,24 +95,25 @@ def get_arrays(data, features=None, groups=None, created=None,
         created = 'created'
     B = ~pandas.isnull(data[converted]).values
     res.append(B)
-    T_raw = []
-    for i, row in data.iterrows():
-        # TODO: this stuff should be vectorized, kind of ugly
+
+    def _calculate_T(row):
         if not pandas.isnull(row[converted]):
             if created is not None:
-                T_raw.append(_sub(row[converted], row[created]))
+                return _sub(row[converted], row[created])
             else:
-                T_raw.append(row[converted])
+                return row[converted]
         else:
             if created is not None:
                 if now is not None:
-                    T_raw.append(_sub(row[now], row[created]))
+                    return _sub(row[now], row[created])
                 else:
-                    T_raw.append(_sub(datetime.datetime.now(), row[created]))
+                    return _sub(datetime.datetime.now(), row[created])
             else:
-                T_raw.append(row[now])
+                return row[now]
+
+    T_raw = data.apply(lambda x: _calculate_T(x), axis=1)
     unit, converter = get_timescale(max(T_raw), unit)
     T = [converter(t) for t in T_raw]
     res.append(T)
-
     return unit, groups_list, tuple(res)
+
