@@ -140,7 +140,7 @@ class GeneralizedGamma(RegressionModel):
 
     To find the MAP (max a posteriori), `scipy.optimize.minimize
     <https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html#scipy.optimize.minimize>`_
-    with the CG method.
+    with the SLSQP method.
 
     If `ci == True`, then `emcee <http://dfm.io/emcee/current/>`_ is used
     to sample from the full posterior in order to generate uncertainty
@@ -188,13 +188,13 @@ class GeneralizedGamma(RegressionModel):
                              (len(value_history), value_history[-1]))
             sys.stdout.flush()
 
+        # Define objective and use automatic differentiation
+        f = lambda x: -generalized_gamma_LL(x, *args, callback=callback)
+        jac = autograd.grad(lambda x: -generalized_gamma_LL(x, *args))
+
         # Find the maximum a posteriori of the distribution
-        res = scipy.optimize.minimize(
-            lambda x: -generalized_gamma_LL(x, *args, callback=callback),
-            x0,
-            jac=autograd.grad(lambda x: -generalized_gamma_LL(x, *args)),
-            method='L-BFGS-B',
-        )
+        res = scipy.optimize.minimize(f, x0, jac=jac, method='SLSQP',
+                                      options={'maxiter': 1000, 'disp': True, 'ftol': 1e-9})
         sys.stdout.write('\n')
         result = {'map': res.x}
 
@@ -203,6 +203,14 @@ class GeneralizedGamma(RegressionModel):
             result['map'][0] = log(fix_k)
         if fix_p:
             result['map'][1] = log(fix_p)
+
+        # Make sure we're in a local minimum
+        f = lambda x: -generalized_gamma_LL(x, *args)
+        gradient = jac(result['map'])
+        gradient_norm = numpy.dot(gradient, gradient)
+        if gradient_norm >= 1e-3:
+            warnings.warn('Might not have found a local minimum!'
+                          'Norm of gradient is %f' % gradient_norm)
 
         # Let's sample from the posterior to compute uncertainties
         if self._ci:
