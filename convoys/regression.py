@@ -194,7 +194,7 @@ class GeneralizedGamma(RegressionModel):
 
         # Find the maximum a posteriori of the distribution
         res = scipy.optimize.minimize(f, x0, jac=jac, method='SLSQP',
-                                      options={'maxiter': 1000, 'disp': True, 'ftol': 1e-9})
+                                      options={'maxiter': 1000})
         sys.stdout.write('\n')
         result = {'map': res.x}
 
