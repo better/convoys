@@ -48,7 +48,7 @@ def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p,
                      - dot(alpha, alpha) / (2*exp(log_sigma_alpha)**2) \
                      - n_features*log_sigma_alpha
         LL_prior_b = -4*log_sigma_beta - 1/exp(log_sigma_beta)**2 \
-                     - dot(beta, beta) / (2**exp(log_sigma_beta**2)) \
+                     - dot(beta, beta) / (2*exp(log_sigma_beta**2)) \
                      - n_features*log_sigma_beta
         LL = LL_prior_a + LL_prior_b + LL_data
     else:
@@ -86,14 +86,14 @@ class GeneralizedGamma(RegressionModel):
 
     The probability density function is:
 
-    :math:`f(t) = p\\lambda^{kp} t^{kp-1} \exp(-(t\\lambda)^p) / \\Gamma(k)`
+    :math:`f(t) = p\\lambda^{kp} t^{kp-1} \\exp(-(t\\lambda)^p) / \\Gamma(k)`
 
     **Modeling conversion rate**
 
     Since our goal is to model the conversion rate, we assume the conversion
     rate converges to a final value
 
-    :math:`c = \\sigma(\mathbf{\\beta^Tx} + b)`
+    :math:`c = \\sigma(\\mathbf{\\beta^Tx} + b)`
 
     where :math:`\\sigma(z) = 1/(1+e^{-z})` is the sigmoid function,
     :math:`\\mathbf{\\beta}` is an unknown vector we are solving for (with
@@ -102,7 +102,7 @@ class GeneralizedGamma(RegressionModel):
 
     We also assume that the rate parameter :math:`\\lambda` is determined by
 
-    :math:`\\lambda = exp(\mathbf{\\alpha^Tx} + a)`
+    :math:`\\lambda = exp(\\mathbf{\\alpha^Tx} + a)`
 
     where :math:`\\mathrm{\\alpha}` is another unknown vector we are
     trying to solve for (with corresponding intercept :math:`a`).
@@ -110,14 +110,14 @@ class GeneralizedGamma(RegressionModel):
     We also assume that the :math:`\\mathbf{\\alpha}, \\mathbf{\\beta}`
     vectors have a normal distribution
 
-    :math:`\\alpha_i \sim \\mathcal{N}(0, \\sigma_{\\alpha})`,
-    :math:`\\beta_i \sim \\mathcal{N}(0, \\sigma_{\\beta})`
+    :math:`\\alpha_i \\sim \\mathcal{N}(0, \\sigma_{\\alpha})`,
+    :math:`\\beta_i \\sim \\mathcal{N}(0, \\sigma_{\\beta})`
 
     where hyperparameters :math:`\\sigma_{\\alpha}^2, \\sigma_{\\beta}^2`
     are drawn from an inverse gamma distribution
 
-    :math:`\\sigma_{\\alpha}^2 \sim \\text{inv-gamma}(1, 1)`,
-    :math:`\\sigma_{\\beta}^2 \sim \\text{inv-gamma}(1, 1)`
+    :math:`\\sigma_{\\alpha}^2 \\sim \\text{inv-gamma}(1, 1)`,
+    :math:`\\sigma_{\\beta}^2 \\sim \\text{inv-gamma}(1, 1)`
 
     **List of parameters**
 
@@ -140,7 +140,7 @@ class GeneralizedGamma(RegressionModel):
 
     To find the MAP (max a posteriori), `scipy.optimize.minimize
     <https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html#scipy.optimize.minimize>`_
-    with the CG method.
+    with the SLSQP method.
 
     If `ci == True`, then `emcee <http://dfm.io/emcee/current/>`_ is used
     to sample from the full posterior in order to generate uncertainty
@@ -152,7 +152,7 @@ class GeneralizedGamma(RegressionModel):
     def fit(self, X, B, T, W=None, fix_k=None, fix_p=None):
         '''Fits the model.
 
-        :param X: numpy matrix of shape :math:`k \cdot n`
+        :param X: numpy matrix of shape :math:`k \\cdot n`
         :param B: numpy vector of shape :math:`n`
         :param T: numpy vector of shape :math:`n`
         :param W: (optional) numpy vector of shape :math:`n`
@@ -188,14 +188,17 @@ class GeneralizedGamma(RegressionModel):
                              (len(value_history), value_history[-1]))
             sys.stdout.flush()
 
+        # Define objective and use automatic differentiation
+        f = lambda x: -generalized_gamma_LL(x, *args, callback=callback)
+        jac = autograd.grad(lambda x: -generalized_gamma_LL(x, *args))
+
         # Find the maximum a posteriori of the distribution
-        res = scipy.optimize.minimize(
-            lambda x: -generalized_gamma_LL(x, *args, callback=callback),
-            x0,
-            jac=autograd.grad(lambda x: -generalized_gamma_LL(x, *args)),
-            method='L-BFGS-B',
-        )
+        res = scipy.optimize.minimize(f, x0, jac=jac, method='SLSQP',
+                                      options={'maxiter': 9999})
         sys.stdout.write('\n')
+        if not res.success:
+            raise Exception('Optimization failed with message: %s' %
+                            res.message)
         result = {'map': res.x}
 
         # TODO: should not use fixed k/p as search parameters
@@ -203,6 +206,14 @@ class GeneralizedGamma(RegressionModel):
             result['map'][0] = log(fix_k)
         if fix_p:
             result['map'][1] = log(fix_p)
+
+        # Make sure we're in a local minimum
+        f = lambda x: -generalized_gamma_LL(x, *args)
+        gradient = jac(result['map'])
+        gradient_norm = numpy.dot(gradient, gradient)
+        if gradient_norm >= 1.0:
+            warnings.warn('Might not have found a local minimum!'
+                          'Norm of gradient is %f' % gradient_norm)
 
         # Let's sample from the posterior to compute uncertainties
         if self._ci:
@@ -345,7 +356,7 @@ class Gamma(GeneralizedGamma):
 
     The probability density function is:
 
-    :math:`f(t) = \\lambda^k t^{k-1} \exp(-x\\lambda) / \\Gamma(k)`
+    :math:`f(t) = \\lambda^k t^{k-1} \\exp(-x\\lambda) / \\Gamma(k)`
 
     See documentation for :class:`GeneralizedGamma`.'''
     def fit(self, X, B, T, W=None):
