@@ -48,7 +48,7 @@ def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p,
                      - dot(alpha, alpha) / (2*exp(log_sigma_alpha)**2) \
                      - n_features*log_sigma_alpha
         LL_prior_b = -4*log_sigma_beta - 1/exp(log_sigma_beta)**2 \
-                     - dot(beta, beta) / (2**exp(log_sigma_beta**2)) \
+                     - dot(beta, beta) / (2*exp(log_sigma_beta**2)) \
                      - n_features*log_sigma_beta
         LL = LL_prior_a + LL_prior_b + LL_data
     else:
@@ -93,7 +93,7 @@ class GeneralizedGamma(RegressionModel):
     Since our goal is to model the conversion rate, we assume the conversion
     rate converges to a final value
 
-    :math:`c = \\sigma(\mathbf{\\beta^Tx} + b)`
+    :math:`c = \\sigma(\\mathbf{\\beta^Tx} + b)`
 
     where :math:`\\sigma(z) = 1/(1+e^{-z})` is the sigmoid function,
     :math:`\\mathbf{\\beta}` is an unknown vector we are solving for (with
@@ -102,7 +102,7 @@ class GeneralizedGamma(RegressionModel):
 
     We also assume that the rate parameter :math:`\\lambda` is determined by
 
-    :math:`\\lambda = exp(\mathbf{\\alpha^Tx} + a)`
+    :math:`\\lambda = exp(\\mathbf{\\alpha^Tx} + a)`
 
     where :math:`\\mathrm{\\alpha}` is another unknown vector we are
     trying to solve for (with corresponding intercept :math:`a`).
@@ -110,14 +110,14 @@ class GeneralizedGamma(RegressionModel):
     We also assume that the :math:`\\mathbf{\\alpha}, \\mathbf{\\beta}`
     vectors have a normal distribution
 
-    :math:`\\alpha_i \sim \\mathcal{N}(0, \\sigma_{\\alpha})`,
-    :math:`\\beta_i \sim \\mathcal{N}(0, \\sigma_{\\beta})`
+    :math:`\\alpha_i \\sim \\mathcal{N}(0, \\sigma_{\\alpha})`,
+    :math:`\\beta_i \\sim \\mathcal{N}(0, \\sigma_{\\beta})`
 
     where hyperparameters :math:`\\sigma_{\\alpha}^2, \\sigma_{\\beta}^2`
     are drawn from an inverse gamma distribution
 
-    :math:`\\sigma_{\\alpha}^2 \sim \\text{inv-gamma}(1, 1)`,
-    :math:`\\sigma_{\\beta}^2 \sim \\text{inv-gamma}(1, 1)`
+    :math:`\\sigma_{\\alpha}^2 \\sim \\text{inv-gamma}(1, 1)`,
+    :math:`\\sigma_{\\beta}^2 \\sim \\text{inv-gamma}(1, 1)`
 
     **List of parameters**
 
@@ -211,7 +211,7 @@ class GeneralizedGamma(RegressionModel):
         f = lambda x: -generalized_gamma_LL(x, *args)
         gradient = jac(result['map'])
         gradient_norm = numpy.dot(gradient, gradient)
-        if gradient_norm >= 1e-3:
+        if gradient_norm >= 1.0:
             warnings.warn('Might not have found a local minimum!'
                           'Norm of gradient is %f' % gradient_norm)
 
