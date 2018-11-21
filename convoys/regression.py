@@ -211,8 +211,8 @@ class GeneralizedGamma(RegressionModel):
         f = lambda x: -generalized_gamma_LL(x, *args)
         gradient = jac(result['map'])
         gradient_norm = numpy.dot(gradient, gradient)
-        if gradient_norm >= 1.0:
-            warnings.warn('Might not have found a local minimum!'
+        if gradient_norm >= 1e-2 * len(X):
+            warnings.warn('Might not have found a local minimum! '
                           'Norm of gradient is %f' % gradient_norm)
 
         # Let's sample from the posterior to compute uncertainties
