@@ -48,7 +48,7 @@ def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p,
                      - dot(alpha, alpha) / (2*exp(log_sigma_alpha)**2) \
                      - n_features*log_sigma_alpha
         LL_prior_b = -4*log_sigma_beta - 1/exp(log_sigma_beta)**2 \
-                     - dot(beta, beta) / (2*exp(log_sigma_beta**2)) \
+                     - dot(beta, beta) / (2*exp(log_sigma_beta)**2) \
                      - n_features*log_sigma_beta
         LL = LL_prior_a + LL_prior_b + LL_data
     else:
