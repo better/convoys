@@ -86,7 +86,7 @@ class GeneralizedGamma(RegressionModel):
 
     The probability density function is:
 
-    :math:`f(t) = p\\lambda^{kp} t^{kp-1} \exp(-(t\\lambda)^p) / \\Gamma(k)`
+    :math:`f(t) = p\\lambda^{kp} t^{kp-1} \\exp(-(t\\lambda)^p) / \\Gamma(k)`
 
     **Modeling conversion rate**
 
@@ -152,7 +152,7 @@ class GeneralizedGamma(RegressionModel):
     def fit(self, X, B, T, W=None, fix_k=None, fix_p=None):
         '''Fits the model.
 
-        :param X: numpy matrix of shape :math:`k \cdot n`
+        :param X: numpy matrix of shape :math:`k \\cdot n`
         :param B: numpy vector of shape :math:`n`
         :param T: numpy vector of shape :math:`n`
         :param W: (optional) numpy vector of shape :math:`n`
@@ -194,8 +194,11 @@ class GeneralizedGamma(RegressionModel):
 
         # Find the maximum a posteriori of the distribution
         res = scipy.optimize.minimize(f, x0, jac=jac, method='SLSQP',
-                                      options={'maxiter': 1000})
+                                      options={'maxiter': 9999})
         sys.stdout.write('\n')
+        if not res.success:
+            raise Exception('Optimization failed with message: %s' %
+                            res.message)
         result = {'map': res.x}
 
         # TODO: should not use fixed k/p as search parameters
@@ -353,7 +356,7 @@ class Gamma(GeneralizedGamma):
 
     The probability density function is:
 
-    :math:`f(t) = \\lambda^k t^{k-1} \exp(-x\\lambda) / \\Gamma(k)`
+    :math:`f(t) = \\lambda^k t^{k-1} \\exp(-x\\lambda) / \\Gamma(k)`
 
     See documentation for :class:`GeneralizedGamma`.'''
     def fit(self, X, B, T, W=None):
