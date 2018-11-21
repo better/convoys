@@ -147,6 +147,35 @@ def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=10000):
     assert 0.80*k < numpy.mean(model.params['map']['k']) < 1.30*k
 
 
+@flaky.flaky
+def test_exponential_pooling(c=0.5, lambd=0.01, n=10000, ks=[1, 2, 3]):
+    # Generate one series of n observations with c conversion rate
+    # Then k1...kn series with zero conversion
+    # The predicted conversion rates should go towards c for the small cohorts
+    G = numpy.zeros(n + sum(ks))
+    C = numpy.zeros(n + sum(ks))
+    N = numpy.zeros(n + sum(ks))
+    E = numpy.zeros(n + sum(ks))
+    offset = 0
+    for i, k in enumerate([n] + ks):
+        G[offset:offset+k] = i
+        offset += k
+    C[:n] = scipy.stats.bernoulli.rvs(c, size=(n,))
+    N[:] = 1000.
+    E[:n] = scipy.stats.expon.rvs(scale=1./lambd, size=(n,))
+    B, T = generate_censored_data(N, E, C)
+
+    # Fit model
+    model = convoys.multi.Exponential()
+    model.fit(G, B, T)
+
+    # Generate predictions for each cohort
+    c = numpy.array([model.cdf(i, float('inf')) for i in range(1+len(ks))])
+    assert numpy.all(c[1:] > 0.25)  # rough check
+    assert numpy.all(c[1:] < 0.50)  # same
+    assert numpy.all(numpy.diff(c) < 0)  # c should be monotonically decreasing
+
+
 def _generate_dataframe(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=1000):
     groups = [r % len(cs) for r in range(n)]
     C = numpy.array([bool(random.random() < cs[g]) for g in groups])
