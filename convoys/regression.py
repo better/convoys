@@ -208,7 +208,6 @@ class GeneralizedGamma(RegressionModel):
             result['map'][1] = log(fix_p)
 
         # Make sure we're in a local minimum
-        f = lambda x: -generalized_gamma_LL(x, *args)
         gradient = jac(result['map'])
         gradient_norm = numpy.dot(gradient, gradient)
         if gradient_norm >= 1e-2 * len(X):
