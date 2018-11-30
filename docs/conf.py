@@ -93,6 +93,7 @@ html_theme_options = {
     'github_user': 'better',
     'github_repo': 'convoys',
     'github_button': True,
+    'github_type': 'star',
     'travis_button': True,
 }
 
