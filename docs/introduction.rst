@@ -14,7 +14,7 @@ The easiest way right now is to install it straight from Github using Pip:
     pip install -e git://github.com/better/convoys#egg=convoys
 
 
-Motivation
+Background
 ----------
 
 Predicting conversions is a really important problem for ecommerce, online advertising, and many other applications.
@@ -30,7 +30,7 @@ First of all, you can not learn from users that are younger than X.
 You also can not learn from users that convert *after* X.
 For an excellent introduction to this problem (and distributions like the `Weibull distribution <https://en.wikipedia.org/wiki/Weibull_distribution>`_), here's a blog post about `implementing a recurrent neural network to predict churn <https://ragulpr.github.io/2016/12/22/WTTE-RNN-Hackless-churn-modeling/>`_.
 
-Survival analysis to the rescue
+Survival analysis saves the day
 -------------------------------
 
 Luckily, there is a somewhat similar field called `survival analysis <https://en.wikipedia.org/wiki/Survival_analysis>`_.

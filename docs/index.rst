@@ -2,6 +2,7 @@
 
 .. include:: examples.rst
 
+.. include:: motivation.rst
 
 Full API documentation
 ======================
