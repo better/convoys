@@ -20,13 +20,21 @@ A simple toy problem also demonstrates why we would expect to get a time-depende
 
 Everyone starts out "undecided" but either converts or dies. However, we *only observe the conversions,* not the deaths.
 
-We can solve for the distribution by thinking of this as a partial differential equation. The distribution over the three states will be given as :math:`P(t) = e^{tA}` where :math:`A` is the `generator matrix <https://en.wikipedia.org/wiki/Transition_rate_matrix>`_
+We can solve for the distribution by thinking of this as a partial differential equation. The solution turns out to be quite simple:
 
 .. math::
-   A = \left( {
-   \begin{array}{ccc}
-   -(\lambda_1 + \lambda_2) & \lambda_1 & \lambda_2 \\
-   0 & 0 & 0 \\
-   0 & 0 & 0
-   \end{array}
-   } \right)
+   P_{\mbox{converted}}(t) = \frac{\lambda_1}{\lambda_1 + \lambda_2}(1 - \exp(-(\lambda_1 + \lambda_2)t))
+
+As you can see, the solution is an exponential distribution (the :math:`1 - \exp(-(\lambda_1 + \lambda_2)t)` part) multiplied by a constant factor (the :math:`\lambda_1/(\lambda_1 + \lambda_2)` part).
+
+Turning it into a regression problem
+------------------------------------
+
+Note that :math:`\lambda_1` and :math:`\lambda_2` are positive numbers. For each observation :math:`z`, let's write it as a linear combination :math:`\lambda_1 = \exp(a^Tz)` and :math:`\lambda_2 = \exp(b^Tz)` where :math:`a, b` are two unknown vectors.
+
+With this transformation, the probability of conversion becomes
+
+.. math::
+   P_{\mbox{converted}}(t) = \frac{1}{1 + \exp(-(a-b)^Tz)}
+
+This is the `sigmoid function <https://en.wikipedia.org/wiki/Sigmoid_function>`_ which means that we are basically doing logistic regression in the limit where :math:`t \rightarrow \infty`.
