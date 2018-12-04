@@ -40,7 +40,7 @@ Note that :math:`\lambda_1` and :math:`\lambda_2` are positive numbers. For each
 With this transformation, the probability of conversion becomes
 
 .. math::
-   P_{\text{converted} \rightarrow \infty}(t) = \frac{1}{1 + \exp(-(a-b)^Tz)}
+   P_{\text{converted}}(t \rightarrow \infty) = \frac{1}{1 + \exp(-(a-b)^Tz)}
 
 This is the `sigmoid function <https://en.wikipedia.org/wiki/Sigmoid_function>`_. If you set :math:`\beta = a - b` then it turns into ordinary logistic regression where :math:`\beta` is the unknown feature weights that we are trying to learn. This shows that the regression method in convoys turns into logistic regression in the limit where :math:`t \rightarrow \infty`.
 
