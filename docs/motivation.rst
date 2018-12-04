@@ -35,6 +35,6 @@ Note that :math:`\lambda_1` and :math:`\lambda_2` are positive numbers. For each
 With this transformation, the probability of conversion becomes
 
 .. math::
-   P_{\mbox{converted}}(t) = \frac{1}{1 + \exp(-(a-b)^Tz)}
+   P_{\mbox{converted \rightarrow \infty}}(t) = \frac{1}{1 + \exp(-(a-b)^Tz)}
 
-This is the `sigmoid function <https://en.wikipedia.org/wiki/Sigmoid_function>`_ which means that we are basically doing logistic regression in the limit where :math:`t \rightarrow \infty`.
+This is the `sigmoid function <https://en.wikipedia.org/wiki/Sigmoid_function>`_ which means that we are doing logistic regression in the limit where :math:`t \rightarrow \infty`.
