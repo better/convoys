@@ -19,7 +19,7 @@ A simple toy problem also demonstrates why we would expect to get a time-depende
    :align: center
    :height: 200px
 
-Everyone starts out "undecided" but either converts or dies with rates :math:`\lambda_1` and :math:`\lambda_2. However, we *only observe the conversions,* not the deaths. We can solve for the distribution by thinking of this as a partial differential equation:
+Everyone starts out "undecided" but either converts or dies with rates :math:`\lambda_1` and :math:`\lambda_2`. However, we *only observe the conversions,* not the deaths. We can solve for the distribution by thinking of this as a partial differential equation:
 
 .. math::
    \frac{\partial P_{\text{converted}}(t)}{\partial t} = \lambda_1 P_{\text{undecided}}(t) \\
