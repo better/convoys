@@ -19,13 +19,15 @@ A simple toy problem also demonstrates why we would expect to get a time-depende
    :align: center
    :height: 200px
 
-Everyone starts out "undecided" but either converts or dies with rates :math:`\lambda_1` and :math:`\lambda_2`. However, we *only observe the conversions,* not the deaths. We can solve for the distribution by thinking of this as a partial differential equation:
+Everyone starts out "undecided" but either converts or dies with rates :math:`\lambda_1` and :math:`\lambda_2`. However, we *only observe the conversions,* not the deaths. At any point in time, we have :math:`P_{\mbox{undecided}}(t) + P_{\mbox{converted}}(t) + P_{}(t) = 1`.
+
+For anyone in the undecided state, the probability of converting or dying is constant as a function of time (this is the "memorylessness" of the exponential distribution). Writing out the equations we get an ordinary differential equation:
 
 .. math::
    \frac{\partial P_{\text{converted}}(t)}{\partial t} = \lambda_1 P_{\text{undecided}}(t) \\
    \frac{\partial P_{\text{dead}}(t)}{\partial t} = \lambda_2 P_{\text{undecided}}(t)
 
-The solution turns out to be quite simple:
+You can verify that the solution to these equations is the following:
 
 .. math::
    P_{\text{converted}}(t) = \frac{\lambda_1}{\lambda_1 + \lambda_2}\left(1 - \exp(-(\lambda_1 + \lambda_2)t)\right)
