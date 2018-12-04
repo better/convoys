@@ -2,6 +2,8 @@
 
 [![Coverage Status](https://img.shields.io/coveralls/better/convoys/master.svg?style=flat)](https://coveralls.io/github/better/convoys?branch=master)
 
+[![PyPI version](https://img.shields.io/pypi/v/convoys.svg?style=flat)](https://pypi.org/project/convoys/)
+
 Convoys
 =======
 
@@ -13,10 +15,10 @@ There is a lot more info if you head over to the  [documentation](https://better
 Installation
 ------------
 
-The easiest way right now is to install it straight from Github using Pip:
+The easiest way right now is to install the latest version from PyPI:
 
 ```
-pip install -e git://github.com/better/convoys#egg=convoys
+pip install convoys
 ```
 
 More info

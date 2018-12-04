@@ -7,11 +7,11 @@ You can check out the `Github repo <https://github.com/better/convoys>`_ for sou
 Installation
 ------------
 
-The easiest way right now is to install it straight from Github using Pip:
+The easiest way to install is from PyPI:
 
 ::
 
-    pip install -e git://github.com/better/convoys#egg=convoys
+    pip install convoys
 
 
 Motivation
