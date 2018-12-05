@@ -19,25 +19,28 @@ A simple toy problem also demonstrates why we would expect to get a time-depende
    :align: center
    :height: 200px
 
-Everyone starts out "undecided" but either converts or dies with rates :math:`\lambda_1` and :math:`\lambda_2`. However, we *only observe the conversions,* not the deaths. At any point in time, we have :math:`P_{\mbox{undecided}}(t) + P_{\mbox{converted}}(t) + P_{}(t) = 1`.
+Everyone starts out "undecided" but either converts or dies with rates :math:`\lambda_{\text{convert}}` and :math:`\lambda_{\text{die}}`. However, we *only observe the conversions,* not the deaths. At any point in time, we have :math:`P_{\text{undecided}}(t) + P_{\text{converted}}(t) + P_{\text{dead}}(t) = 1`.
 
-For anyone in the undecided state, the probability of converting or dying is constant as a function of time (this is the "memorylessness" of the exponential distribution). Writing out the equations we get an ordinary differential equation:
+The rate of going to undecided to any of the other two states is a constant, meaning at any time interval some fixed proportion of the "undecided" state goes away. Writing out the equations we get an `ordinary differential equation <https://en.wikipedia.org/wiki/Ordinary_differential_equation>`_:
 
 .. math::
-   \frac{\partial P_{\text{converted}}(t)}{\partial t} = \lambda_1 P_{\text{undecided}}(t) \\
-   \frac{\partial P_{\text{dead}}(t)}{\partial t} = \lambda_2 P_{\text{undecided}}(t)
+   P'_{\text{converted}}(t) = \lambda_{\text{convert}} P_{\text{undecided}}(t) \\
+   P'_{\text{dead}}(t) = \lambda_{\text{die}} P_{\text{undecided}}(t)
 
 You can verify that the solution to these equations is the following:
 
 .. math::
-   P_{\text{converted}}(t) = \frac{\lambda_1}{\lambda_1 + \lambda_2}\left(1 - \exp(-(\lambda_1 + \lambda_2)t)\right)
+   P_{\text{converted}}(t) = \frac{\lambda_{\text{convert}}}{\lambda_{\text{convert}} + \lambda_{\text{die}}}\left(1 - \exp(-(\lambda_{\text{convert}} + \lambda_{\text{die}})t)\right)
 
-As you can see, the solution is an exponential distribution (the :math:`1 - \exp(-(\lambda_1 + \lambda_2)t)` part) multiplied by a constant factor (the :math:`\lambda_1/(\lambda_1 + \lambda_2)` part).
+As you can see, the solution is the product of two things
+
+- The :math:`1 - \exp(-(\lambda_{\text{convert}} + \lambda_{\text{die}})t)` part describes the cumulative density function of an exponential distribution.
+- A constant factor :math:`\lambda_{\text{convert}}/(\lambda_{\text{convert}} + \lambda_{\text{die}})` describes the final conversion :math:`P_{\text{converted}}(t \rightarrow \infty)`.
 
 Turning it into a regression problem
 ------------------------------------
 
-Note that :math:`\lambda_1` and :math:`\lambda_2` are positive numbers. For each observation :math:`z`, let's set :math:`\lambda_1 = \exp(a^Tz)` and :math:`\lambda_2 = \exp(b^Tz)` where :math:`a, b` are two unknown vectors.
+Note that :math:`\lambda_{\text{convert}}` and :math:`\lambda_{\text{die}}` are positive numbers. For each observation :math:`z`, let's set :math:`\lambda_{\text{convert}} = \exp(a^Tz)` and :math:`\lambda_{\text{die}} = \exp(b^Tz)` where :math:`a, b` are two unknown vectors.
 
 With this transformation, the probability of conversion becomes
 
