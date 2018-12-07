@@ -24,7 +24,7 @@ class RegressionToMulti(MultiModel):
         G = numpy.array(G, dtype=numpy.int)
         n, = G.shape
         self._n_groups = max(G) + 1
-        X = numpy.zeros((n, self._n_groups))
+        X = numpy.zeros((n, self._n_groups), dtype=numpy.bool)
         for i, group in enumerate(G):
             X[i,group] = 1
         self.base_model.fit(X, B, T)
