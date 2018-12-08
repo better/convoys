@@ -219,7 +219,7 @@ class GeneralizedGamma(RegressionModel):
         jac = autograd.grad(lambda x: -generalized_gamma_loss(x, *args))
 
         # Find the maximum a posteriori of the distribution
-        res = scipy.optimize.minimize(f, x0, jac=jac, method='SLSQP',
+        res = scipy.optimize.minimize(f, x0, jac=jac, method='L-BFGS-B',
                                       options={'maxiter': 9999})
         if not res.success:
             raise Exception('Optimization failed with message: %s' %
