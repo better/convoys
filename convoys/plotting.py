@@ -15,7 +15,7 @@ _models = {
 
 
 def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
-                 ci=None, plot_kwargs={}, plot_ci_kwargs={}, groups=None):
+                 ci=None, plot_kwargs={}, plot_ci_kwargs={}, groups=None, specific_groups=None):
     # Set x scale
     if t_max is None:
         _, t_max = pyplot.gca().get_xlim()
@@ -23,17 +23,30 @@ def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
 
     if groups is None:
         groups = set(G)
+    if model not in _models.keys() and not isinstance(model, convoys.multi.MultiModel):
+        raise Exception('model must be of %s or a convoys.multi.MultiModel object' % str(_models.keys()))
 
-    # Fit model
-    m = _models[model](ci=bool(ci))
-    m.fit(G, B, T)
+    if not isinstance(model, convoys.multi.MultiModel):
+        # Fit model
+        m = _models[model](ci=bool(ci))
+        m.fit(G, B, T)
+    else:
+        m = model
+    
+    if specific_groups is None:
+        specific_groups = groups
+
+    assert len(set(specific_groups).intersection(groups)) == len(specific_groups), 'specific_groups not a subset of groups!'
 
     # Plot
     colors = pyplot.get_cmap('tab10').colors
-    colors = [colors[i % len(colors)] for i in range(len(groups))]
+    colors = [colors[i % len(colors)] for i in range(len(specific_groups))]
     t = numpy.linspace(0, t_max, 1000)
     _, y_max = pyplot.gca().get_ylim()
-    for j, (group, color) in enumerate(zip(groups, colors)):
+    for i, (group, color) in enumerate(zip(specific_groups, colors)):
+
+        j = groups.index(group)  # matching index of group
+
         n = sum(1 for g in G if g == j)  # TODO: slow
         k = sum(1 for g, b in zip(G, B) if g == j and b)  # TODO: slow
         label = '%s (n=%.0f, k=%.0f)' % (group, n, k)
