@@ -22,7 +22,7 @@ def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
         t_max = max(t_max, max(T))
 
     if groups is None:
-        groups = set(G)
+        groups = list(set(G))
     if model not in _models.keys() and not isinstance(model, convoys.multi.MultiModel):
         raise Exception('model must be of %s or a convoys.multi.MultiModel object' % str(_models.keys()))
 
