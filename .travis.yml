@@ -8,7 +8,7 @@ before_install:
   - pip install coveralls
   - pip install sphinx
 install:
-  - pip install pytest flaky -r requirements.txt
+  - pip install pytest flaky .
 script:
   - py.test -s -v --cov=convoys .
   - sphinx-build -M html docs/ docs/_build/

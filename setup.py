@@ -18,4 +18,11 @@ setup(name='convoys',
       author='Erik Bernhardsson',
       author_email='erikbern@better.com',
       packages=find_packages(),
-      install_requires=[line.strip() for line in open('requirements.txt')])
+      install_requires=[
+          'autograd',
+          'emcee',
+          'matplotlib>=2.0.0',
+          'pandas',
+          'numpy',
+          'scipy',
+      ])
