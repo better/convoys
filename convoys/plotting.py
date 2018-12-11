@@ -30,12 +30,12 @@ def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
         _, t_max = pyplot.gca().get_xlim()
         t_max = max(t_max, max(T))
     
-    # if not isinstance(model, convoys.multi.MultiModel):
-    #     # Fit model
-    #     m = _models[model](ci=bool(ci))
-    #     m.fit(G, B, T)
-    # else:
-    #     m = model
+    if not isinstance(model, convoys.multi.MultiModel):
+        # Fit model
+        m = _models[model](ci=bool(ci))
+        m.fit(G, B, T)
+    else:
+        m = model
 
     if specific_groups is None:
         specific_groups = groups
