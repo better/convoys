@@ -14,7 +14,7 @@ _models = {
 }
 
 
-def plot_cohorts(G=None, B=None, T=None, t_max=None, model='kaplan-meier',
+def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
                  ci=None, plot_kwargs={}, plot_ci_kwargs={},
                  groups=None, specific_groups=None):
 
@@ -23,13 +23,8 @@ def plot_cohorts(G=None, B=None, T=None, t_max=None, model='kaplan-meier',
             raise Exception('model must be of %s or a convoys object' % str(_models.keys()))
 
     if model in _models.keys():
-        if G is None or B is None or T is None:
-            raise Exception('G, B, T must be supplied to fit model!')
         if groups is None:
             groups = list(set(G))
-
-    if isinstance(model, convoys.multi.MultiModel) and groups is None:
-        raise Exception('groups must be supplied with trained model!')
 
     # Set x scale
     if t_max is None:
