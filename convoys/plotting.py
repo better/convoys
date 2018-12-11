@@ -14,9 +14,7 @@ _models = {
 }
 
 
-def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
-                 ci=None, plot_kwargs={}, plot_ci_kwargs={},
-                 groups=None, specific_groups=None):
+def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier', ci=None, plot_kwargs={}, plot_ci_kwargs={}, groups=None, specific_groups=None):
 
     if model not in _models.keys():
         if not isinstance(model, convoys.multi.MultiModel):
