@@ -17,7 +17,7 @@ _models = {
 def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
                  ci=None, plot_kwargs={}, plot_ci_kwargs={}, 
                  groups=None, specific_groups=None):
-                 
+          
     # Set x scale
     if t_max is None:
         _, t_max = pyplot.gca().get_xlim()
@@ -25,8 +25,9 @@ def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
 
     if groups is None:
         groups = list(set(G))
-    if not (model in _models.keys() or isinstance(model, convoys.multi.MultiModel)):
-        raise Exception('model must be of %s or a convoys.multi.MultiModel object' % str(_models.keys()))
+    if model not in _models.keys():
+        if not in isinstance(model, convoys.multi.MultiModel)):
+            raise Exception('model must be of %s or a convoys object' % str(_models.keys()))
 
     if not isinstance(model, convoys.multi.MultiModel):
         # Fit model
