@@ -23,7 +23,7 @@ def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
 
     if groups is None:
         groups = list(set(G))
-    if model not in _models.keys() and not isinstance(model, convoys.multi.MultiModel):
+    if not (model in _models.keys() or isinstance(model, convoys.multi.MultiModel)):
         raise Exception('model must be of %s or a convoys.multi.MultiModel object' % str(_models.keys()))
 
     if not isinstance(model, convoys.multi.MultiModel):
@@ -32,11 +32,12 @@ def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
         m.fit(G, B, T)
     else:
         m = model
-    
+
     if specific_groups is None:
         specific_groups = groups
 
-    assert len(set(specific_groups).intersection(groups)) == len(specific_groups), 'specific_groups not a subset of groups!'
+    if len(set(specific_groups).intersection(groups)) != len(specific_groups):
+        raise Exception('specific_groups not a subset of groups!')
 
     # Plot
     colors = pyplot.get_cmap('tab10').colors
