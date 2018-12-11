@@ -30,7 +30,7 @@ def plot_cohorts(G=None, B=None, T=None, t_max=None, model='kaplan-meier',
 
     if isinstance(model, convoys.multi.MultiModel) and groups is None:
         raise Exception('groups must be supplied with trained model!')
- 
+
     # Set x scale
     if t_max is None:
         _, t_max = pyplot.gca().get_xlim()
