@@ -1,5 +1,5 @@
 Model
------
+=====
 
 In this section we'll walk through the entire model specification. Convoys tries to optimize the total likelihood of observing all the data given the model, optionally also using `Markov chain Monte Carlo <https://en.wikipedia.org/wiki/Markov_chain_Monte_Carlo>`_ to sample from the posterior in order to generate uncertainty estimate.
 
