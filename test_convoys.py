@@ -221,10 +221,10 @@ def test_plot_cohorts_model():
     matplotlib.pyplot.legend()
 
     with pytest.raises(Exception):
-        convoys.plotting.plot_cohorts(G, B, T, model='bad_model', groups=groups)
+        convoys.plotting.plot_cohorts(G, B, T, model='bad', groups=groups)
 
     with pytest.raises(Exception):
-        convoys.plotting.plot_cohorts(G, B, T, model=model, groups=groups, 
+        convoys.plotting.plot_cohorts(G, B, T, model=model, groups=groups,
                                       specific_groups=['Nonsense'])
 
 
