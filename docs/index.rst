@@ -4,6 +4,8 @@
 
 .. include:: motivation.rst
 
+.. include:: model.rst
+
 Full API documentation
 ======================
 
