@@ -1,7 +1,7 @@
 Model
 =====
 
-In this section we'll walk through the entire model specification. Convoys tries to optimize the total likelihood of observing all the data given the model, optionally also using `Markov chain Monte Carlo <https://en.wikipedia.org/wiki/Markov_chain_Monte_Carlo>`_ to sample from the posterior in order to generate uncertainty estimate.
+Convoys tries to optimize the `maximum a posteriori <https://en.wikipedia.org/wiki/Maximum_a_posteriori_estimation>`_ likelihood of observing all the data given the model, optionally also using `Markov chain Monte Carlo <https://en.wikipedia.org/wiki/Markov_chain_Monte_Carlo>`_ to sample from the posterior in order to generate uncertainty estimate.
 
 Let's say :math:`f(t, x)` is a probability density function over time of when a conversion happen, where :math:`t > 0` and :math:`x` is some feature vector. Note that :math:`f(t, x)` denote the probability density of conversion *conditional on the conversion happening*. This means that :math:`\int_0^\infty f(t, x) dt = 1`.
 
