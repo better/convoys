@@ -224,7 +224,8 @@ def test_plot_cohorts_model():
         convoys.plotting.plot_cohorts(G, B, T, model='bad_model', groups=groups)
 
     with pytest.raises(Exception):
-        convoys.plotting.plot_cohorts(G, B, T, model=model, groups=groups, specific_groups=['Nonsense'])
+        convoys.plotting.plot_cohorts(G, B, T, model=model, groups=groups, 
+                                      specific_groups=['Nonsense'])
 
 
 @flaky.flaky
