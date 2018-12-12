@@ -211,6 +211,23 @@ def _test_plot_cohorts(model='weibull', extra_model=None):
                               if extra_model is not None else '%s.png' % model)
 
 
+def test_plot_cohorts_model():
+    df = _generate_dataframe()
+    unit, groups, (G, B, T) = convoys.utils.get_arrays(df)
+    model = convoys.multi.Exponential(ci=None)
+    model.fit(G, B, T)
+    matplotlib.pyplot.clf()
+    convoys.plotting.plot_cohorts(G, B, T, model=model, groups=groups)
+    matplotlib.pyplot.legend()
+
+    with pytest.raises(Exception):
+        convoys.plotting.plot_cohorts(G, B, T, model='bad', groups=groups)
+
+    with pytest.raises(Exception):
+        convoys.plotting.plot_cohorts(G, B, T, model=model, groups=groups,
+                                      specific_groups=['Nonsense'])
+
+
 @flaky.flaky
 def test_plot_cohorts_kaplan_meier():
     _test_plot_cohorts(model='kaplan-meier')
