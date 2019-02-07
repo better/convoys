@@ -1,0 +1,8 @@
+autograd
+emcee
+matplotlib>=2.0.0
+pandas
+numpy
+scipy
+pytest
+flaky
