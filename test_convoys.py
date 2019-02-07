@@ -85,9 +85,9 @@ def test_kaplan_meier_model():
     })
     df['now'] = now
     unit, groups, (G, B, T) = convoys.utils.get_arrays(
-        df, 
-        converted='converted_at', 
-        created='created_at', 
+        df,
+        converted='converted_at',
+        created='created_at',
         unit='days'
     )
     m = convoys.multi.KaplanMeier()
