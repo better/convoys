@@ -83,9 +83,13 @@ def test_kaplan_meier_model():
         'converted_at': converted_array,
         'group': 1
     })
-    
     df['now'] = now
-    unit, groups, (G, B, T) = convoys.utils.get_arrays(df, converted='converted_at', created='created_at', unit='days')
+    unit, groups, (G, B, T) = convoys.utils.get_arrays(
+        df, 
+        converted='converted_at', 
+        created='created_at', 
+        unit='days'
+    )
     m = convoys.multi.KaplanMeier()
     m.fit(G, B, T)
     assert m.cdf(0, 9) == 0.75
