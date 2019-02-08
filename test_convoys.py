@@ -66,6 +66,35 @@ def test_gammainc(k=2.5, x=4.2, g_eps=1e-7):
     assert f_grad_k(xs).shape == (3,)
 
 
+def test_kaplan_meier_model():
+    data = [
+            (2, 0),
+            (3, 0),
+            (6, 1),
+            (6, 1),
+            (7, 1),
+            (10, 0)
+        ]
+    now = pandas.Timestamp('2019-01-22')  # fix now end date for easier testing
+    created_array = [now - pandas.DateOffset(t) for t, e in data]
+    converted_array = [ts + pandas.DateOffset(t) if e == 1 else numpy.nan for ts, (t, e) in zip(created_array, data)]
+    df = pandas.DataFrame({
+        'created_at': created_array,
+        'converted_at': converted_array,
+        'group': 1
+    })
+    df['now'] = now
+    unit, groups, (G, B, T) = convoys.utils.get_arrays(
+        df,
+        converted='converted_at',
+        created='created_at',
+        unit='days'
+    )
+    m = convoys.multi.KaplanMeier()
+    m.fit(G, B, T)
+    assert m.cdf(0, 9) == 0.75
+
+
 @flaky.flaky
 def test_exponential_regression_model(c=0.3, lambd=0.1, n=10000):
     X = numpy.ones((n, 1))
