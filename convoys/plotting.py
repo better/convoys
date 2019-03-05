@@ -48,7 +48,6 @@ def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
     t = numpy.linspace(0, t_max, 1000)
     _, y_max = pyplot.gca().get_ylim()
     for i, (group, color) in enumerate(zip(specific_groups, colors)):
-
         j = groups.index(group)  # matching index of group
 
         n = sum(1 for g in G if g == j)  # TODO: slow
@@ -57,13 +56,17 @@ def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
 
         if ci is not None:
             p_y, p_y_lo, p_y_hi = m.cdf(j, t, ci=ci).T
+            merged_plot_ci_kwargs = {'color': color, 'alpha': 0.2}
+            merged_plot_ci_kwargs.update(plot_ci_kwargs)
             pyplot.fill_between(t, 100. * p_y_lo, 100. * p_y_hi,
-                                color=color, alpha=0.2, **plot_ci_kwargs)
+                                **merged_plot_ci_kwargs)
         else:
             p_y = m.cdf(j, t).T
-        pyplot.plot(t, 100. * p_y, color=color, linewidth=1.5,
-                    alpha=0.7, label=label, **plot_kwargs)
 
+        merged_plot_kwargs = {'color': color, 'linewidth': 1.5,
+                              'alpha': 0.7}
+        merged_plot_kwargs.update(plot_kwargs)
+        pyplot.plot(t, 100. * p_y, label=label, **merged_plot_kwargs)
         y_max = max(y_max, 110. * max(p_y))
 
     pyplot.xlim([0, t_max])
