@@ -235,7 +235,8 @@ def _test_plot_cohorts(model='weibull', extra_model=None):
     matplotlib.pyplot.legend()
     if extra_model:
         convoys.plotting.plot_cohorts(G, B, T, model=extra_model,
-                                      plot_kwargs=dict(linestyle='--'))
+                                      plot_kwargs=dict(linestyle='--',
+                                                       alpha=0.1))
     matplotlib.pyplot.savefig('%s-%s.png' % (model, extra_model)
                               if extra_model is not None else '%s.png' % model)
 
