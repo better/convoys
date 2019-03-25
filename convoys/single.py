@@ -56,10 +56,12 @@ class KaplanMeier(SingleModel):
             z_lo, z_hi = scipy.stats.norm.ppf([(1-ci)/2, (1+ci)/2])
             return (
                 1 - self._ss[j],
-                1 - numpy.exp(-numpy.exp(numpy.log(-numpy.log(self._ss_clipped[j]))
-                                         + z_hi * self._vs[j]**0.5)),
-                1 - numpy.exp(-numpy.exp(numpy.log(-numpy.log(self._ss_clipped[j]))
-                                         + z_lo * self._vs[j]**0.5))
+                1 - numpy.exp(-numpy.exp(
+                        numpy.log(-numpy.log(self._ss_clipped[j]))
+                        + z_hi * self._vs[j]**0.5)),
+                1 - numpy.exp(-numpy.exp(
+                        numpy.log(-numpy.log(self._ss_clipped[j]))
+                        + z_lo * self._vs[j]**0.5))
             )
         else:
             return 1 - self._ss[j]
