@@ -47,13 +47,19 @@ class KaplanMeier(SingleModel):
                 self._vs.append(0)
             n -= 1
 
+        # Just prevent overflow warning when computing the confidence interval
+        eps = 1e-9
+        self._ss_clipped = numpy.clip(self._ss, eps, 1.0-eps)
+
     def _get_value_at(self, j, ci):
         if ci:
             z_lo, z_hi = scipy.stats.norm.ppf([(1-ci)/2, (1+ci)/2])
             return (
                 1 - self._ss[j],
-                1 - numpy.exp(-numpy.exp(numpy.log(-numpy.log(self._ss[j])) + z_hi * self._vs[j]**0.5)),
-                1 - numpy.exp(-numpy.exp(numpy.log(-numpy.log(self._ss[j])) + z_lo * self._vs[j]**0.5))
+                1 - numpy.exp(-numpy.exp(numpy.log(-numpy.log(self._ss_clipped[j]))
+                                         + z_hi * self._vs[j]**0.5)),
+                1 - numpy.exp(-numpy.exp(numpy.log(-numpy.log(self._ss_clipped[j]))
+                                         + z_lo * self._vs[j]**0.5))
             )
         else:
             return 1 - self._ss[j]
