@@ -178,15 +178,29 @@ class GeneralizedGamma(RegressionModel):
         x0[0] = +1 if fix_k is None else log(fix_k)
         x0[1] = -1 if fix_p is None else log(fix_p)
         args = (X, B, T, W, fix_k, fix_p, True)
+        
+        def is_notebook():
+            try:
+                shell = get_ipython().__class__.__name__
+                if shell == 'ZMQInteractiveShell':
+                    return True   # Jupyter notebook or qtconsole
+                elif shell == 'TerminalInteractiveShell':
+                    return False  # Terminal running IPython
+                else:
+                    return False  # Other type (?)
+            except NameError:
+                return False      # Probably standard Python interpreter
 
         # Callback for progress to stdout
         sys.stdout.write('\n')
-
+        
+        notebook = is_notebook()
         def callback(LL, value_history=[]):
             value_history.append(LL)
             sys.stdout.write('Finding MAP: %13d  (%18.6e)\r' %
                              (len(value_history), value_history[-1]))
-            sys.stdout.flush()
+            if notebook is False:
+                sys.stdout.flush()
 
         # Define objective and use automatic differentiation
         f = lambda x: -generalized_gamma_LL(x, *args, callback=callback)
@@ -233,7 +247,8 @@ class GeneralizedGamma(RegressionModel):
             for i, _ in enumerate(sampler.sample(p0, iterations=n_iterations)):
                 sys.stdout.write('MCMC (%3d walkers): %6d/%-6d (%6.2f%%)\r' % (
                         n_walkers, i+1, n_iterations, 100.*(i+1)/n_iterations))
-                sys.stdout.flush()
+                if notebook is False:
+                    sys.stdout.flush()
             sys.stdout.write('\n')
             result['samples'] = sampler.chain[:, n_burnin:, :] \
                                        .reshape((-1, dim)).T
