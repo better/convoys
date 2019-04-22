@@ -14,7 +14,7 @@ class RegressionToMulti(MultiModel):
     def __init__(self, *args, **kwargs):
         self.base_model = self._base_model_cls(*args, **kwargs)
 
-    def fit(self, G, B, T):
+    def fit(self, G, B, T, verbose=False):
         ''' Fits the model
 
         :param G: numpy vector of shape :math:`n`
@@ -27,7 +27,7 @@ class RegressionToMulti(MultiModel):
         X = numpy.zeros((n, self._n_groups), dtype=numpy.bool)
         for i, group in enumerate(G):
             X[i,group] = 1
-        self.base_model.fit(X, B, T)
+        self.base_model.fit(X, B, T, verbose=verbose)
 
     def _get_x(self, group):
         x = numpy.zeros(self._n_groups)
@@ -45,7 +45,7 @@ class SingleToMulti(MultiModel):
     def __init__(self, *args, **kwargs):
         self.base_model_init = lambda: self._base_model_cls(*args, **kwargs)
 
-    def fit(self, G, B, T):
+    def fit(self, G, B, T, verbose=False):
         ''' Fits the model
 
         :param G: numpy vector of shape :math:`n`
@@ -58,7 +58,7 @@ class SingleToMulti(MultiModel):
         self._group2model = {}
         for g, BT in group2bt.items():
             self._group2model[g] = self.base_model_init()
-            self._group2model[g].fit([b for b, t in BT], [t for b, t in BT])
+            self._group2model[g].fit([b for b, t in BT], [t for b, t in BT], verbose=verbose)
 
     def cdf(self, group, t, *args, **kwargs):
         return self._group2model[group].cdf(t, *args, **kwargs)

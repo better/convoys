@@ -253,10 +253,14 @@ def test_plot_cohorts_model():
     with pytest.raises(Exception):
         convoys.plotting.plot_cohorts(G, B, T, model='bad', groups=groups)
 
+    #test for when specific group is not a subset of groups
     with pytest.raises(Exception):
         convoys.plotting.plot_cohorts(G, B, T, model=model, groups=groups,
                                       specific_groups=['Nonsense'])
-
+    #test for verbose == True 
+    with pytest.raises(Exception):
+        convoys.plotting.plot_cohorts(G, B, T, model=model, groups=groups,
+                                      verbose=True)
 
 @flaky.flaky
 def test_plot_cohorts_kaplan_meier():

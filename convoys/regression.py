@@ -149,7 +149,7 @@ class GeneralizedGamma(RegressionModel):
     def __init__(self, ci=False):
         self._ci = ci
 
-    def fit(self, X, B, T, W=None, fix_k=None, fix_p=None):
+    def fit(self, X, B, T, W=None, fix_k=None, fix_p=None, verbose=False):
         '''Fits the model.
 
         :param X: numpy matrix of shape :math:`k \\cdot n`
@@ -178,28 +178,14 @@ class GeneralizedGamma(RegressionModel):
         x0[0] = +1 if fix_k is None else log(fix_k)
         x0[1] = -1 if fix_p is None else log(fix_p)
         args = (X, B, T, W, fix_k, fix_p, True)
-        
-        def is_notebook():
-            try:
-                shell = get_ipython().__class__.__name__
-                if shell == 'ZMQInteractiveShell':
-                    return True   # Jupyter notebook or qtconsole
-                elif shell == 'TerminalInteractiveShell':
-                    return False  # Terminal running IPython
-                else:
-                    return False  # Other type (?)
-            except NameError:
-                return False      # Probably standard Python interpreter
-
-        # Callback for progress to stdout
         sys.stdout.write('\n')
-        
-        notebook = is_notebook()
-        def callback(LL, value_history=[]):
+        # Callback for progress to stdout
+        def callback(LL, value_history=[], verbose=verbose):
             value_history.append(LL)
-            sys.stdout.write('Finding MAP: %13d  (%18.6e)\r' %
-                             (len(value_history), value_history[-1]))
-            if notebook is False:
+
+            if verbose is True:
+                sys.stdout.write('Finding MAP: %13d  (%18.6e)\r' %
+                                 (len(value_history), value_history[-1]))
                 sys.stdout.flush()
 
         # Define objective and use automatic differentiation
@@ -244,12 +230,12 @@ class GeneralizedGamma(RegressionModel):
             n_burnin = 40
             n_steps = numpy.ceil(1000. / n_walkers)
             n_iterations = n_burnin + n_steps
-            for i, _ in enumerate(sampler.sample(p0, iterations=n_iterations)):
-                sys.stdout.write('MCMC (%3d walkers): %6d/%-6d (%6.2f%%)\r' % (
-                        n_walkers, i+1, n_iterations, 100.*(i+1)/n_iterations))
-                if notebook is False:
+            if verbose is True:
+                for i, _ in enumerate(sampler.sample(p0, iterations=n_iterations)):
+                    sys.stdout.write('MCMC (%3d walkers): %6d/%-6d (%6.2f%%)\r' % (
+                            n_walkers, i+1, n_iterations, 100.*(i+1)/n_iterations))
                     sys.stdout.flush()
-            sys.stdout.write('\n')
+                sys.stdout.write('\n')
             result['samples'] = sampler.chain[:, n_burnin:, :] \
                                        .reshape((-1, dim)).T
             if fix_k:
@@ -338,8 +324,8 @@ class Exponential(GeneralizedGamma):
     from the initial state to converted or dead is constant.
 
     See documentation for :class:`GeneralizedGamma`.'''
-    def fit(self, X, B, T, W=None):
-        super(Exponential, self).fit(X, B, T, W, fix_k=1, fix_p=1)
+    def fit(self, X, B, T, W=None, verbose=False):
+        super(Exponential, self).fit(X, B, T, W, fix_k=1, fix_p=1, verbose=verbose)
 
 
 class Weibull(GeneralizedGamma):
@@ -354,8 +340,8 @@ class Weibull(GeneralizedGamma):
     :math:`f(t) = p\\lambda(t\\lambda)^{p-1}\\exp(-(t\\lambda)^p)`
 
     See documentation for :class:`GeneralizedGamma`.'''
-    def fit(self, X, B, T, W=None):
-        super(Weibull, self).fit(X, B, T, W, fix_k=1)
+    def fit(self, X, B, T, W=None, verbose=False):
+        super(Weibull, self).fit(X, B, T, W, fix_k=1, verbose=verbose)
 
 
 class Gamma(GeneralizedGamma):
@@ -373,5 +359,5 @@ class Gamma(GeneralizedGamma):
     :math:`f(t) = \\lambda^k t^{k-1} \\exp(-x\\lambda) / \\Gamma(k)`
 
     See documentation for :class:`GeneralizedGamma`.'''
-    def fit(self, X, B, T, W=None):
-        super(Gamma, self).fit(X, B, T, W, fix_p=1)
+    def fit(self, X, B, T, W=None, verbose=False):
+        super(Gamma, self).fit(X, B, T, W, fix_p=1, verbose=verbose)

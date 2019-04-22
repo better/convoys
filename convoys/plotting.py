@@ -16,7 +16,19 @@ _models = {
 
 def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
                  ci=None, plot_kwargs={}, plot_ci_kwargs={},
-                 groups=None, specific_groups=None):
+                 groups=None, specific_groups=None, verbose=False):
+    '''
+    Generate cohort estimation plots based on fitted models
+
+    :param t_max: int max time horizion (x axis)
+    :param model: convoys.multi.MultiModel model type
+    :param ci: int confidence interval range of model
+    :param plot_kwargs: line plotting kwargs
+    :param plot_ci_kwargs: confidence interval kwargs
+    :param groups: array or group names
+    :parm specific groups: subset of groups that will be plotted
+    :param verbose: bool write model progress to stdout
+    '''
 
     if model not in _models.keys():
         if not isinstance(model, convoys.multi.MultiModel):
@@ -32,7 +44,7 @@ def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
     if not isinstance(model, convoys.multi.MultiModel):
         # Fit model
         m = _models[model](ci=bool(ci))
-        m.fit(G, B, T)
+        m.fit(G, B, T, verbose=verbose)
     else:
         m = model
 
