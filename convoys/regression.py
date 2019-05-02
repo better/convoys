@@ -227,8 +227,8 @@ class GeneralizedGamma(RegressionModel):
             mcmc_initial_noise = 1e-3
             p0 = [result['map'] + mcmc_initial_noise * numpy.random.randn(dim)
                   for i in range(n_walkers)]
-            n_burnin = 40
-            n_steps = numpy.ceil(1000. / n_walkers)
+            n_burnin = 100
+            n_steps = numpy.ceil(2000. / n_walkers)
             n_iterations = n_burnin + n_steps
             for i, _ in enumerate(sampler.sample(p0, iterations=n_iterations)):
                 sys.stdout.write('MCMC (%3d walkers): %6d/%-6d (%6.2f%%)\r' % (
