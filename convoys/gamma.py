@@ -41,8 +41,6 @@ def gammainc(k, x):
 
 
 delta = 1e-6
-gammainc = primitive(_scipy_gammainc)
-
 
 defvjp(
     gammainc,
