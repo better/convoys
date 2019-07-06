@@ -1,6 +1,8 @@
 from autograd.extend import primitive, defvjp
+from autograd import numpy as np
+from autograd.scipy.special import gamma
 from autograd.numpy.numpy_vjps import unbroadcast_f  # This is not documented
-from scipy.special import gammainc as gammainc_orig
+from scipy.special import gammainc as _scipy_gammainc, gammaincc as _scipy_gammaincc
 
 __all__ = ['gammainc']
 
@@ -9,7 +11,7 @@ __all__ = ['gammainc']
 def gammainc(k, x):
     ''' Lower regularized incomplete gamma function.
 
-    We rely on `scipy.special.gammainc 
+    We rely on `scipy.special.gammainc
     <https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.gammainc.html>`_
     for this. However, there is a number of issues using this function
     together with `autograd <https://github.com/HIPS/autograd>`_:
@@ -35,14 +37,45 @@ def gammainc(k, x):
     Side note 2: TensorFlow actually has a `similar bug
     <https://github.com/tensorflow/tensorflow/issues/17995>`_
     '''
-    return gammainc_orig(k, x)
+    return _scipy_gammainc(k, x)
 
 
-G_EPS = 1e-6
+delta = 1e-6
+gammainc = primitive(_scipy_gammainc)
+
+
 defvjp(
     gammainc,
-    lambda ans, k, x: unbroadcast_f(
-        k, lambda g: g * (gammainc_orig(k + G_EPS, x) - ans) / G_EPS),
-    lambda ans, k, x: unbroadcast_f(
-        x, lambda g: g * (gammainc_orig(k, x + G_EPS) - ans) / G_EPS),
+    lambda ans, a, x: unbroadcast_f(
+        a,
+        lambda g: g
+        * (
+            -gammainc(a + 2 * delta, x)
+            + 8 * gammainc(a + delta, x)
+            - 8 * gammainc(a - delta, x)
+            + gammainc(a - 2 * delta, x)
+        )
+        / (12 * delta),
+    ),
+    lambda ans, a, x: unbroadcast_f(x, lambda g: g * np.exp(-x) * np.power(x, a - 1) / gamma(a)),
+)
+
+
+gammaincc = primitive(_scipy_gammaincc)
+
+
+defvjp(
+    gammaincc,
+    lambda ans, a, x: unbroadcast_f(
+        a,
+        lambda g: g
+        * (
+            -gammaincc(a + 2 * delta, x)
+            + 8 * gammaincc(a + delta, x)
+            - 8 * gammaincc(a - delta, x)
+            + gammaincc(a - 2 * delta, x)
+        )
+        / (12 * delta),
+    ),
+    lambda ans, a, x: unbroadcast_f(x, lambda g: -g * np.exp(-x) * np.power(x, a - 1) / gamma(a)),
 )
