@@ -1,4 +1,5 @@
 import autograd
+from autograd_gamma import gammainc
 import emcee
 import numpy
 from scipy.special import gammaincinv
@@ -7,7 +8,6 @@ from autograd.numpy import isnan, exp, dot, log, sum
 import scipy.optimize
 import sys
 import warnings
-from convoys.gamma import gammainc
 
 
 __all__ = ['Exponential',

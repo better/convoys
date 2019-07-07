@@ -20,6 +20,7 @@ setup(name='convoys',
       packages=find_packages(),
       install_requires=[
           'autograd',
+          'autograd-gamma',
           'emcee',
           'matplotlib>=2.0.0',
           'pandas',
