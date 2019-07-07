@@ -6,11 +6,9 @@ import numpy
 import pandas
 import pytest
 import random
-import scipy.special
 import scipy.stats
 matplotlib.use('Agg')  # Needed for matplotlib to run in Travis
 import convoys
-import convoys.gamma
 import convoys.plotting
 import convoys.regression
 import convoys.single
@@ -27,43 +25,6 @@ def generate_censored_data(N, E, C):
     B = numpy.array([c and e < n for n, e, c in zip(N, E, C)])
     T = numpy.array([e if b else n for e, b, n in zip(E, B, N)])
     return B, T
-
-
-def test_gammainc(k=2.5, x=4.2, g_eps=1e-7):
-    # Verify that function values are correct
-    assert convoys.gamma.gammainc(k, x) == pytest.approx(scipy.special.gammainc(k, x))
-
-    # Verify that it handles vectors
-    assert convoys.gamma.gammainc(k, numpy.array([1, 2, 3])) == \
-        pytest.approx(scipy.special.gammainc(k, numpy.array([1, 2, 3])))
-
-    # Verify the derivative wrt k
-    f_grad_k = autograd.grad(
-        lambda k: convoys.gamma.gammainc(k, x))
-    f_grad_k_numeric = (scipy.special.gammainc(k + g_eps, x) -
-                        scipy.special.gammainc(k, x)) / g_eps
-    assert f_grad_k(k) == pytest.approx(f_grad_k_numeric)
-
-    # Verify the derivative wrt x
-    f_grad_x = autograd.grad(
-        lambda x: convoys.gamma.gammainc(k, x))
-    f_grad_x_numeric = (scipy.special.gammainc(k, x + g_eps) -
-                        scipy.special.gammainc(k, x)) / g_eps
-    assert f_grad_x(x) == pytest.approx(f_grad_x_numeric)
-
-    # Verify the derivative wrt x when x is a vector
-    f_grad_x = autograd.grad(
-        lambda x: autograd.numpy.sum(convoys.gamma.gammainc(1.0, x)))
-    f_grad_x_correct = autograd.grad(
-        lambda x: autograd.numpy.sum(1.0 - autograd.numpy.exp(-x)))
-    xs = numpy.array([1., 2., 3.])
-    assert f_grad_x(xs) == pytest.approx(f_grad_x_correct(xs))
-
-    # Verify the derivative wrt k when x is a vector
-    xs = numpy.array([1., 2., 3.])
-    f_grad_k = autograd.grad(
-        lambda k: autograd.numpy.sum(convoys.gamma.gammainc(k, xs)))
-    assert f_grad_k(xs).shape == (3,)
 
 
 def test_kaplan_meier_model():
