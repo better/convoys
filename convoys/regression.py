@@ -1,10 +1,4 @@
-# Monkey patching scipy to avoid issue with autograd
-import scipy.misc
-if not hasattr(scipy.misc, 'logsumexp'):
-    import scipy.special
-    scipy.misc.logsumexp = scipy.special.logsumexp
-
-# Now, continue with the real stuff.
+from convoys import autograd_scipy_monkeypatch
 import autograd
 from autograd_gamma import gammainc
 import emcee
