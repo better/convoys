@@ -26,7 +26,4 @@ Full API documentation
 .. automodule:: convoys.utils
    :members:
 
-.. automodule:: convoys.gamma
-   :members:
-
 .. include:: afterwords.rst
