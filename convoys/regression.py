@@ -1,4 +1,4 @@
-from convoys import autograd_scipy_monkeypatch
+from convoys import autograd_scipy_monkeypatch  # NOQA
 import autograd
 from autograd_gamma import gammainc
 import emcee
