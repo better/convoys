@@ -18,6 +18,25 @@ def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
                  ci=None, plot_kwargs={}, plot_ci_kwargs={},
                  groups=None, specific_groups=None,
                  label_fmt='%(group)s (n=%(n).0f, k=%(k).0f)'):
+    ''' Helper function to fit data using a model and then plot the cohorts.
+
+    :param G: list with group assignment (see :meth:`utils.get_arrays`)
+    :param B: list with group assignment (see :meth:`utils.get_arrays`)
+    :param T: list with group assignment (see :meth:`utils.get_arrays`)
+    :param t_max: (optional) max value for x axis
+    :param model: (optional, default is kaplan-meier) model to fit.
+        Can be an instance of :class:`multi.MultiModel` or a string
+        identifying the model. One of 'kaplan-meier', 'exponential',
+        'weibull', 'gamma', or 'generalized-gamma'.
+    :param ci: confidence interval, value from 0-1, or None (default) if
+        no confidence interval is to be plotted
+    :param plot_kwargs: extra arguments to pyplot for the lines
+    :param plot_ci_kwargs: extra arguments to pyplot for the confidence
+        intervals
+    :param groups: list of group labels
+    :param specific_groups: subset of groups to plot
+    :param label_fmt: custom format for the labels to use in the legend
+    '''
 
     if model not in _models.keys():
         if not isinstance(model, convoys.multi.MultiModel):
