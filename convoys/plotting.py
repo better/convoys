@@ -16,7 +16,8 @@ _models = {
 
 def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
                  ci=None, plot_kwargs={}, plot_ci_kwargs={},
-                 groups=None, specific_groups=None):
+                 groups=None, specific_groups=None,
+                 label_fmt='%(group)s (n=%(n).0f, k=%(k).0f)'):
 
     if model not in _models.keys():
         if not isinstance(model, convoys.multi.MultiModel):
@@ -52,7 +53,7 @@ def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
 
         n = sum(1 for g in G if g == j)  # TODO: slow
         k = sum(1 for g, b in zip(G, B) if g == j and b)  # TODO: slow
-        label = '%s (n=%.0f, k=%.0f)' % (group, n, k)
+        label = label_fmt % dict(group=group, n=n, k=k)
 
         if ci is not None:
             p_y, p_y_lo, p_y_hi = m.cdf(j, t, ci=ci).T
