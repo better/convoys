@@ -94,6 +94,12 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=10000):
     assert model.cdf([1], 0).shape == ()
     assert model.cdf([1], [0, 1, 2, 3]).shape == (4,)
 
+    # Fit a linear model
+    model = convoys.regression.Exponential(ci=False, flavor='linear')
+    model.fit(X, B, T)
+    model_c = model.params['map']['b'] + model.params['map']['beta'][0]
+    assert 0.9*c < model_c < 1.1*c
+
 
 @flaky.flaky
 def test_weibull_regression_model(cs=[0.3, 0.5, 0.7],
