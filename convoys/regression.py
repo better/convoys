@@ -147,10 +147,11 @@ class GeneralizedGamma(RegressionModel):
     to sample from the full posterior in order to generate uncertainty
     estimates for all parameters.
     '''
-    def __init__(self, ci=False, fix_k=None, fix_p=None):
+    def __init__(self, ci=False, fix_k=None, fix_p=None, hierarchical=True):
         self._ci = ci
         self._fix_k = fix_k
         self._fix_p = fix_p
+        self._hierarchical = hierarchical
 
     def fit(self, X, B, T, W=None):
         '''Fits the model.
@@ -180,7 +181,7 @@ class GeneralizedGamma(RegressionModel):
         x0 = numpy.zeros(6+2*n_features)
         x0[0] = +1 if self._fix_k is None else log(self._fix_k)
         x0[1] = -1 if self._fix_p is None else log(self._fix_p)
-        args = (X, B, T, W, self._fix_k, self._fix_p, True)
+        args = (X, B, T, W, self._fix_k, self._fix_p, self._hierarchical)
 
         # Callback for progress to stdout
         sys.stdout.write('\n')
