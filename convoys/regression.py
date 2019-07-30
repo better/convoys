@@ -81,7 +81,7 @@ class GeneralizedGamma(RegressionModel):
     :math:`F(t) = P(k, (t\\lambda)^p)`
 
     where :math:`P(a, x) = \\gamma(a, x) / \\Gamma(a)` is the lower regularized
-    incomplete gamma function. See :meth:`convoys.gamma.gammainc`.
+    incomplete gamma function.
     :math:`\\gamma(a, x)` is the incomplete gamma function and :math:`\\Gamma(a)`
     is the standard gamma function.
 
@@ -352,7 +352,7 @@ class Gamma(GeneralizedGamma):
     :math:`F(t) = P(k, t\\lambda)`
 
     where :math:`P(a, x) = \\gamma(a, x) / \\Gamma(a)` is the lower regularized
-    incomplete gamma function. See :meth:`convoys.gamma.gammainc`.
+    incomplete gamma function.
 
     The probability density function is:
 
