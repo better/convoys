@@ -1,4 +1,5 @@
 from setuptools import setup, find_packages
+from sphinx.setup_command import BuildDoc
 
 long_description = '''
 For more information, see
@@ -26,4 +27,12 @@ setup(name='convoys',
           'pandas',
           'numpy',
           'scipy',
-      ])
+      ],
+
+      # Sphinx-specific setup
+      cmdclass={'build_sphinx': BuildDoc},
+      command_options={
+        'build_sphinx': {
+            'source_dir': ('setup.py', 'docs'),
+            'build_dir': ('setup.py', 'docs/_build')}},
+)

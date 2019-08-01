@@ -10,6 +10,6 @@ install:
   - pip install pytest flaky .
 script:
   - py.test -s -v --cov=convoys .
-  - sphinx-build -M html docs/ docs/_build/
+  - python setup.py build_sphinx
 after_success:
   - coveralls
