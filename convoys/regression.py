@@ -42,7 +42,7 @@ def generalized_gamma_loss(x, X, B, T, W, fix_k, fix_p,
     elif flavor == 'linear':  # L2 loss, linear
         c = dot(X, beta)+b
         LL_observed = -(1 - c)**2 + log_pdf
-        LL_censored = -c**2 * cdf
+        LL_censored = -(c*cdf)**2
 
     LL_data = sum(
         W * B * LL_observed +
