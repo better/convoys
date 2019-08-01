@@ -172,7 +172,8 @@ def test_linear_model(n=10000, k=5, lambd=0.1):
     model_cs = model.params['map']['b'] + model.params['map']['beta']
     for model_c, c in zip(model_cs, cs):
         assert c - 0.03 < model_c < c + 0.03
-    model_lambds = numpy.exp(model.params['map']['a'] + model.params['map']['alpha'])
+    model_lambds = numpy.exp(model.params['map']['a'] +
+                             model.params['map']['alpha'])
     for model_lambd in model_lambds:
         assert 0.97*lambd < model_lambd < 1.03*lambd
 
