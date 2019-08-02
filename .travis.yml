@@ -6,10 +6,10 @@ before_install:
   - pip install -U pytest pytest-cov
   - pip install coveralls
   - pip install sphinx
+  - python setup.py build_sphinx
 install:
   - pip install pytest flaky .
 script:
   - py.test -s -v --cov=convoys .
-  - python setup.py build_sphinx
 after_success:
   - coveralls
