@@ -121,7 +121,8 @@ html_sidebars = {
 
 # Mock modules during doc generation
 # TODO: would be nice if this is pulled automatically from setup.py
-autodoc_mock_imports = ['autograd', 'autograd-gamma', 'emcee', 'matplotlib', 'numpy', 'pandas', 'scipy']
+autodoc_mock_imports = ['autograd', 'autograd-gamma', 'emcee', 'matplotlib',
+                        'numpy', 'pandas', 'scipy']
 
 
 # -- Extension configuration -------------------------------------------------

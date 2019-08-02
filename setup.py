@@ -35,4 +35,4 @@ setup(name='convoys',
         'build_sphinx': {
             'source_dir': ('setup.py', 'docs'),
             'build_dir': ('setup.py', 'docs/_build')}},
-)
+      )
