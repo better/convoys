@@ -118,6 +118,9 @@ html_sidebars = {
     ]
 }
 
+# Make it possible to build docs without dependencies
+autodoc_mock_imports = ['autograd', 'autograd_gamma', 'emcee', 'matplotlib',
+                        'numpy', 'pandas', 'scipy']
 
 # -- Extension configuration -------------------------------------------------
 
