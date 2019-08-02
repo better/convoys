@@ -17,8 +17,8 @@ __all__ = ['Exponential',
            'GeneralizedGamma']
 
 
-def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p,
-                         hierarchical, callback=None):
+def generalized_gamma_loss(x, X, B, T, W, fix_k, fix_p,
+                           hierarchical, flavor, callback=None):
     k = exp(x[0]) if fix_k is None else fix_k
     p = exp(x[1]) if fix_p is None else fix_p
     log_sigma_alpha = x[2]
@@ -29,15 +29,20 @@ def generalized_gamma_LL(x, X, B, T, W, fix_k, fix_p,
     alpha = x[6:6+n_features]
     beta = x[6+n_features:6+2*n_features]
     lambd = exp(dot(X, alpha)+a)
-    c = expit(dot(X, beta)+b)
 
     # PDF: p*lambda^(k*p) / gamma(k) * t^(k*p-1) * exp(-(x*lambda)^p)
     log_pdf = log(p) + (k*p) * log(lambd) - gammaln(k) \
               + (k*p-1) * log(T) - (T*lambd)**p
     cdf = gammainc(k, (T*lambd)**p)
 
-    LL_observed = log(c) + log_pdf
-    LL_censored = log((1-c) + c * (1 - cdf))
+    if flavor == 'logistic':  # Log-likelihood with sigmoid
+        c = expit(dot(X, beta)+b)
+        LL_observed = log(c) + log_pdf
+        LL_censored = log((1 - c) + c * (1 - cdf))
+    elif flavor == 'linear':  # L2 loss, linear
+        c = dot(X, beta)+b
+        LL_observed = -(1 - c)**2 + log_pdf
+        LL_censored = -(c*cdf)**2
 
     LL_data = sum(
         W * B * LL_observed +
@@ -147,10 +152,15 @@ class GeneralizedGamma(RegressionModel):
     to sample from the full posterior in order to generate uncertainty
     estimates for all parameters.
     '''
-    def __init__(self, ci=False):
+    def __init__(self, ci=False, fix_k=None, fix_p=None, hierarchical=True,
+                 flavor='logistic'):
         self._ci = ci
+        self._fix_k = fix_k
+        self._fix_p = fix_p
+        self._hierarchical = hierarchical
+        self._flavor = flavor
 
-    def fit(self, X, B, T, W=None, fix_k=None, fix_p=None):
+    def fit(self, X, B, T, W=None):
         '''Fits the model.
 
         :param X: numpy matrix of shape :math:`k \\cdot n`
@@ -176,9 +186,10 @@ class GeneralizedGamma(RegressionModel):
         #  a, b, alpha_1...alpha_k, beta_1...beta_k)
         # Generalized Gamma is a bit sensitive to the starting point!
         x0 = numpy.zeros(6+2*n_features)
-        x0[0] = +1 if fix_k is None else log(fix_k)
-        x0[1] = -1 if fix_p is None else log(fix_p)
-        args = (X, B, T, W, fix_k, fix_p, True)
+        x0[0] = +1 if self._fix_k is None else log(self._fix_k)
+        x0[1] = -1 if self._fix_p is None else log(self._fix_p)
+        args = (X, B, T, W, self._fix_k, self._fix_p,
+                self._hierarchical, self._flavor)
 
         # Callback for progress to stdout
         sys.stdout.write('\n')
@@ -190,8 +201,8 @@ class GeneralizedGamma(RegressionModel):
             sys.stdout.flush()
 
         # Define objective and use automatic differentiation
-        f = lambda x: -generalized_gamma_LL(x, *args, callback=callback)
-        jac = autograd.grad(lambda x: -generalized_gamma_LL(x, *args))
+        f = lambda x: -generalized_gamma_loss(x, *args, callback=callback)
+        jac = autograd.grad(lambda x: -generalized_gamma_loss(x, *args))
 
         # Find the maximum a posteriori of the distribution
         res = scipy.optimize.minimize(f, x0, jac=jac, method='SLSQP',
@@ -203,10 +214,10 @@ class GeneralizedGamma(RegressionModel):
         result = {'map': res.x}
 
         # TODO: should not use fixed k/p as search parameters
-        if fix_k:
-            result['map'][0] = log(fix_k)
-        if fix_p:
-            result['map'][1] = log(fix_p)
+        if self._fix_k:
+            result['map'][0] = log(self._fix_k)
+        if self._fix_p:
+            result['map'][1] = log(self._fix_p)
 
         # Make sure we're in a local minimum
         gradient = jac(result['map'])
@@ -222,7 +233,7 @@ class GeneralizedGamma(RegressionModel):
             sampler = emcee.EnsembleSampler(
                 nwalkers=n_walkers,
                 dim=dim,
-                lnpostfn=generalized_gamma_LL,
+                lnpostfn=generalized_gamma_loss,
                 args=args,
             )
             mcmc_initial_noise = 1e-3
@@ -238,10 +249,10 @@ class GeneralizedGamma(RegressionModel):
             sys.stdout.write('\n')
             result['samples'] = sampler.chain[:, n_burnin:, :] \
                                        .reshape((-1, dim)).T
-            if fix_k:
-                result['samples'][0, :] = log(fix_k)
-            if fix_p:
-                result['samples'][1, :] = log(fix_p)
+            if self._fix_k:
+                result['samples'][0, :] = log(self._fix_k)
+            if self._fix_p:
+                result['samples'][1, :] = log(self._fix_p)
 
         self.params = {k: {
             'k': exp(data[0]),
@@ -324,8 +335,9 @@ class Exponential(GeneralizedGamma):
     from the initial state to converted or dead is constant.
 
     See documentation for :class:`GeneralizedGamma`.'''
-    def fit(self, X, B, T, W=None):
-        super(Exponential, self).fit(X, B, T, W, fix_k=1, fix_p=1)
+    def __init__(self, *args, **kwargs):
+        kwargs.update(dict(fix_k=1, fix_p=1))
+        super(Exponential, self).__init__(*args, **kwargs)
 
 
 class Weibull(GeneralizedGamma):
@@ -340,8 +352,9 @@ class Weibull(GeneralizedGamma):
     :math:`f(t) = p\\lambda(t\\lambda)^{p-1}\\exp(-(t\\lambda)^p)`
 
     See documentation for :class:`GeneralizedGamma`.'''
-    def fit(self, X, B, T, W=None):
-        super(Weibull, self).fit(X, B, T, W, fix_k=1)
+    def __init__(self, *args, **kwargs):
+        kwargs.update(dict(fix_k=1))
+        super(Weibull, self).__init__(*args, **kwargs)
 
 
 class Gamma(GeneralizedGamma):
@@ -359,5 +372,6 @@ class Gamma(GeneralizedGamma):
     :math:`f(t) = \\lambda^k t^{k-1} \\exp(-x\\lambda) / \\Gamma(k)`
 
     See documentation for :class:`GeneralizedGamma`.'''
-    def fit(self, X, B, T, W=None):
-        super(Gamma, self).fit(X, B, T, W, fix_p=1)
+    def __init__(self, *args, **kwargs):
+        kwargs.update(dict(fix_p=1))
+        super(Gamma, self).__init__(*args, **kwargs)

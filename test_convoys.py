@@ -94,6 +94,12 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=10000):
     assert model.cdf([1], 0).shape == ()
     assert model.cdf([1], [0, 1, 2, 3]).shape == (4,)
 
+    # Fit a linear model
+    model = convoys.regression.Exponential(ci=False, flavor='linear')
+    model.fit(X, B, T)
+    model_c = model.params['map']['b'] + model.params['map']['beta'][0]
+    assert 0.9*c < model_c < 1.1*c
+
 
 @flaky.flaky
 def test_weibull_regression_model(cs=[0.3, 0.5, 0.7],
@@ -121,6 +127,13 @@ def test_weibull_regression_model(cs=[0.3, 0.5, 0.7],
         x = [int(r == j) for j in range(len(cs))]
         assert 0.80 * c < model.cdf(x, float('inf')) < 1.30 * c
 
+    # Fit a linear model
+    model = convoys.regression.Weibull(ci=False, flavor='linear')
+    model.fit(X, B, T)
+    model_cs = model.params['map']['b'] + model.params['map']['beta']
+    for model_c, c in zip(model_cs, cs):
+        assert 0.8 * c < model_c < 1.2 * c
+
 
 @flaky.flaky
 def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=10000):
@@ -135,6 +148,34 @@ def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=10000):
     model.fit(X, B, T)
     assert 0.80*c < model.cdf([1], float('inf')) < 1.30*c
     assert 0.80*k < numpy.mean(model.params['map']['k']) < 1.30*k
+
+    # Fit a linear model
+    model = convoys.regression.Gamma(ci=False, flavor='linear')
+    model.fit(X, B, T)
+    model_c = model.params['map']['b'] + model.params['map']['beta'][0]
+    assert 0.9*c < model_c < 1.1*c
+
+
+@flaky.flaky
+def test_linear_model(n=10000, k=5, lambd=0.1):
+    # Generate data with little censoring
+    # The coefficients should be quite close to their actual value
+    cs = numpy.random.dirichlet(numpy.ones(k))
+    X = numpy.random.binomial(n=1, p=0.5, size=(n, k))
+    C = numpy.random.rand(n) < numpy.dot(X, cs.T)
+    N = scipy.stats.uniform.rvs(scale=20./lambd, size=(n,))
+    E = numpy.array([sample_weibull(k, lambd) for r in range(n)])
+    B, T = generate_censored_data(N, E, C)
+
+    model = convoys.regression.Weibull(ci=False, flavor='linear')
+    model.fit(X, B, T)
+    model_cs = model.params['map']['b'] + model.params['map']['beta']
+    for model_c, c in zip(model_cs, cs):
+        assert c - 0.03 < model_c < c + 0.03
+    model_lambds = numpy.exp(model.params['map']['a'] +
+                             model.params['map']['alpha'])
+    for model_lambd in model_lambds:
+        assert 0.97*lambd < model_lambd < 1.03*lambd
 
 
 @flaky.flaky
