@@ -74,6 +74,18 @@ class RegressionModel(object):
 class GeneralizedGamma(RegressionModel):
     ''' Generalization of Gamma, Weibull, and Exponential
 
+    :param ci: boolean, defaults to False. Whether to use MCMC to
+        sample from the posterior so that a confidence interval can be
+        estimated later (see :meth:`cdf`).
+    :param hierarchical: boolean denoting whether we have a (Normal) prior
+        on the alpha and beta parameters to regularize. The variance of
+        the normal distribution is in itself assumed to be an inverse
+        gamma distribution (1, 1).
+    :param flavor: defaults to logistic. If set to 'linear', then an
+        linear model is fit, where the beta params will be completely
+        additive. This creates a much more interpretable model, with some
+        minor loss of accuracy.
+
     This mostly follows the `Wikipedia article
     <https://en.wikipedia.org/wiki/Generalized_gamma_distribution>`_, although
     our notation is slightly different. Also see `this paper
@@ -264,6 +276,20 @@ class GeneralizedGamma(RegressionModel):
         } for k, data in result.items()}
 
     def cdf(self, x, t, ci=None):
+        '''Returns the value of the cumulative distribution function
+        for a fitted model. TODO: this should probably be renamed
+        "predict" in the future to follow the scikit-learn convention.
+
+        :param x: feature vector (or matrix)
+        :param t: time
+        :param ci: if this is provided, and the model was fit with
+            `ci = True`, then the return value will contain one more
+            dimension, and the last dimension will have size 3,
+            containing the mean, the lower bound of the confidence
+            interval, and the upper bound of the confidence interval.
+            If this is not provided, then the max a posteriori
+            prediction will be used.
+        '''
         x = numpy.array(x)
         t = numpy.array(t)
         if ci is None:
