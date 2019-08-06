@@ -157,11 +157,11 @@ def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=10000):
 
 
 @flaky.flaky
-def test_linear_model(n=10000, k=5, lambd=0.1):
+def test_linear_model(n=10000, m=5, k=3.0, lambd=0.1):
     # Generate data with little censoring
     # The coefficients should be quite close to their actual value
-    cs = numpy.random.dirichlet(numpy.ones(k))
-    X = numpy.random.binomial(n=1, p=0.5, size=(n, k))
+    cs = numpy.random.dirichlet(numpy.ones(m))
+    X = numpy.random.binomial(n=1, p=0.5, size=(n, m))
     C = numpy.random.rand(n) < numpy.dot(X, cs.T)
     N = scipy.stats.uniform.rvs(scale=20./lambd, size=(n,))
     E = numpy.array([sample_weibull(k, lambd) for r in range(n)])
@@ -169,6 +169,8 @@ def test_linear_model(n=10000, k=5, lambd=0.1):
 
     model = convoys.regression.Weibull(ci=False, flavor='linear')
     model.fit(X, B, T)
+
+    # Check the fitted parameters
     model_cs = model.params['map']['b'] + model.params['map']['beta']
     for model_c, c in zip(model_cs, cs):
         assert c - 0.03 < model_c < c + 0.03
@@ -176,6 +178,16 @@ def test_linear_model(n=10000, k=5, lambd=0.1):
                              model.params['map']['alpha'])
     for model_lambd in model_lambds:
         assert 0.97*lambd < model_lambd < 1.03*lambd
+
+    # Check predictions
+    for i, c in enumerate(cs):
+        x = numpy.array([float(j == i) for j in range(m)])
+        p = model.cdf(x, float('inf'))
+        assert c - 0.03 < p < c + 0.03
+        t = 10.0
+        p = model.cdf(x, t)
+        f = 1 - numpy.exp(-(t*lambd)**k)
+        assert c*f - 0.03 < p < c*f + 0.03
 
 
 @flaky.flaky
