@@ -298,7 +298,10 @@ class GeneralizedGamma(RegressionModel):
             assert self._ci
             params = self.params['samples']
         lambd = exp(dot(x, params['alpha'].T) + params['a'])
-        c = expit(dot(x, params['beta'].T) + params['b'])
+        if self._flavor == 'logistic':
+            c = expit(dot(x, params['beta'].T) + params['b'])
+        elif self._flavor == 'linear':
+            c = dot(x, params['beta'].T) + params['b']
         M = c * gammainc(
             params['k'],
             numpy.multiply.outer(t, lambd)**params['p'])
