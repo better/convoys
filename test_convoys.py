@@ -287,6 +287,17 @@ def test_plot_cohorts_two_models():
     _test_plot_cohorts(model='kaplan-meier', extra_model='weibull')
 
 
+def test_plot_cohorts_subplots():
+    df = _generate_dataframe()
+    unit, groups, (G, B, T) = convoys.utils.get_arrays(df)
+    matplotlib.pyplot.clf()
+    fix, axes = matplotlib.pyplot.subplots(nrows=2, ncols=2)
+    for ax in axes.flatten():
+        convoys.plotting.plot_cohorts(G, B, T, groups=groups, ax=ax)
+        ax.legend()
+    matplotlib.pyplot.savefig('subplots.png')
+
+
 def test_marriage_example():
     from examples.marriage import run
     run()
