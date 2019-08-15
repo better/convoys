@@ -69,6 +69,7 @@ def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
     # Plot
     t = numpy.linspace(0, t_max, 1000)
     _, y_max = ax.get_ylim()
+    ax.set_prop_cycle(None)  # Reset to first color
     for i, group in enumerate(specific_groups):
         j = groups.index(group)  # matching index of group
 
