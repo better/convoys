@@ -287,7 +287,6 @@ def test_plot_cohorts_two_models():
     _test_plot_cohorts(model='kaplan-meier', extra_model='weibull')
 
 
-
 def test_plot_cohorts_subplots():
     df = _generate_dataframe()
     unit, groups, (G, B, T) = convoys.utils.get_arrays(df)
