@@ -37,7 +37,7 @@ def get_groups(data, group_min_size, max_groups):
     groups = [group for group, count in group2count.items() if count >= group_min_size]
     if max_groups >= 0:
         groups = sorted(groups, key=group2count.get, reverse=True)[:max_groups]
-    return sorted(groups)
+    return sorted(groups, key=lambda g: (g is None, g))  # Put Nones last
 
 
 def _sub(a, b):
