@@ -253,13 +253,37 @@ def test_convert_dataframe_features(n=1000):
 def test_convert_dataframe_infer_now():
     df = _generate_dataframe()
     df = df.drop('now', axis=1)
+
     unit, groups, (G1, B1, T1) = convoys.utils.get_arrays(df, unit='days')
-    # Now, let's convert everything to a timezone as well
-    utc = datetime.timezone.utc
-    df['created'] = df['created'].apply(lambda z: z.replace(tzinfo=utc))
-    df['converted'] = df['converted'].apply(lambda z: z.replace(tzinfo=utc))
+
+    # Now, let's make the timezone-naive objects timezone aware
+    local = datetime.datetime.now().astimezone().tzinfo
+    df[['created', 'converted']] = df[['created', 'converted']].applymap(
+        lambda z: z.replace(tzinfo=local))
     unit, groups, (G2, B2, T2) = convoys.utils.get_arrays(df, unit='days')
-    # There will be some slight clock drift
+
+    # Convert everything to UTC and make sure it's still the same
+    utc = datetime.timezone.utc
+    df[['created', 'converted']] = df[['created', 'converted']].applymap(
+        lambda z: z.tz_convert(utc))
+    unit, groups, (G3, B3, T3) = convoys.utils.get_arrays(df, unit='days')
+
+    # Let's check that all deltas are the same
+    # There will be some slight clock drift, so let's accept up to 3s
+    for t1, t2, t3 in zip(T1, T2, T3):
+        assert 0 <= t2 - t1 < 3.0 / (24*60*60)
+        assert 0 <= t3 - t1 < 3.0 / (24*60*60)
+
+
+def test_convert_dataframe_timedeltas():
+    df = _generate_dataframe()
+
+    unit, groups, (G1, B1, T1) = convoys.utils.get_arrays(df, unit='days')
+    df2 = pandas.DataFrame({'group': df['group'],
+                            'converted': df['converted'] - df['created'],
+                            'now': df['now'] - df['created']})
+    unit, groups, (G2, B2, T2) = convoys.utils.get_arrays(df2, unit='days')
+
     for t1, t2 in zip(T1, T2):
         assert 0 <= t2 - t1 < 3.0 / (24*60*60)
 
