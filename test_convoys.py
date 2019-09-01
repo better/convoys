@@ -235,10 +235,10 @@ def _generate_dataframe(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=1000):
     ))
 
 
-def test_convert_dataframe():
-    df = _generate_dataframe()
+def test_convert_dataframe(n=1000):
+    df = _generate_dataframe(n=n)
     unit, groups, (G, B, T) = convoys.utils.get_arrays(df)
-    # TODO: assert things
+    assert G.shape == B.shape == T.shape == (n,)
 
 
 def test_convert_dataframe_features(n=1000):
@@ -248,6 +248,44 @@ def test_convert_dataframe_features(n=1000):
     df = df.drop('group', axis=1)
     unit, groups, (X, B, T) = convoys.utils.get_arrays(df)
     assert X.shape == (n, 3)
+
+
+def test_convert_dataframe_infer_now():
+    df = _generate_dataframe()
+    df = df.drop('now', axis=1)
+
+    unit, groups, (G1, B1, T1) = convoys.utils.get_arrays(df, unit='days')
+
+    # Now, let's make the timezone-naive objects timezone aware
+    utc = datetime.timezone.utc
+    local = datetime.datetime.now(utc).astimezone().tzinfo
+    df[['created', 'converted']] = df[['created', 'converted']].applymap(
+        lambda z: z.replace(tzinfo=local))
+    unit, groups, (G2, B2, T2) = convoys.utils.get_arrays(df, unit='days')
+
+    # Convert everything to UTC and make sure it's still the same
+    df[['created', 'converted']] = df[['created', 'converted']].applymap(
+        lambda z: z.tz_convert(utc))
+    unit, groups, (G3, B3, T3) = convoys.utils.get_arrays(df, unit='days')
+
+    # Let's check that all deltas are the same
+    # There will be some slight clock drift, so let's accept up to 3s
+    for t1, t2, t3 in zip(T1, T2, T3):
+        assert 0 <= t2 - t1 < 3.0 / (24*60*60)
+        assert 0 <= t3 - t1 < 3.0 / (24*60*60)
+
+
+def test_convert_dataframe_timedeltas():
+    df = _generate_dataframe()
+
+    unit, groups, (G1, B1, T1) = convoys.utils.get_arrays(df, unit='days')
+    df2 = pandas.DataFrame({'group': df['group'],
+                            'converted': df['converted'] - df['created'],
+                            'now': df['now'] - df['created']})
+    unit, groups, (G2, B2, T2) = convoys.utils.get_arrays(df2, unit='days')
+
+    for t1, t2 in zip(T1, T2):
+        assert 0 <= t2 - t1 < 3.0 / (24*60*60)
 
 
 def _test_plot_cohorts(model='weibull', extra_model=None):

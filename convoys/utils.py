@@ -108,13 +108,14 @@ def get_arrays(data, features=None, groups=None, created=None,
                 if now is not None:
                     return _sub(row[now], row[created])
                 else:
-                    return _sub(datetime.datetime.now(), row[created])
+                    return (datetime.datetime.now(tz=row[created].tzinfo)
+                            - row[created])
             else:
                 return row[now]
 
     T_raw = data.apply(lambda x: _calculate_T(x), axis=1)
     unit, converter = get_timescale(max(T_raw), unit)
-    T = [converter(t) for t in T_raw]
+    T = numpy.array([converter(t) for t in T_raw])
     res.append(T)
     return unit, groups_list, tuple(res)
 
