@@ -1,4 +1,5 @@
 import datetime
+import numpy
 import pandas
 
 __all__ = ['get_arrays']
@@ -78,8 +79,8 @@ def get_arrays(data, features=None, groups=None, created=None,
         G = data[groups].apply(lambda g: group2j.get(g, -1)).values
         res.append(G)
     else:
-        groups_list = []
-        X = data[features].values
+        groups_list = None
+        X = numpy.array([numpy.array(z) for z in data[features].values])
         res.append(X)
 
     # Next, construct the `B` and `T` arrays
