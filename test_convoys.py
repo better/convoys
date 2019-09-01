@@ -235,10 +235,10 @@ def _generate_dataframe(cs=[0.3, 0.5, 0.7], k=0.5, lambd=0.1, n=1000):
     ))
 
 
-def test_convert_dataframe():
-    df = _generate_dataframe()
+def test_convert_dataframe(n=1000):
+    df = _generate_dataframe(n=n)
     unit, groups, (G, B, T) = convoys.utils.get_arrays(df)
-    # TODO: assert things
+    assert G.shape == B.shape == T.shape == (n,)
 
 
 def test_convert_dataframe_features(n=1000):
@@ -248,6 +248,20 @@ def test_convert_dataframe_features(n=1000):
     df = df.drop('group', axis=1)
     unit, groups, (X, B, T) = convoys.utils.get_arrays(df)
     assert X.shape == (n, 3)
+
+
+def test_convert_dataframe_infer_now():
+    df = _generate_dataframe()
+    df = df.drop('now', axis=1)
+    unit, groups, (G1, B1, T1) = convoys.utils.get_arrays(df, unit='days')
+    # Now, let's convert everything to a timezone as well
+    utc = datetime.timezone.utc
+    df['created2'] = df['created'].apply(lambda z: z.replace(tzinfo=utc))
+    df['converted2'] = df['converted'].apply(lambda z: z.replace(tzinfo=utc))
+    unit, groups, (G2, B2, T2) = convoys.utils.get_arrays(df, unit='days')
+    # There will be some slight clock drift
+    for t1, t2 in zip(T1, T2):
+        assert 0 <= t2 - t1 < 3.0 / (24*60*60)
 
 
 def _test_plot_cohorts(model='weibull', extra_model=None):
