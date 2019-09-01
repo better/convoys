@@ -108,7 +108,8 @@ def get_arrays(data, features=None, groups=None, created=None,
                 if now is not None:
                     return _sub(row[now], row[created])
                 else:
-                    return datetime.datetime.now(tz=row[created].tzinfo) - row[created]
+                    return (datetime.datetime.now(tz=row[created].tzinfo)
+                            - row[created])
             else:
                 return row[now]
 
