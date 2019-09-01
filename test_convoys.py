@@ -256,8 +256,8 @@ def test_convert_dataframe_infer_now():
     unit, groups, (G1, B1, T1) = convoys.utils.get_arrays(df, unit='days')
     # Now, let's convert everything to a timezone as well
     utc = datetime.timezone.utc
-    df['created2'] = df['created'].apply(lambda z: z.replace(tzinfo=utc))
-    df['converted2'] = df['converted'].apply(lambda z: z.replace(tzinfo=utc))
+    df['created'] = df['created'].apply(lambda z: z.replace(tzinfo=utc))
+    df['converted'] = df['converted'].apply(lambda z: z.replace(tzinfo=utc))
     unit, groups, (G2, B2, T2) = convoys.utils.get_arrays(df, unit='days')
     # There will be some slight clock drift
     for t1, t2 in zip(T1, T2):
