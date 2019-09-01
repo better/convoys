@@ -257,13 +257,13 @@ def test_convert_dataframe_infer_now():
     unit, groups, (G1, B1, T1) = convoys.utils.get_arrays(df, unit='days')
 
     # Now, let's make the timezone-naive objects timezone aware
-    local = datetime.datetime.now().astimezone().tzinfo
+    utc = datetime.timezone.utc
+    local = datetime.datetime.now(utc).astimezone().tzinfo
     df[['created', 'converted']] = df[['created', 'converted']].applymap(
         lambda z: z.replace(tzinfo=local))
     unit, groups, (G2, B2, T2) = convoys.utils.get_arrays(df, unit='days')
 
     # Convert everything to UTC and make sure it's still the same
-    utc = datetime.timezone.utc
     df[['created', 'converted']] = df[['created', 'converted']].applymap(
         lambda z: z.tz_convert(utc))
     unit, groups, (G3, B3, T3) = convoys.utils.get_arrays(df, unit='days')
