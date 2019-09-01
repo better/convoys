@@ -243,7 +243,8 @@ def test_convert_dataframe():
 
 def test_convert_dataframe_features(n=1000):
     df = _generate_dataframe(n=n)
-    df['features'] = [tuple(numpy.random.randn() for z in range(3)) for g in df['group']]
+    df['features'] = [tuple(numpy.random.randn() for z in range(3))
+                      for g in df['group']]
     df = df.drop('group', axis=1)
     unit, groups, (X, B, T) = convoys.utils.get_arrays(df)
     assert X.shape == (n, 3)
