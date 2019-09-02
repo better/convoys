@@ -55,9 +55,51 @@ def get_arrays(data, features=None, groups=None, created=None,
                group_min_size=0, max_groups=-1):
     ''' Converts a dataframe to a list of numpy arrays.
 
-    Each input refers to a column in the dataframe.
+    Generates either feature data, or group data.
 
-    TODO: more doc
+    :param data: Pandas dataframe
+    :param features: string (optional), refers to a column in the dataframe
+        containing features, each being a 1d-vector or list of features.
+        If not provided, then it it will look for a column in the dataframe
+        named "features". This argument can also be a list of columns.
+    :param groups: string (optional), refers to a column in the dataframe
+        containing the groups for each row. If not provided, then it will
+        look for a column in the dataframe named "groups".
+    :param created: string (optional), refers to a column in the dataframe
+        containing timestamps of when each item was "created". If not
+        provided, then it will look for a column in the dataframe named
+        "created".
+    :param converted: string, refers to a column in the dataframe
+        containing timestamps of when each item converted. If there is no
+        column containing creation values, then the converted values should
+        be timedeltas denoting time until conversion. If this argument is
+        not provided, then it will look for a column in the dataframe named
+        "created".
+    :param now: string (optional), refers to a column in the dataframe
+        containing the point in time up until which we have observed
+        non-conversion. If there is no column containing creation value,
+        then these values should be timedeltas. If this argument is not
+        provided, the current timestamp will be used.
+    :param unit: string (optional), time unit to use when converting to
+        numerical values. Has to be one of "years", "days", "hours",
+        "minutes", or "seconds". If not provided, then a choice will be
+        made based on the largest time interval in the inputs.
+    :param group_min_size: integer (optional), only include groups that
+        has at least this many observations
+    :param max_groups: integer (optional), only include the `n` largest
+        groups
+    :returns: tuple (unit, groups, arrays)
+
+        `unit` is the unit chosen. Will be one of "years", "days", "hours",
+        "minutes", or "seconds". If the `unit` parameter is passed, this
+        will be the same.
+
+        `groups` is a list of strings containing the groups. Will be `None`
+         if `groups` is not set.
+
+        `arrays` is a tuple of numpy arrays `(G, B, T)` or `(X, B, T)`
+        containing the transformed input in numerical format. `G`, `B`, `T`
+        will all be 1D numpy arrays. `X` will be a 2D numpy array.
     '''
     res = []
 
@@ -80,6 +122,8 @@ def get_arrays(data, features=None, groups=None, created=None,
         res.append(G)
     else:
         groups_list = None
+        if type(features) == tuple:
+            features = list(features)  # Otherwise sad Panda
         X = numpy.array([numpy.array(z) for z in data[features].values])
         res.append(X)
 

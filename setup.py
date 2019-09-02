@@ -10,7 +10,7 @@ or
 '''
 
 setup(name='convoys',
-      version='0.1.5',
+      version='0.1.6',
       description='Fit machine learning models to predict conversion using Weibull and Gamma distributions',
       long_description=long_description,
       url='https://better.engineering/convoys',
