@@ -279,6 +279,15 @@ def test_convert_dataframe_features(n=1000):
     unit, groups, (X, B, T) = convoys.utils.get_arrays(df)
     assert X.shape == (n, 3)
 
+    # Generate from multiple columns
+    df = _generate_dataframe(n=n)
+    df['feature_1'] = [numpy.random.randn() for g in df['group']]
+    df['feature_2'] = [numpy.random.randn() for g in df['group']]
+    df = df.drop('group', axis=1)
+    unit, groups, (X, B, T) = convoys.utils.get_arrays(
+        df, features=('feature_1', 'feature_2'))
+    assert X.shape == (n, 2)
+
 
 def test_convert_dataframe_infer_now():
     df = _generate_dataframe()

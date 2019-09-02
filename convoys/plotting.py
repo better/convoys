@@ -20,9 +20,9 @@ def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
                  label_fmt='%(group)s (n=%(n).0f, k=%(k).0f)'):
     ''' Helper function to fit data using a model and then plot the cohorts.
 
-    :param G: list with group assignment (see :meth:`utils.get_arrays`)
-    :param B: list with group assignment (see :meth:`utils.get_arrays`)
-    :param T: list with group assignment (see :meth:`utils.get_arrays`)
+    :param G: list with group assignment
+    :param B: list with group assignment
+    :param T: list with group assignment
     :param t_max: (optional) max value for x axis
     :param model: (optional, default is kaplan-meier) model to fit.
         Can be an instance of :class:`multi.MultiModel` or a string
@@ -37,6 +37,9 @@ def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
     :param groups: list of group labels
     :param specific_groups: subset of groups to plot
     :param label_fmt: custom format for the labels to use in the legend
+
+    See  :meth:`convoys.utils.get_arrays` which is handy for converting
+    a Pandas dataframe into arrays `G`, `B`, `T`.
     '''
 
     if model not in _models.keys():
