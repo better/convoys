@@ -79,9 +79,12 @@ def test_output_shapes(c=0.3, lambd=0.1, n=1000, k=5):
     assert model.cdf(X[0], 0, ci=0.8).shape == (3,)
     assert model.cdf([X[0], X[1]], 0, ci=0.8).shape == (2, 3)
     assert model.cdf([X[0]], [0, 1, 2, 3], ci=0.8).shape == (4, 3)
-    assert model.cdf([X[0], X[1], X[2]], [0, 1, 2], ci=0.8).shape == (3, 3)
-    assert model.cdf([[X[0], X[1]]], [[0], [1], [2]], ci=0.8).shape == (3, 2, 3)
-    assert model.cdf([[X[0]], [X[1]]], [[0, 1, 2]], ci=0.8).shape == (2, 3, 3)
+    assert model.cdf([X[0], X[1], X[2]], [0, 1, 2], ci=0.8) \
+                .shape == (3, 3)
+    assert model.cdf([[X[0], X[1]]], [[0], [1], [2]], ci=0.8) \
+                .shape == (3, 2, 3)
+    assert model.cdf([[X[0]], [X[1]]], [[0, 1, 2]], ci=0.8) \
+                .shape == (2, 3, 3)
 
     # Fit model without ci (should be the same)
     model = convoys.regression.Exponential(ci=False)
