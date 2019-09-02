@@ -56,6 +56,43 @@ def test_kaplan_meier_model():
     assert m.cdf(0, 9) == 0.75
 
 
+def test_output_shapes(c=0.3, lambd=0.1, n=1000, k=5):
+    X = numpy.random.randn(n, k)
+    C = scipy.stats.bernoulli.rvs(c, size=(n,))
+    N = scipy.stats.uniform.rvs(scale=5./lambd, size=(n,))
+    E = scipy.stats.expon.rvs(scale=1./lambd, size=(n,))
+    B, T = generate_censored_data(N, E, C)
+
+    # Fit model with ci
+    model = convoys.regression.Exponential(ci=True)
+    model.fit(X, B, T)
+
+    # Generate output without ci
+    assert model.cdf(X[0], 0).shape == ()
+    assert model.cdf([X[0], X[1]], 0).shape == (2,)
+    assert model.cdf([X[0]], [0, 1, 2, 3]).shape == (4,)
+    assert model.cdf([X[0], X[1], X[2]], [0, 1, 2]).shape == (3,)
+    assert model.cdf([[X[0], X[1]]], [[0], [1], [2]]).shape == (3, 2)
+    assert model.cdf([[X[0]], [X[1]]], [[0, 1, 2]]).shape == (2, 3)
+
+    # Generate output with ci (same as above plus (3,))
+    assert model.cdf(X[0], 0, ci=0.8).shape == (3,)
+    assert model.cdf([X[0], X[1]], 0, ci=0.8).shape == (2, 3)
+    assert model.cdf([X[0]], [0, 1, 2, 3], ci=0.8).shape == (4, 3)
+    assert model.cdf([X[0], X[1], X[2]], [0, 1, 2], ci=0.8) \
+                .shape == (3, 3)
+    assert model.cdf([[X[0], X[1]]], [[0], [1], [2]], ci=0.8) \
+                .shape == (3, 2, 3)
+    assert model.cdf([[X[0]], [X[1]]], [[0, 1, 2]], ci=0.8) \
+                .shape == (2, 3, 3)
+
+    # Fit model without ci (should be the same)
+    model = convoys.regression.Exponential(ci=False)
+    model.fit(X, B, T)
+    assert model.cdf(X[0], 0).shape == ()
+    assert model.cdf([X[0], X[1]], [0, 1]).shape == (2,)
+
+
 @flaky.flaky
 def test_exponential_regression_model(c=0.3, lambd=0.1, n=10000):
     X = numpy.ones((n, 1))
@@ -65,11 +102,7 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=10000):
     B, T = generate_censored_data(N, E, C)
     model = convoys.regression.Exponential(ci=True)
     model.fit(X, B, T)
-    assert model.cdf([1], float('inf')).shape == ()
     assert 0.80*c < model.cdf([1], float('inf')) < 1.30*c
-    assert model.cdf([1], 0).shape == ()
-    assert model.cdf([[1], [2]], 0).shape == (2,)
-    assert model.cdf([1], [0, 1, 2, 3]).shape == (4,)
     for t in [1, 3, 10]:
         d = 1 - numpy.exp(-lambd*t)
         assert 0.80*c*d < model.cdf([1], t) < 1.30*c*d
@@ -88,17 +121,14 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=10000):
         d = 1 - numpy.exp(-lambd*t)
         assert 0.70*d < (convert_times < t).mean() < 1.30*d
 
-    # Fit model without ci
-    model = convoys.regression.Exponential(ci=False)
-    model.fit(X, B, T)
-    assert model.cdf([1], 0).shape == ()
-    assert model.cdf([1], [0, 1, 2, 3]).shape == (4,)
-
     # Fit a linear model
     model = convoys.regression.Exponential(ci=False, flavor='linear')
     model.fit(X, B, T)
     model_c = model.params['map']['b'] + model.params['map']['beta'][0]
     assert 0.9*c < model_c < 1.1*c
+    for t in [1, 3, 10]:
+        d = 1 - numpy.exp(-lambd*t)
+        assert 0.80*c*d < model.cdf([1], t) < 1.30*c*d
 
 
 @flaky.flaky
