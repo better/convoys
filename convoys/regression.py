@@ -203,11 +203,12 @@ class GeneralizedGamma(RegressionModel):
         args = (X, B, T, W, self._fix_k, self._fix_p,
                 self._hierarchical, self._flavor)
 
-        # Set up progressbar
-        widgets = [progressbar.Variable('loss', width=15, precision=9), ' ',
-                   progressbar.BouncingBar(), ' ', progressbar.Counter(width=6),
-                   ' [', progressbar.Timer(), ']']
-        bar = progressbar.ProgressBar(widgets=widgets)
+        # Set up progressbar and callback
+        bar = progressbar.ProgressBar(widgets=[
+                progressbar.Variable('loss', width=15, precision=9), ' ',
+                progressbar.BouncingBar(), ' ',
+                progressbar.Counter(width=6),
+                ' [', progressbar.Timer(), ']'])
 
         def callback(LL, value_history=[]):
             value_history.append(LL)
@@ -255,9 +256,10 @@ class GeneralizedGamma(RegressionModel):
             n_steps = numpy.ceil(2000. / n_walkers)
             n_iterations = n_burnin + n_steps
 
-            widgets = [progressbar.Percentage(), ' ', progressbar.Bar(),
-                       ' %d walkers [' % n_walkers, progressbar.AdaptiveETA(), ']']
-            bar = progressbar.ProgressBar(widgets=widgets, max_value=n_iterations)
+            bar = progressbar.ProgressBar(max_value=n_iterations, widgets=[
+                    progressbar.Percentage(), ' ', progressbar.Bar(),
+                    ' %d walkers [' % n_walkers,
+                    progressbar.AdaptiveETA(), ']'])
             for i, _ in enumerate(sampler.sample(p0, iterations=n_iterations)):
                 bar.update(i+1)
             result['samples'] = sampler.chain[:, n_burnin:, :] \
