@@ -182,7 +182,7 @@ class GeneralizedGamma(RegressionModel):
         '''
 
         if W is None:
-            W = [1] * len(X)
+            W = numpy.ones(len(X))
         X, B, T, W = (Z if type(Z) == numpy.ndarray else numpy.array(Z)
                       for Z in (X, B, T, W))
         keep_indexes = (T > 0) & (B >= 0) & (B <= 1) & (W >= 0)

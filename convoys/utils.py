@@ -14,7 +14,8 @@ def get_timescale(t, unit):
     def get_timedelta_converter(t_factor):
         return lambda td: td.total_seconds() * t_factor
 
-    if not isinstance(t, datetime.timedelta) or not isinstance(t, pandas.Timedelta):
+    if not isinstance(t, datetime.timedelta) or \
+            not isinstance(t, pandas.Timedelta):
         # Assume numeric type
         return None, lambda x: float(x)
     for u, f in [('years', 365.25*24*60*60), ('days', 24*60*60),
@@ -163,4 +164,3 @@ def get_arrays(data, features=None, groups=None, created=None,
     T = T_deltas.apply(converter).to_numpy()
     res.append(T)
     return unit, groups_list, tuple(res)
-
