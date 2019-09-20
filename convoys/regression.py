@@ -6,8 +6,8 @@ import numpy
 from scipy.special import gammaincinv
 from autograd.scipy.special import expit, gammaln
 from autograd.numpy import isnan, exp, dot, log, sum
+import progressbar
 import scipy.optimize
-import sys
 import warnings
 
 
@@ -203,14 +203,16 @@ class GeneralizedGamma(RegressionModel):
         args = (X, B, T, W, self._fix_k, self._fix_p,
                 self._hierarchical, self._flavor)
 
-        # Callback for progress to stdout
-        sys.stdout.write('\n')
+        # Set up progressbar and callback
+        bar = progressbar.ProgressBar(widgets=[
+                progressbar.Variable('loss', width=15, precision=9), ' ',
+                progressbar.BouncingBar(), ' ',
+                progressbar.Counter(width=6),
+                ' [', progressbar.Timer(), ']'])
 
         def callback(LL, value_history=[]):
             value_history.append(LL)
-            sys.stdout.write('Finding MAP: %13d  (%18.6e)\r' %
-                             (len(value_history), value_history[-1]))
-            sys.stdout.flush()
+            bar.update(len(value_history), loss=LL)
 
         # Define objective and use automatic differentiation
         f = lambda x: -generalized_gamma_loss(x, *args, callback=callback)
@@ -219,7 +221,6 @@ class GeneralizedGamma(RegressionModel):
         # Find the maximum a posteriori of the distribution
         res = scipy.optimize.minimize(f, x0, jac=jac, method='SLSQP',
                                       options={'maxiter': 9999})
-        sys.stdout.write('\n')
         if not res.success:
             raise Exception('Optimization failed with message: %s' %
                             res.message)
@@ -254,11 +255,13 @@ class GeneralizedGamma(RegressionModel):
             n_burnin = 100
             n_steps = numpy.ceil(2000. / n_walkers)
             n_iterations = n_burnin + n_steps
+
+            bar = progressbar.ProgressBar(max_value=n_iterations, widgets=[
+                    progressbar.Percentage(), ' ', progressbar.Bar(),
+                    ' %d walkers [' % n_walkers,
+                    progressbar.AdaptiveETA(), ']'])
             for i, _ in enumerate(sampler.sample(p0, iterations=n_iterations)):
-                sys.stdout.write('MCMC (%3d walkers): %6d/%-6d (%6.2f%%)\r' % (
-                        n_walkers, i+1, n_iterations, 100.*(i+1)/n_iterations))
-                sys.stdout.flush()
-            sys.stdout.write('\n')
+                bar.update(i+1)
             result['samples'] = sampler.chain[:, n_burnin:, :] \
                                        .reshape((-1, dim)).T
             if self._fix_k:

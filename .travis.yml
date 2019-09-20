@@ -3,14 +3,11 @@ python:
   - "3.5"
   - "3.6"
   - "3.7"
-before_install:
-  - pip install -U pytest pytest-cov
-  - pip install coveralls
-  - pip install sphinx
-  - sphinx-build -M html docs/ docs/_build/ -W
 install:
-  - pip install pytest flaky .
+  - pip install -U coveralls flaky pytest pytest-cov sphinx
+  - pip install .
 script:
   - py.test -s -v --cov=convoys .
+  - sphinx-build -M html docs/ docs/_build/ -W
 after_success:
   - coveralls

@@ -24,6 +24,7 @@ setup(name='convoys',
           'emcee',
           'matplotlib>=2.0.0',
           'pandas',
+          'progressbar2>=3.46.1',
           'numpy',
           'scipy',
       ])
