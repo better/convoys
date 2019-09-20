@@ -335,6 +335,15 @@ def test_convert_dataframe_more_args():
     assert G.shape == (0,)
 
 
+def test_convert_dataframe_created_at_nan(n=1000):
+    df = _generate_dataframe(n=n)
+    df.loc[df.index[0], 'created'] = None
+    unit, groups, (G, B, T) = convoys.utils.get_arrays(df)
+    assert numpy.issubdtype(G.dtype, numpy.integer)
+    assert numpy.issubdtype(B.dtype, numpy.bool_)
+    assert numpy.issubdtype(T.dtype, numpy.number)
+
+
 def _test_plot_cohorts(model='weibull', extra_model=None):
     df = _generate_dataframe()
     unit, groups, (G, B, T) = convoys.utils.get_arrays(df)
