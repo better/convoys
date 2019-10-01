@@ -245,8 +245,8 @@ class GeneralizedGamma(RegressionModel):
             n_walkers = 5*dim
             sampler = emcee.EnsembleSampler(
                 nwalkers=n_walkers,
-                dim=dim,
-                lnpostfn=generalized_gamma_loss,
+                ndim=dim,
+                log_prob_fn=generalized_gamma_loss,
                 args=args,
             )
             mcmc_initial_noise = 1e-3
