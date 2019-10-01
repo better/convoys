@@ -21,7 +21,7 @@ setup(name='convoys',
       install_requires=[
           'autograd',
           'autograd-gamma>=0.2.0',
-          'emcee',
+          'emcee>=3.0.0',
           'matplotlib>=2.0.0',
           'pandas',
           'progressbar2>=3.46.1',
