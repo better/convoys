@@ -207,7 +207,7 @@ def test_linear_model(n=10000, m=5, k=3.0, lambd=0.1):
     model_lambds = numpy.exp(model.params['map']['a'] +
                              model.params['map']['alpha'])
     for model_lambd in model_lambds:
-        assert 0.97*lambd < model_lambd < 1.03*lambd
+        assert 0.95*lambd < model_lambd < 1.05*lambd
 
     # Check predictions
     for i, c in enumerate(cs):
