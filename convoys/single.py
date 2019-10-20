@@ -20,11 +20,11 @@ class KaplanMeier(SingleModel):
         '''
         # See https://www.math.wustl.edu/~sawyer/handouts/greenwood.pdf
         BT = [(b, t) for b, t in zip(B, T)
-              if t > 0 and 0 <= float(b) <= 1]
+              if t >= 0 and 0 <= float(b) <= 1]
         if len(BT) < len(B):
             n_removed = len(B) - len(BT)
             warnings.warn('Warning! Removed %d/%d entries from inputs where '
-                          'T <= 0 or B not 0/1' % (n_removed, len(B)))
+                          'T < 0 or B not 0/1' % (n_removed, len(B)))
         B, T = ([z[i] for z in BT] for i in range(2))
         n = len(T)
         self._ts = [0.0]
