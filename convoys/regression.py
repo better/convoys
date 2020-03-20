@@ -286,7 +286,7 @@ class GeneralizedGamma(RegressionModel):
         :param t: time
         :param ci: if this is provided, and the model was fit with
             `ci = True`, then the return value will be the trace
-            samples generated via the MCMC steps. If this is not 
+            samples generated via the MCMC steps. If this is not
             provided, then the max a posteriori prediction will be used.
         '''
         x = numpy.array(x)
@@ -305,7 +305,7 @@ class GeneralizedGamma(RegressionModel):
         M = c * gammainc(
             params['k'],
             (t*lambd)**params['p'])
-        
+
         return M
 
     def cdf(self, x, t, ci=None):
