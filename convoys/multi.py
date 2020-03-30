@@ -35,16 +35,23 @@ class RegressionToMulti(MultiModel):
         x[group] = 1
         return x
 
-    def predict(self, group, *args, **kwargs):
-        return self.base_model.predict(self._get_x(group), *args, **kwargs)
+    def predict(self, group, t):
+        return self.base_model.predict(self._get_x(group), t)
+
+    def predict_ci(self, group, t, ci):
+        return self.base_model.predict_ci(self._get_x(group), t, ci)
 
     def rvs(self, group, *args, **kwargs):
         return self.base_model.rvs(self._get_x(group), *args, **kwargs)
 
-    @deprecated(version='0.1.8', reason='Has been renamed to :meth:`predict`')
-    def cdf(self, *args, **kwargs):
+    @deprecated(version='0.1.8',
+                reason='Use :meth:`predict` or :meth:`predict_ci` instead.')
+    def cdf(self, group, t, ci=None):
         '''Returns the predicted values.'''
-        return self.predict(*args, **kwargs)
+        if ci is not None:
+            return self.predict_ci(group, t, ci)
+        else:
+            return self.predict(group, t)
 
 
 class SingleToMulti(MultiModel):
@@ -66,13 +73,20 @@ class SingleToMulti(MultiModel):
             self._group2model[g] = self.base_model_init()
             self._group2model[g].fit([b for b, t in BT], [t for b, t in BT])
 
-    def predict(self, group, t, *args, **kwargs):
-        return self._group2model[group].predict(t, *args, **kwargs)
+    def predict(self, group, t):
+        return self._group2model[group].predict(t)
 
-    @deprecated(version='0.1.8', reason='Has been renamed to :meth:`predict`')
-    def cdf(self, *args, **kwargs):
+    def predict_ci(self, group, t, ci):
+        return self._group2model[group].predict_ci(t, ci)
+
+    @deprecated(version='0.1.8',
+                reason='Use :meth:`predict` or :meth:`predict_ci` instead')
+    def cdf(self, group, t, ci=None):
         '''Returns the predicted values.'''
-        return self.predict(*args, **kwargs)
+        if ci is not None:
+            return self.predict_ci(group, t, ci)
+        else:
+            return self.predict(group, t)
 
 
 class Exponential(RegressionToMulti):

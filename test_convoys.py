@@ -76,15 +76,19 @@ def test_output_shapes(c=0.3, lambd=0.1, n=1000, k=5):
     assert model.predict([[X[0]], [X[1]]], [[0, 1, 2]]).shape == (2, 3)
 
     # Generate output with ci (same as above plus (3,))
-    assert model.predict(X[0], 0, ci=0.8).shape == (3,)
-    assert model.predict([X[0], X[1]], 0, ci=0.8).shape == (2, 3)
-    assert model.predict([X[0]], [0, 1, 2, 3], ci=0.8).shape == (4, 3)
-    assert model.predict([X[0], X[1], X[2]], [0, 1, 2], ci=0.8) \
+    assert model.predict_ci(X[0], 0, ci=0.8).shape == (3,)
+    assert model.predict_ci([X[0], X[1]], 0, ci=0.8).shape == (2, 3)
+    assert model.predict_ci([X[0]], [0, 1, 2, 3], ci=0.8).shape == (4, 3)
+    assert model.predict_ci([X[0], X[1], X[2]], [0, 1, 2], ci=0.8) \
                 .shape == (3, 3)
-    assert model.predict([[X[0], X[1]]], [[0], [1], [2]], ci=0.8) \
+    assert model.predict_ci([[X[0], X[1]]], [[0], [1], [2]], ci=0.8) \
                 .shape == (3, 2, 3)
-    assert model.predict([[X[0]], [X[1]]], [[0, 1, 2]], ci=0.8) \
+    assert model.predict_ci([[X[0]], [X[1]]], [[0, 1, 2]], ci=0.8) \
                 .shape == (2, 3, 3)
+
+    # Assert old interface still works
+    assert model.cdf(X[0], 0).shape == ()
+    assert model.cdf(X[0], 0, ci=0.8).shape == (3,)
 
     # Fit model without ci (should be the same)
     model = convoys.regression.Exponential(ci=False)
@@ -108,9 +112,9 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=10000):
         assert 0.80*c*d < model.predict([1], t) < 1.30*c*d
 
     # Check the confidence intervals
-    assert model.predict([1], float('inf'), ci=0.95).shape == (3,)
-    assert model.predict([1], [0, 1, 2, 3], ci=0.95).shape == (4, 3)
-    y, y_lo, y_hi = model.predict([1], float('inf'), ci=0.95)
+    assert model.predict_ci([1], float('inf'), ci=0.95).shape == (3,)
+    assert model.predict_ci([1], [0, 1, 2, 3], ci=0.95).shape == (4, 3)
+    y, y_lo, y_hi = model.predict_ci([1], float('inf'), ci=0.95)
     assert 0.80*c < y < 1.30*c
 
     # Check the random variates

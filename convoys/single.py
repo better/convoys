@@ -52,35 +52,46 @@ class KaplanMeier(SingleModel):
         eps = 1e-9
         self._ss_clipped = numpy.clip(self._ss, eps, 1.0-eps)
 
-    def _get_value_at(self, j, ci):
-        if ci:
-            z_lo, z_hi = scipy.stats.norm.ppf([(1-ci)/2, (1+ci)/2])
-            return (
-                1 - self._ss[j],
-                1 - numpy.exp(-numpy.exp(
-                        numpy.log(-numpy.log(self._ss_clipped[j]))
-                        + z_hi * self._vs[j]**0.5)),
-                1 - numpy.exp(-numpy.exp(
-                        numpy.log(-numpy.log(self._ss_clipped[j]))
-                        + z_lo * self._vs[j]**0.5))
-            )
-        else:
-            return 1 - self._ss[j]
-
-    def predict(self, t, ci=None):
+    def predict(self, t):
         '''Returns the predicted values.'''
         t = numpy.array(t)
-        res = numpy.zeros(t.shape + (3,) if ci else t.shape)
+        res = numpy.zeros(t.shape)
         for indexes, value in numpy.ndenumerate(t):
             j = numpy.searchsorted(self._ts, value, side='right') - 1
             if j >= len(self._ts) - 1:
                 # Make the plotting stop at the last value of t
-                res[indexes] = [float('nan')]*3 if ci else float('nan')
+                res[indexes] = float('nan')
             else:
-                res[indexes] = self._get_value_at(j, ci)
+                res[indexes] = 1 - self._ss[j]
         return res
 
-    @deprecated(version='0.1.8', reason='Has been renamed to :meth:`predict`')
-    def cdf(self, *args, **kwargs):
+    def predict_ci(self, t, ci=0.8):
+        '''Returns the predicted values with a confidence interval.'''
+        t = numpy.array(t)
+        res = numpy.zeros(t.shape + (3,))
+        for indexes, value in numpy.ndenumerate(t):
+            j = numpy.searchsorted(self._ts, value, side='right') - 1
+            if j >= len(self._ts) - 1:
+                # Make the plotting stop at the last value of t
+                res[indexes] = [float('nan')]*3
+            else:
+                z_lo, z_hi = scipy.stats.norm.ppf([(1-ci)/2, (1+ci)/2])
+                res[indexes] = (
+                    1 - self._ss[j],
+                    1 - numpy.exp(-numpy.exp(
+                            numpy.log(-numpy.log(self._ss_clipped[j]))
+                            + z_hi * self._vs[j]**0.5)),
+                    1 - numpy.exp(-numpy.exp(
+                            numpy.log(-numpy.log(self._ss_clipped[j]))
+                            + z_lo * self._vs[j]**0.5))
+                    )
+        return res
+
+    @deprecated(version='0.1.8',
+                reason='Use :meth:`predict` or :meth:`predict_ci` instead.')
+    def cdf(self, t, ci=None):
         '''Returns the predicted values.'''
-        return self.predict(*args, **kwargs)
+        if ci is not None:
+            return self.predict_ci(t)
+        else:
+            return self.predict(t)

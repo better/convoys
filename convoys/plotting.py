@@ -81,7 +81,7 @@ def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
         label = label_fmt % dict(group=group, n=n, k=k)
 
         if ci is not None:
-            p_y, p_y_lo, p_y_hi = m.predict(j, t, ci=ci).T
+            p_y, p_y_lo, p_y_hi = m.predict_ci(j, t, ci=ci).T
             merged_plot_ci_kwargs = {'alpha': 0.2}
             merged_plot_ci_kwargs.update(plot_ci_kwargs)
             p = ax.fill_between(t, 100. * p_y_lo, 100. * p_y_hi,
