@@ -1,7 +1,7 @@
 from convoys import autograd_scipy_monkeypatch  # NOQA
 import autograd
 from autograd_gamma import gammainc
-from deprecated import deprecated
+from deprecated.sphinx import deprecated
 import emcee
 import numpy
 from scipy.special import gammaincinv
@@ -311,8 +311,7 @@ class GeneralizedGamma(RegressionModel):
 
     def predict(self, x, t, ci=None):
         '''Returns the value of the cumulative distribution function
-        for a fitted model. TODO: this should probably be renamed
-        "predict" in the future to follow the scikit-learn convention.
+        for a fitted model.
 
         :param x: feature vector (or matrix)
         :param t: time
@@ -367,13 +366,14 @@ class GeneralizedGamma(RegressionModel):
 
         return B, C
 
-    @deprecated(version='0.1.8', reason='Use the `predict` method instead')
+    @deprecated(version='0.1.8', reason='Has been renamed to :meth:`predict`')
     def cdf(self, *args, **kwargs):
+        '''Returns the predicted values.'''
         return self.predict(*args, **kwargs)
 
-    @deprecated(version='0.1.8',
-                reason='Use the `predict_posteriori` method instead')
+    @deprecated(version='0.1.8', reason='Has been renamed to :meth:`predict`')
     def cdf_posteriori(self, *args, **kwargs):
+        '''Returns the predicted values.'''
         return self.predict_posteriori(*args, **kwargs)
 
 

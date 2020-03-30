@@ -4,7 +4,7 @@ python:
   - "3.6"
   - "3.7"
 script:
-  - pip install -U sphinx
+  - pip install -U sphinx deprecated
   - sphinx-build -M html docs/ docs/_build/ -W  # Try building it before installing the rest, should work
   - pip install -U coveralls flaky pytest pytest-cov
   - pip install .

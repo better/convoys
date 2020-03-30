@@ -1,4 +1,4 @@
-from deprecated import deprecated
+from deprecated.sphinx import deprecated
 import numpy
 from scipy.special import expit, logit
 import scipy.stats
@@ -68,6 +68,7 @@ class KaplanMeier(SingleModel):
             return 1 - self._ss[j]
 
     def predict(self, t, ci=None):
+        '''Returns the predicted values.'''
         t = numpy.array(t)
         res = numpy.zeros(t.shape + (3,) if ci else t.shape)
         for indexes, value in numpy.ndenumerate(t):
@@ -79,6 +80,7 @@ class KaplanMeier(SingleModel):
                 res[indexes] = self._get_value_at(j, ci)
         return res
 
-    @deprecated(version='0.1.8', reason='Use the `predict` method instead')
+    @deprecated(version='0.1.8', reason='Has been renamed to :meth:`predict`')
     def cdf(self, *args, **kwargs):
+        '''Returns the predicted values.'''
         return self.predict(*args, **kwargs)

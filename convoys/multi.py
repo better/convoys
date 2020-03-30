@@ -1,4 +1,4 @@
-from deprecated import deprecated
+from deprecated.sphinx import deprecated
 import numpy
 from convoys import regression
 from convoys import single
@@ -41,8 +41,9 @@ class RegressionToMulti(MultiModel):
     def rvs(self, group, *args, **kwargs):
         return self.base_model.rvs(self._get_x(group), *args, **kwargs)
 
-    @deprecated(version='0.1.8', reason='Use the `predict` method instead')
+    @deprecated(version='0.1.8', reason='Has been renamed to :meth:`predict`')
     def cdf(self, *args, **kwargs):
+        '''Returns the predicted values.'''
         return self.predict(*args, **kwargs)
 
 
@@ -68,8 +69,9 @@ class SingleToMulti(MultiModel):
     def predict(self, group, t, *args, **kwargs):
         return self._group2model[group].predict(t, *args, **kwargs)
 
-    @deprecated(version='0.1.8', reason='Use the `predict` method instead')
+    @deprecated(version='0.1.8', reason='Has been renamed to :meth:`predict`')
     def cdf(self, *args, **kwargs):
+        '''Returns the predicted values.'''
         return self.predict(*args, **kwargs)
 
 
