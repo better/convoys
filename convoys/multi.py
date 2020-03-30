@@ -1,3 +1,4 @@
+from deprecated import deprecated
 import numpy
 from convoys import regression
 from convoys import single
@@ -34,11 +35,15 @@ class RegressionToMulti(MultiModel):
         x[group] = 1
         return x
 
-    def cdf(self, group, *args, **kwargs):
-        return self.base_model.cdf(self._get_x(group), *args, **kwargs)
+    def predict(self, group, *args, **kwargs):
+        return self.base_model.predict(self._get_x(group), *args, **kwargs)
 
     def rvs(self, group, *args, **kwargs):
         return self.base_model.rvs(self._get_x(group), *args, **kwargs)
+
+    @deprecated(version='0.1.8', reason='Use the `predict` method instead')
+    def cdf(self, *args, **kwargs):
+        return self.predict(*args, **kwargs)
 
 
 class SingleToMulti(MultiModel):
@@ -60,8 +65,12 @@ class SingleToMulti(MultiModel):
             self._group2model[g] = self.base_model_init()
             self._group2model[g].fit([b for b, t in BT], [t for b, t in BT])
 
-    def cdf(self, group, t, *args, **kwargs):
-        return self._group2model[group].cdf(t, *args, **kwargs)
+    def predict(self, group, t, *args, **kwargs):
+        return self._group2model[group].predict(t, *args, **kwargs)
+
+    @deprecated(version='0.1.8', reason='Use the `predict` method instead')
+    def cdf(self, *args, **kwargs):
+        return self.predict(*args, **kwargs)
 
 
 class Exponential(RegressionToMulti):

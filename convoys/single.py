@@ -1,3 +1,4 @@
+from deprecated import deprecated
 import numpy
 from scipy.special import expit, logit
 import scipy.stats
@@ -66,7 +67,7 @@ class KaplanMeier(SingleModel):
         else:
             return 1 - self._ss[j]
 
-    def cdf(self, t, ci=None):
+    def predict(self, t, ci=None):
         t = numpy.array(t)
         res = numpy.zeros(t.shape + (3,) if ci else t.shape)
         for indexes, value in numpy.ndenumerate(t):
@@ -77,3 +78,7 @@ class KaplanMeier(SingleModel):
             else:
                 res[indexes] = self._get_value_at(j, ci)
         return res
+
+    @deprecated(version='0.1.8', reason='Use the `predict` method instead')
+    def cdf(self, *args, **kwargs):
+        return self.predict(*args, **kwargs)

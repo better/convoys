@@ -1,6 +1,7 @@
 from convoys import autograd_scipy_monkeypatch  # NOQA
 import autograd
 from autograd_gamma import gammainc
+from deprecated import deprecated
 import emcee
 import numpy
 from scipy.special import gammaincinv
@@ -76,7 +77,7 @@ class GeneralizedGamma(RegressionModel):
 
     :param ci: boolean, defaults to False. Whether to use MCMC to
         sample from the posterior so that a confidence interval can be
-        estimated later (see :meth:`cdf`).
+        estimated later (see :meth:`predict`).
     :param hierarchical: boolean denoting whether we have a (Normal) prior
         on the alpha and beta parameters to regularize. The variance of
         the normal distribution is in itself assumed to be an inverse
@@ -278,7 +279,7 @@ class GeneralizedGamma(RegressionModel):
             'beta': data[6+n_features:6+2*n_features].T,
         } for k, data in result.items()}
 
-    def cdf_posteriori(self, x, t, ci=None):
+    def predict_posteriori(self, x, t, ci=None):
         '''Returns the value of the cumulative distribution function
         for a fitted model.
 
@@ -308,7 +309,7 @@ class GeneralizedGamma(RegressionModel):
 
         return M
 
-    def cdf(self, x, t, ci=None):
+    def predict(self, x, t, ci=None):
         '''Returns the value of the cumulative distribution function
         for a fitted model. TODO: this should probably be renamed
         "predict" in the future to follow the scikit-learn convention.
@@ -323,7 +324,7 @@ class GeneralizedGamma(RegressionModel):
             If this is not provided, then the max a posteriori
             prediction will be used.
         '''
-        M = self.cdf_posteriori(x, t, ci)
+        M = self.predict_posteriori(x, t, ci)
         if not ci:
             return M
         else:
@@ -334,8 +335,10 @@ class GeneralizedGamma(RegressionModel):
             return numpy.stack((y, y_lo, y_hi), axis=-1)
 
     def rvs(self, x, n_curves=1, n_samples=1, T=None):
-        # Samples values from this distribution
-        # T is optional and means we already observed non-conversion until T
+        ''' Samples values from this distribution
+
+        T is optional and means we already observed non-conversion until T
+        '''
         assert self._ci  # Need to be fit with MCMC
         if T is None:
             T = numpy.zeros((n_curves, n_samples))
@@ -363,6 +366,14 @@ class GeneralizedGamma(RegressionModel):
             C[i][~B[i]] = 0
 
         return B, C
+
+    @deprecated(version='0.1.8', reason='Use the `predict` method instead')
+    def cdf(self, *args, **kwargs):
+        return self.predict(*args, **kwargs)
+
+    @deprecated(version='0.1.8', reason='Use the `predict_posteriori` method instead')
+    def cdf_posteriori(self, *args, **kwargs):
+        return self.predict_posteriori(*args, **kwargs)
 
 
 class Exponential(GeneralizedGamma):
