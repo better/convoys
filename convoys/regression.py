@@ -289,7 +289,7 @@ class GeneralizedGamma(RegressionModel):
             params['k'],
             (t*lambd)**params['p'])
 
-        return M        
+        return M
 
     def predict_posteriori(self, x, t):
         ''' Returns the trace samples generated via the MCMC steps.
@@ -371,7 +371,8 @@ class GeneralizedGamma(RegressionModel):
         else:
             return self.predict(x, t)
 
-    @deprecated(version='0.1.8', reason='Use :meth:`predict_posteriori` instead.')
+    @deprecated(version='0.1.8',
+                reason='Use :meth:`predict_posteriori` instead.')
     def cdf_posteriori(self, x, t):
         '''Returns the a posterior distribution of the predicted values.'''
         return self.predict_posteriori(x, t)
