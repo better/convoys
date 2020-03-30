@@ -371,7 +371,8 @@ class GeneralizedGamma(RegressionModel):
     def cdf(self, *args, **kwargs):
         return self.predict(*args, **kwargs)
 
-    @deprecated(version='0.1.8', reason='Use the `predict_posteriori` method instead')
+    @deprecated(version='0.1.8',
+                reason='Use the `predict_posteriori` method instead')
     def cdf_posteriori(self, *args, **kwargs):
         return self.predict_posteriori(*args, **kwargs)
 
