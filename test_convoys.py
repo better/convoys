@@ -86,10 +86,6 @@ def test_output_shapes(c=0.3, lambd=0.1, n=1000, k=5):
     assert model.predict_ci([[X[0]], [X[1]]], [[0, 1, 2]], ci=0.8) \
                 .shape == (2, 3, 3)
 
-    # Assert old interface still works
-    assert model.cdf(X[0], 0).shape == ()
-    assert model.cdf(X[0], 0, ci=0.8).shape == (3,)
-
     # Fit model without ci (should be the same)
     model = convoys.regression.Exponential(mcmc=False)
     model.fit(X, B, T)
