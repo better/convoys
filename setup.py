@@ -10,7 +10,7 @@ or
 '''
 
 setup(name='convoys',
-      version='0.2.1',
+      version='0.3.0',
       description='Fit machine learning models to predict conversion using Weibull and Gamma distributions',
       long_description=long_description,
       url='https://better.engineering/convoys',
@@ -21,7 +21,6 @@ setup(name='convoys',
       install_requires=[
           'autograd',
           'autograd-gamma>=0.2.0',
-          'deprecated',
           'emcee>=3.0.0',
           'matplotlib>=2.0.0',
           'pandas>=0.24.0',

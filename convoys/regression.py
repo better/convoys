@@ -1,7 +1,6 @@
 from convoys import autograd_scipy_monkeypatch  # NOQA
 import autograd
 from autograd_gamma import gammainc
-from deprecated.sphinx import deprecated
 import emcee
 import numpy
 from scipy.special import gammaincinv
@@ -367,20 +366,13 @@ class GeneralizedGamma(RegressionModel):
 
         return B, C
 
-    @deprecated(version='0.2.0',
-                reason='Use :meth:`predict` or :meth:`predict_ci` instead.')
     def cdf(self, x, t, ci=False):
-        '''Returns the predicted values.'''
-        if ci:
-            return self.predict_ci(x, t)
-        else:
-            return self.predict(x, t)
+        raise Exception('This method has been removed in 0.3.0. '
+                        'Use `predict` or `predict_ci`.')
 
-    @deprecated(version='0.2.0',
-                reason='Use :meth:`predict_posteriori` instead.')
     def cdf_posteriori(self, x, t):
-        '''Returns the a posterior distribution of the predicted values.'''
-        return self.predict_posteriori(x, t)
+        raise Exception('This method has been removed in 0.3.0. '
+                        'Use `predict_posteriori`.')
 
 
 class Exponential(GeneralizedGamma):

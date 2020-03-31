@@ -1,4 +1,3 @@
-from deprecated.sphinx import deprecated
 import numpy
 from convoys import regression
 from convoys import single
@@ -44,14 +43,9 @@ class RegressionToMulti(MultiModel):
     def rvs(self, group, *args, **kwargs):
         return self.base_model.rvs(self._get_x(group), *args, **kwargs)
 
-    @deprecated(version='0.2.0',
-                reason='Use :meth:`predict` or :meth:`predict_ci` instead.')
     def cdf(self, group, t, ci=None):
-        '''Returns the predicted values.'''
-        if ci is not None:
-            return self.predict_ci(group, t, ci)
-        else:
-            return self.predict(group, t)
+        raise Exception('This method has been removed in 0.3.0. '
+                        'Use `predict` or `predict_ci`.')
 
 
 class SingleToMulti(MultiModel):
@@ -79,14 +73,9 @@ class SingleToMulti(MultiModel):
     def predict_ci(self, group, t, ci):
         return self._group2model[group].predict_ci(t, ci)
 
-    @deprecated(version='0.2.0',
-                reason='Use :meth:`predict` or :meth:`predict_ci` instead')
     def cdf(self, group, t, ci=None):
-        '''Returns the predicted values.'''
-        if ci is not None:
-            return self.predict_ci(group, t, ci)
-        else:
-            return self.predict(group, t)
+        raise Exception('This method has been removed in 0.3.0. '
+                        'Use `predict` or `predict_ci`.')
 
 
 class Exponential(RegressionToMulti):
