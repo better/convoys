@@ -362,7 +362,7 @@ class GeneralizedGamma(RegressionModel):
 
         return B, C
 
-    @deprecated(version='0.1.8',
+    @deprecated(version='0.2.0',
                 reason='Use :meth:`predict` or :meth:`predict_ci` instead.')
     def cdf(self, x, t, ci=False):
         '''Returns the predicted values.'''
@@ -371,7 +371,7 @@ class GeneralizedGamma(RegressionModel):
         else:
             return self.predict(x, t)
 
-    @deprecated(version='0.1.8',
+    @deprecated(version='0.2.0',
                 reason='Use :meth:`predict_posteriori` instead.')
     def cdf_posteriori(self, x, t):
         '''Returns the a posterior distribution of the predicted values.'''

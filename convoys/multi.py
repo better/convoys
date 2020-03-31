@@ -44,7 +44,7 @@ class RegressionToMulti(MultiModel):
     def rvs(self, group, *args, **kwargs):
         return self.base_model.rvs(self._get_x(group), *args, **kwargs)
 
-    @deprecated(version='0.1.8',
+    @deprecated(version='0.2.0',
                 reason='Use :meth:`predict` or :meth:`predict_ci` instead.')
     def cdf(self, group, t, ci=None):
         '''Returns the predicted values.'''
@@ -79,7 +79,7 @@ class SingleToMulti(MultiModel):
     def predict_ci(self, group, t, ci):
         return self._group2model[group].predict_ci(t, ci)
 
-    @deprecated(version='0.1.8',
+    @deprecated(version='0.2.0',
                 reason='Use :meth:`predict` or :meth:`predict_ci` instead')
     def cdf(self, group, t, ci=None):
         '''Returns the predicted values.'''

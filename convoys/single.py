@@ -87,7 +87,7 @@ class KaplanMeier(SingleModel):
                     )
         return res
 
-    @deprecated(version='0.1.8',
+    @deprecated(version='0.2.0',
                 reason='Use :meth:`predict` or :meth:`predict_ci` instead.')
     def cdf(self, t, ci=None):
         '''Returns the predicted values.'''
