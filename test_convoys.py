@@ -53,7 +53,7 @@ def test_kaplan_meier_model():
     )
     m = convoys.multi.KaplanMeier()
     m.fit(G, B, T)
-    assert m.cdf(0, 9) == 0.75
+    assert m.predict(0, 9) == 0.75
 
 
 def test_output_shapes(c=0.3, lambd=0.1, n=1000, k=5):
@@ -68,29 +68,33 @@ def test_output_shapes(c=0.3, lambd=0.1, n=1000, k=5):
     model.fit(X, B, T)
 
     # Generate output without ci
-    assert model.cdf(X[0], 0).shape == ()
-    assert model.cdf([X[0], X[1]], 0).shape == (2,)
-    assert model.cdf([X[0]], [0, 1, 2, 3]).shape == (4,)
-    assert model.cdf([X[0], X[1], X[2]], [0, 1, 2]).shape == (3,)
-    assert model.cdf([[X[0], X[1]]], [[0], [1], [2]]).shape == (3, 2)
-    assert model.cdf([[X[0]], [X[1]]], [[0, 1, 2]]).shape == (2, 3)
+    assert model.predict(X[0], 0).shape == ()
+    assert model.predict([X[0], X[1]], 0).shape == (2,)
+    assert model.predict([X[0]], [0, 1, 2, 3]).shape == (4,)
+    assert model.predict([X[0], X[1], X[2]], [0, 1, 2]).shape == (3,)
+    assert model.predict([[X[0], X[1]]], [[0], [1], [2]]).shape == (3, 2)
+    assert model.predict([[X[0]], [X[1]]], [[0, 1, 2]]).shape == (2, 3)
 
     # Generate output with ci (same as above plus (3,))
-    assert model.cdf(X[0], 0, ci=0.8).shape == (3,)
-    assert model.cdf([X[0], X[1]], 0, ci=0.8).shape == (2, 3)
-    assert model.cdf([X[0]], [0, 1, 2, 3], ci=0.8).shape == (4, 3)
-    assert model.cdf([X[0], X[1], X[2]], [0, 1, 2], ci=0.8) \
+    assert model.predict_ci(X[0], 0, ci=0.8).shape == (3,)
+    assert model.predict_ci([X[0], X[1]], 0, ci=0.8).shape == (2, 3)
+    assert model.predict_ci([X[0]], [0, 1, 2, 3], ci=0.8).shape == (4, 3)
+    assert model.predict_ci([X[0], X[1], X[2]], [0, 1, 2], ci=0.8) \
                 .shape == (3, 3)
-    assert model.cdf([[X[0], X[1]]], [[0], [1], [2]], ci=0.8) \
+    assert model.predict_ci([[X[0], X[1]]], [[0], [1], [2]], ci=0.8) \
                 .shape == (3, 2, 3)
-    assert model.cdf([[X[0]], [X[1]]], [[0, 1, 2]], ci=0.8) \
+    assert model.predict_ci([[X[0]], [X[1]]], [[0, 1, 2]], ci=0.8) \
                 .shape == (2, 3, 3)
+
+    # Assert old interface still works
+    assert model.cdf(X[0], 0).shape == ()
+    assert model.cdf(X[0], 0, ci=0.8).shape == (3,)
 
     # Fit model without ci (should be the same)
     model = convoys.regression.Exponential(ci=False)
     model.fit(X, B, T)
-    assert model.cdf(X[0], 0).shape == ()
-    assert model.cdf([X[0], X[1]], [0, 1]).shape == (2,)
+    assert model.predict(X[0], 0).shape == ()
+    assert model.predict([X[0], X[1]], [0, 1]).shape == (2,)
 
 
 @flaky.flaky
@@ -102,15 +106,15 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=10000):
     B, T = generate_censored_data(N, E, C)
     model = convoys.regression.Exponential(ci=True)
     model.fit(X, B, T)
-    assert 0.80*c < model.cdf([1], float('inf')) < 1.30*c
+    assert 0.80*c < model.predict([1], float('inf')) < 1.30*c
     for t in [1, 3, 10]:
         d = 1 - numpy.exp(-lambd*t)
-        assert 0.80*c*d < model.cdf([1], t) < 1.30*c*d
+        assert 0.80*c*d < model.predict([1], t) < 1.30*c*d
 
     # Check the confidence intervals
-    assert model.cdf([1], float('inf'), ci=0.95).shape == (3,)
-    assert model.cdf([1], [0, 1, 2, 3], ci=0.95).shape == (4, 3)
-    y, y_lo, y_hi = model.cdf([1], float('inf'), ci=0.95)
+    assert model.predict_ci([1], float('inf'), ci=0.95).shape == (3,)
+    assert model.predict_ci([1], [0, 1, 2, 3], ci=0.95).shape == (4, 3)
+    y, y_lo, y_hi = model.predict_ci([1], float('inf'), ci=0.95)
     assert 0.80*c < y < 1.30*c
 
     # Check the random variates
@@ -128,7 +132,7 @@ def test_exponential_regression_model(c=0.3, lambd=0.1, n=10000):
     assert 0.9*c < model_c < 1.1*c
     for t in [1, 3, 10]:
         d = 1 - numpy.exp(-lambd*t)
-        assert 0.80*c*d < model.cdf([1], t) < 1.30*c*d
+        assert 0.80*c*d < model.predict([1], t) < 1.30*c*d
 
 
 @flaky.flaky
@@ -148,14 +152,14 @@ def test_weibull_regression_model(cs=[0.3, 0.5, 0.7],
 
     # Validate shape of results
     x = numpy.ones((len(cs),))
-    assert model.cdf(x, float('inf')).shape == ()
-    assert model.cdf(x, 1).shape == ()
-    assert model.cdf(x, [1, 2, 3, 4]).shape == (4,)
+    assert model.predict(x, float('inf')).shape == ()
+    assert model.predict(x, 1).shape == ()
+    assert model.predict(x, [1, 2, 3, 4]).shape == (4,)
 
     # Check results
     for r, c in enumerate(cs):
         x = [int(r == j) for j in range(len(cs))]
-        assert 0.80 * c < model.cdf(x, float('inf')) < 1.30 * c
+        assert 0.80 * c < model.predict(x, float('inf')) < 1.30 * c
 
     # Fit a linear model
     model = convoys.regression.Weibull(ci=False, flavor='linear')
@@ -176,7 +180,7 @@ def test_gamma_regression_model(c=0.3, lambd=0.1, k=3.0, n=10000):
 
     model = convoys.regression.Gamma()
     model.fit(X, B, T)
-    assert 0.80*c < model.cdf([1], float('inf')) < 1.30*c
+    assert 0.80*c < model.predict([1], float('inf')) < 1.30*c
     assert 0.80*k < numpy.mean(model.params['map']['k']) < 1.30*k
 
     # Fit a linear model
@@ -212,10 +216,10 @@ def test_linear_model(n=10000, m=5, k=3.0, lambd=0.1):
     # Check predictions
     for i, c in enumerate(cs):
         x = numpy.array([float(j == i) for j in range(m)])
-        p = model.cdf(x, float('inf'))
+        p = model.predict(x, float('inf'))
         assert c - 0.03 < p < c + 0.03
         t = 10.0
-        p = model.cdf(x, t)
+        p = model.predict(x, t)
         f = 1 - numpy.exp(-(t*lambd)**k)
         assert c*f - 0.03 < p < c*f + 0.03
 
@@ -243,7 +247,7 @@ def test_exponential_pooling(c=0.5, lambd=0.01, n=10000, ks=[1, 2, 3]):
     model.fit(G, B, T)
 
     # Generate predictions for each cohort
-    c = numpy.array([model.cdf(i, float('inf')) for i in range(1+len(ks))])
+    c = numpy.array([model.predict(i, float('inf')) for i in range(1+len(ks))])
     assert numpy.all(c[1:] > 0.25)  # rough check
     assert numpy.all(c[1:] < 0.50)  # same
     assert numpy.all(numpy.diff(c) < 0)  # c should be monotonically decreasing

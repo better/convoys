@@ -1,6 +1,7 @@
 from convoys import autograd_scipy_monkeypatch  # NOQA
 import autograd
 from autograd_gamma import gammainc
+from deprecated.sphinx import deprecated
 import emcee
 import numpy
 from scipy.special import gammaincinv
@@ -76,7 +77,7 @@ class GeneralizedGamma(RegressionModel):
 
     :param ci: boolean, defaults to False. Whether to use MCMC to
         sample from the posterior so that a confidence interval can be
-        estimated later (see :meth:`cdf`).
+        estimated later (see :meth:`predict`).
     :param hierarchical: boolean denoting whether we have a (Normal) prior
         on the alpha and beta parameters to regularize. The variance of
         the normal distribution is in itself assumed to be an inverse
@@ -278,25 +279,7 @@ class GeneralizedGamma(RegressionModel):
             'beta': data[6+n_features:6+2*n_features].T,
         } for k, data in result.items()}
 
-    def cdf_posteriori(self, x, t, ci=None):
-        '''Returns the value of the cumulative distribution function
-        for a fitted model.
-
-        :param x: feature vector (or matrix)
-        :param t: time
-        :param ci: if this is provided, and the model was fit with
-            `ci = True`, then the return value will be the trace
-            samples generated via the MCMC steps. If this is not
-            provided, then the max a posteriori prediction will be used.
-        '''
-        x = numpy.array(x)
-        t = numpy.array(t)
-        if ci is None:
-            params = self.params['map']
-        else:
-            assert self._ci
-            params = self.params['samples']
-            t = numpy.expand_dims(t, -1)
+    def _predict(self, params, x, t):
         lambd = exp(dot(x, params['alpha'].T) + params['a'])
         if self._flavor == 'logistic':
             c = expit(dot(x, params['beta'].T) + params['b'])
@@ -308,34 +291,49 @@ class GeneralizedGamma(RegressionModel):
 
         return M
 
-    def cdf(self, x, t, ci=None):
+    def predict_posteriori(self, x, t):
+        ''' Returns the trace samples generated via the MCMC steps.
+
+        Requires the model to be fit with `ci = True`.'''
+        x = numpy.array(x)
+        t = numpy.array(t)
+        assert self._ci
+        params = self.params['samples']
+        t = numpy.expand_dims(t, -1)
+        return self._predict(params, x, t)
+
+    def predict_ci(self, x, t, ci=0.8):
+        '''Works like :meth:`predict` but produces a confidence interval.
+
+        Requires the model to be fit with `ci = True`. The return value
+        will contain one more dimension than for :meth:`predict`, and
+        the last dimension will have size 3, containing the mean, the
+        lower bound of the confidence interval, and the upper bound of
+        the confidence interval.
+        '''
+        M = self.predict_posteriori(x, t)
+        y = numpy.mean(M, axis=-1)
+        y_lo = numpy.percentile(M, (1-ci)*50, axis=-1)
+        y_hi = numpy.percentile(M, (1+ci)*50, axis=-1)
+        return numpy.stack((y, y_lo, y_hi), axis=-1)
+
+    def predict(self, x, t):
         '''Returns the value of the cumulative distribution function
-        for a fitted model. TODO: this should probably be renamed
-        "predict" in the future to follow the scikit-learn convention.
+        for a fitted model.
 
         :param x: feature vector (or matrix)
         :param t: time
-        :param ci: if this is provided, and the model was fit with
-            `ci = True`, then the return value will contain one more
-            dimension, and the last dimension will have size 3,
-            containing the mean, the lower bound of the confidence
-            interval, and the upper bound of the confidence interval.
-            If this is not provided, then the max a posteriori
-            prediction will be used.
         '''
-        M = self.cdf_posteriori(x, t, ci)
-        if not ci:
-            return M
-        else:
-            # Replace the last axis with a 3-element vector
-            y = numpy.mean(M, axis=-1)
-            y_lo = numpy.percentile(M, (1-ci)*50, axis=-1)
-            y_hi = numpy.percentile(M, (1+ci)*50, axis=-1)
-            return numpy.stack((y, y_lo, y_hi), axis=-1)
+        params = self.params['map']
+        x = numpy.array(x)
+        t = numpy.array(t)
+        return self._predict(params, x, t)
 
     def rvs(self, x, n_curves=1, n_samples=1, T=None):
-        # Samples values from this distribution
-        # T is optional and means we already observed non-conversion until T
+        ''' Samples values from this distribution
+
+        T is optional and means we already observed non-conversion until T
+        '''
         assert self._ci  # Need to be fit with MCMC
         if T is None:
             T = numpy.zeros((n_curves, n_samples))
@@ -363,6 +361,21 @@ class GeneralizedGamma(RegressionModel):
             C[i][~B[i]] = 0
 
         return B, C
+
+    @deprecated(version='0.2.0',
+                reason='Use :meth:`predict` or :meth:`predict_ci` instead.')
+    def cdf(self, x, t, ci=False):
+        '''Returns the predicted values.'''
+        if ci:
+            return self.predict_ci(x, t)
+        else:
+            return self.predict(x, t)
+
+    @deprecated(version='0.2.0',
+                reason='Use :meth:`predict_posteriori` instead.')
+    def cdf_posteriori(self, x, t):
+        '''Returns the a posterior distribution of the predicted values.'''
+        return self.predict_posteriori(x, t)
 
 
 class Exponential(GeneralizedGamma):

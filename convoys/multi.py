@@ -1,3 +1,4 @@
+from deprecated.sphinx import deprecated
 import numpy
 from convoys import regression
 from convoys import single
@@ -34,11 +35,23 @@ class RegressionToMulti(MultiModel):
         x[group] = 1
         return x
 
-    def cdf(self, group, *args, **kwargs):
-        return self.base_model.cdf(self._get_x(group), *args, **kwargs)
+    def predict(self, group, t):
+        return self.base_model.predict(self._get_x(group), t)
+
+    def predict_ci(self, group, t, ci):
+        return self.base_model.predict_ci(self._get_x(group), t, ci)
 
     def rvs(self, group, *args, **kwargs):
         return self.base_model.rvs(self._get_x(group), *args, **kwargs)
+
+    @deprecated(version='0.2.0',
+                reason='Use :meth:`predict` or :meth:`predict_ci` instead.')
+    def cdf(self, group, t, ci=None):
+        '''Returns the predicted values.'''
+        if ci is not None:
+            return self.predict_ci(group, t, ci)
+        else:
+            return self.predict(group, t)
 
 
 class SingleToMulti(MultiModel):
@@ -60,8 +73,20 @@ class SingleToMulti(MultiModel):
             self._group2model[g] = self.base_model_init()
             self._group2model[g].fit([b for b, t in BT], [t for b, t in BT])
 
-    def cdf(self, group, t, *args, **kwargs):
-        return self._group2model[group].cdf(t, *args, **kwargs)
+    def predict(self, group, t):
+        return self._group2model[group].predict(t)
+
+    def predict_ci(self, group, t, ci):
+        return self._group2model[group].predict_ci(t, ci)
+
+    @deprecated(version='0.2.0',
+                reason='Use :meth:`predict` or :meth:`predict_ci` instead')
+    def cdf(self, group, t, ci=None):
+        '''Returns the predicted values.'''
+        if ci is not None:
+            return self.predict_ci(group, t, ci)
+        else:
+            return self.predict(group, t)
 
 
 class Exponential(RegressionToMulti):

@@ -81,14 +81,14 @@ def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
         label = label_fmt % dict(group=group, n=n, k=k)
 
         if ci is not None:
-            p_y, p_y_lo, p_y_hi = m.cdf(j, t, ci=ci).T
+            p_y, p_y_lo, p_y_hi = m.predict_ci(j, t, ci=ci).T
             merged_plot_ci_kwargs = {'alpha': 0.2}
             merged_plot_ci_kwargs.update(plot_ci_kwargs)
             p = ax.fill_between(t, 100. * p_y_lo, 100. * p_y_hi,
                                 **merged_plot_ci_kwargs)
             color = p.get_facecolor()[0]  # reuse color for the line
         else:
-            p_y = m.cdf(j, t).T
+            p_y = m.predict(j, t).T
             color = None
 
         merged_plot_kwargs = {'color': color, 'linewidth': 1.5,
