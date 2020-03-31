@@ -7,10 +7,10 @@ __all__ = ['plot_cohorts']
 
 _models = {
     'kaplan-meier': lambda ci: convoys.multi.KaplanMeier(),
-    'exponential': lambda ci: convoys.multi.Exponential(ci=ci),
-    'weibull': lambda ci: convoys.multi.Weibull(ci=ci),
-    'gamma': lambda ci: convoys.multi.Gamma(ci=ci),
-    'generalized-gamma': lambda ci: convoys.multi.GeneralizedGamma(ci=ci),
+    'exponential': lambda ci: convoys.multi.Exponential(mcmc=ci),
+    'weibull': lambda ci: convoys.multi.Weibull(mcmc=ci),
+    'gamma': lambda ci: convoys.multi.Gamma(mcmc=ci),
+    'generalized-gamma': lambda ci: convoys.multi.GeneralizedGamma(mcmc=ci),
 }
 
 

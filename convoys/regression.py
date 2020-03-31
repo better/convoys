@@ -75,7 +75,7 @@ class RegressionModel(object):
 class GeneralizedGamma(RegressionModel):
     ''' Generalization of Gamma, Weibull, and Exponential
 
-    :param ci: boolean, defaults to False. Whether to use MCMC to
+    :param mcmc: boolean, defaults to False. Whether to use MCMC to
         sample from the posterior so that a confidence interval can be
         estimated later (see :meth:`predict`).
     :param hierarchical: boolean denoting whether we have a (Normal) prior
@@ -86,6 +86,7 @@ class GeneralizedGamma(RegressionModel):
         linear model is fit, where the beta params will be completely
         additive. This creates a much more interpretable model, with some
         minor loss of accuracy.
+    :param ci: boolean, deprecated alias for `mcmc`.
 
     This mostly follows the `Wikipedia article
     <https://en.wikipedia.org/wiki/Generalized_gamma_distribution>`_, although
@@ -161,17 +162,21 @@ class GeneralizedGamma(RegressionModel):
     <https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html#scipy.optimize.minimize>`_
     with the SLSQP method.
 
-    If `ci == True`, then `emcee <http://dfm.io/emcee/current/>`_ is used
+    If `mcmc == True`, then `emcee <http://dfm.io/emcee/current/>`_ is used
     to sample from the full posterior in order to generate uncertainty
     estimates for all parameters.
     '''
-    def __init__(self, ci=False, fix_k=None, fix_p=None, hierarchical=True,
-                 flavor='logistic'):
-        self._ci = ci
+    def __init__(self, mcmc=False, fix_k=None, fix_p=None, hierarchical=True,
+                 flavor='logistic', ci=None):
+        self._mcmc = mcmc
         self._fix_k = fix_k
         self._fix_p = fix_p
         self._hierarchical = hierarchical
         self._flavor = flavor
+        if ci is not None:
+            warnings.warn('The `ci` argument is deprecated in 0.2.1 in favor '
+                          ' of `mcmc`.', DeprecationWarning)
+            self._mcmc = ci
 
     def fit(self, X, B, T, W=None):
         '''Fits the model.
@@ -241,7 +246,7 @@ class GeneralizedGamma(RegressionModel):
                           'Norm of gradient is %f' % gradient_norm)
 
         # Let's sample from the posterior to compute uncertainties
-        if self._ci:
+        if self._mcmc:
             dim, = res.x.shape
             n_walkers = 5*dim
             sampler = emcee.EnsembleSampler(
@@ -294,10 +299,10 @@ class GeneralizedGamma(RegressionModel):
     def predict_posteriori(self, x, t):
         ''' Returns the trace samples generated via the MCMC steps.
 
-        Requires the model to be fit with `ci = True`.'''
+        Requires the model to be fit with `mcmc == True`.'''
         x = numpy.array(x)
         t = numpy.array(t)
-        assert self._ci
+        assert self._mcmc
         params = self.params['samples']
         t = numpy.expand_dims(t, -1)
         return self._predict(params, x, t)
@@ -319,7 +324,7 @@ class GeneralizedGamma(RegressionModel):
 
     def predict(self, x, t):
         '''Returns the value of the cumulative distribution function
-        for a fitted model.
+        for a fitted model (using the maximum a posteriori estimate).
 
         :param x: feature vector (or matrix)
         :param t: time
@@ -334,7 +339,7 @@ class GeneralizedGamma(RegressionModel):
 
         T is optional and means we already observed non-conversion until T
         '''
-        assert self._ci  # Need to be fit with MCMC
+        assert self._mcmc  # Need to be fit with MCMC
         if T is None:
             T = numpy.zeros((n_curves, n_samples))
         else:
