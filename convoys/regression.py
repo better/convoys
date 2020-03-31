@@ -324,7 +324,7 @@ class GeneralizedGamma(RegressionModel):
 
     def predict(self, x, t):
         '''Returns the value of the cumulative distribution function
-        for a fitted model.
+        for a fitted model (using the maximum a posteriori estimate).
 
         :param x: feature vector (or matrix)
         :param t: time
