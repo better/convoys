@@ -173,9 +173,8 @@ class GeneralizedGamma(RegressionModel):
         self._hierarchical = hierarchical
         self._flavor = flavor
         if ci is not None:
-            warnings.warn('The `ci` argument is deprecated in 0.2.1 in favor '
-                          ' of `mcmc`.', DeprecationWarning)
-            self._mcmc = ci
+            raise Exception('This method has been removed in 0.3.0. '
+                            'Use the `mcmc` argument instead.')
 
     def fit(self, X, B, T, W=None):
         '''Fits the model.
