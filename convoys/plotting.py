@@ -76,9 +76,8 @@ def plot_cohorts(G, B, T, t_max=None, model='kaplan-meier',
     for i, group in enumerate(specific_groups):
         j = groups.index(group)  # matching index of group
 
-        idx = numpy.where(G == j)
-        n = numpy.sum(idx)
-        k = numpy.sum(B[idx])
+        n = numpy.sum(G == j)
+        k = numpy.sum(B[G == j])
         label = label_fmt % dict(group=group, n=n, k=k)
 
         if ci is not None:
