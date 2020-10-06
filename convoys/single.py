@@ -37,11 +37,11 @@ class KaplanMeier(SingleModel):
             d = float(b)
             self._ts.append(t)
             prod_s_terms *= 1 - d/n
-            self._ss.append(prod_s_terms)
+            self._ss.append(prod_s_terms) # this is hat S(t) 
             if d == n == 1:
-                sum_var_terms = float('inf')
+                sum_var_terms = float('inf') # when  you only have 1 data point
             else:
-                sum_var_terms += d / (n*(n-d))
+                sum_var_terms += d / (n*(n-d)) # di is people who died at time ti , ci is number of people censored at time ti 
             if sum_var_terms > 0:
                 self._vs.append(1 / numpy.log(prod_s_terms)**2 * sum_var_terms)
             else:

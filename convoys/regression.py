@@ -20,7 +20,8 @@ __all__ = ['Exponential',
 
 def generalized_gamma_loss(x, X, B, T, W, fix_k, fix_p,
                            hierarchical, flavor, callback=None):
-    k = exp(x[0]) if fix_k is None else fix_k
+    # parameters for this distribution is p, k, lambd
+    k = exp(x[0]) if fix_k is None else fix_k # x[0], x[1], x
     p = exp(x[1]) if fix_p is None else fix_p
     log_sigma_alpha = x[2]
     log_sigma_beta = x[3]
@@ -29,7 +30,7 @@ def generalized_gamma_loss(x, X, B, T, W, fix_k, fix_p,
     n_features = int((len(x)-6)/2)
     alpha = x[6:6+n_features]
     beta = x[6+n_features:6+2*n_features]
-    lambd = exp(dot(X, alpha)+a)
+    lambd = exp(dot(X, alpha)+a) # lambda = exp(\alpha+a),  X shape is N * n_groups, alpha is \n_features * 1 
 
     # PDF: p*lambda^(k*p) / gamma(k) * t^(k*p-1) * exp(-(x*lambda)^p)
     log_pdf = log(p) + (k*p) * log(lambd) - gammaln(k) \
@@ -37,7 +38,7 @@ def generalized_gamma_loss(x, X, B, T, W, fix_k, fix_p,
     cdf = gammainc(k, (T*lambd)**p)
 
     if flavor == 'logistic':  # Log-likelihood with sigmoid
-        c = expit(dot(X, beta)+b)
+        c = expit(dot(X, beta)+b) # fit one beta for each group 
         LL_observed = log(c) + log_pdf
         LL_censored = log((1 - c) + c * (1 - cdf))
     elif flavor == 'linear':  # L2 loss, linear
@@ -48,7 +49,9 @@ def generalized_gamma_loss(x, X, B, T, W, fix_k, fix_p,
     LL_data = sum(
         W * B * LL_observed +
         W * (1 - B) * LL_censored, 0)
-
+    
+                      \
+                     - n_features*log_sigma_alpha
     if hierarchical:
         # Hierarchical model with sigmas ~ invgamma(1, 1)
         LL_prior_a = -4*log_sigma_alpha - 1/exp(log_sigma_alpha)**2 \

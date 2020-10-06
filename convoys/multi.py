@@ -27,10 +27,10 @@ class RegressionToMulti(MultiModel):
         self._n_groups = max(G) + 1
         X = numpy.zeros((n, self._n_groups), dtype=numpy.bool)
         for i, group in enumerate(G):
-            X[i,group] = 1
+            X[i,group] = 1 # one hot encoded boolean mask indicating group 
         self.base_model.fit(X, B, T)
 
-    def _get_x(self, group):
+    def _get_x(self, group): # for each individual rows 
         x = numpy.zeros(self._n_groups)
         x[group] = 1
         return x
@@ -67,7 +67,7 @@ class SingleToMulti(MultiModel):
         '''
         group2bt = {}
         for g, b, t in zip(G, B, T):
-            group2bt.setdefault(g, []).append((b, t))
+            group2bt.setdefault(g, []).append((b, t)) # convert the values into individual item in a dictionary {G_value, [B_value, T_value]}
         self._group2model = {}
         for g, BT in group2bt.items():
             self._group2model[g] = self.base_model_init()
