@@ -72,11 +72,12 @@ def generalized_gamma_loss(x, X, B, T, W, fix_k, fix_p,
 
 
 
-def double_hierarchy_weibull_loss(x, G_1,X_2, B, T, W,n_group1, n_group2, fix_k, fix_p,
+def double_hierarchy_weibull_loss(x, X, B, T, W, fix_k, fix_p,
                            hierarchical, flavor, callback=None):
     # parameters for this distribution is p, k, lambd
     k = exp(x[0]) if fix_k is None else fix_k # x[0], x[1], x
     p = exp(x[1]) if fix_p is None else fix_p
+    _,n_group1,n_group2 = X.shape
     log_sigma_alpha_1 = x[2]
     log_sigma_beta_1 = x[3]
     log_sigma_alpha_2 = x[4]
@@ -85,28 +86,22 @@ def double_hierarchy_weibull_loss(x, G_1,X_2, B, T, W,n_group1, n_group2, fix_k,
     b = x[7]
     alpha_1 = x[8:8+n_group1] # length=n_group1
     beta_1 = x[8+num_group_1:8+2*n_group1] # length=n_group1
-    alpha_2 = x[8+2*n_group1:8+2*n_group1+n_group2] # length=n_group2
-    bete_2 = x[8+2*n_group1+n_group2:8+2*n_group1+2*n_group2] # length=n_group2
-    
-    # Vectorize double for loop using 3 D vector 
-    # If X_2 is (G1, N, G2), alpha_2 is G2, then X2 dot alpha_2 is (G1, N), call this Z_2
-    # G1 is (G1,), alpha_2[G1] is (N,) lambda values 
-    lambd=exp(dot(X_2, alpha_2)+1)[G_1]
+    n_group=n_group1*n_group2
+    alpha_2 = x[8+2*n_group1:8+2*n_group1+n_group].reshape(n_group1,n_group2) # length = n_group1*n_group2
+    bete_2 = x[8+2*n_group1+n_group:8+2*n_group1+2*n_group].reshape(n_group1,n_group2) # length = n_group1*n_group2
+
+    # If X is (N, G1,G2), alpha_2 is (G1,G2), then X2 *alpha_2 is (N, G1,G2), call this Z_2
+    lambd = exp(numpy.sum(X * alpha_2 , axis=(1,2))+a)
     # PDF: p*lambda^(k*p) / gamma(k) * t^(k*p-1) * exp(-(x*lambda)^p)
     log_pdf = log(p) + (k*p) * log(lambd) - gammaln(k) \
               + (k*p-1) * log(T) - (T*lambd)**p
     cdf = gammainc(k, (T*lambd)**p)
     
-    
-    if flavor == 'logistic':  # Log-likelihood with sigmoid
-        c = expit(dot(X_2, beta_2)+b)[G_1] # fit one beta for each group 
-        LL_observed = log(c) + log_pdf
-        LL_censored = log((1 - c) + c * (1 - cdf))
-    elif flavor == 'linear':  # L2 loss, linear
-        c = (dot(X_2, beta_2)+b)[G_1]
-        LL_observed = -(1 - c)**2 + log_pdf
-        LL_censored = -(c*cdf)**2
-    
+    # logistic part 
+    c = expit(numpy.sum(X * beta_2, axis=(1,2))+b)
+    LL_observed = log(c) + log_pdf
+    LL_censored = log((1 - c) + c * (1 - cdf))
+  
     # W should be sample weights, it is not implemented in this project 
     LL_data = sum(
         W * B * LL_observed +
@@ -114,30 +109,26 @@ def double_hierarchy_weibull_loss(x, G_1,X_2, B, T, W,n_group1, n_group2, fix_k,
     #TODO: rewrite this loss
     if hierarchical:
         # Hierarchical model with sigmas ~ invgamma(1, 1)
-        # alpha_2 is (n_group2,) -> make this (n_group1, n_group2)
-        # alpha_1 is (n_group1,) -> make this (n_group1,1)
-        # diff_alpha = alpha_2 - alpha_1 -> this is therefore (n_group1,n_group2) * transpose, you get the diagonal sum 
+        # alpha_2 is (G1,G2) -> 
+        # alpha_1 is (G1,) -> make this (n_group1,1)
+        # diff_alpha = alpha_2 - alpha_1 -> this is therefore (n_group1,n_group2)
         
-        alpha_2_x = repeat(numpy.expand_dims(alpha_2,axis=0), n_group1, axis=0)
-        alpha_1_x = numpy.expand_dims(alpha_1,axis=0)
-        diff_alpha = alpha_2_x-alpha_1_x 
-        
-        beta_2_x = repeat(numpy.expand_dims(beta_2,axis=0), n_group1, axis=0)
-        beta_1_x = numpy.expand_dims(beta_1,axis=0)
-        diff_beta = beta_2_x-beta_1_x 
+        diff_alpha_sq = numpy.sum((alpha_2-alpha_1)**2)
+        diff_beta = numpy.sum((beta_2-beta_1)**2)
+     
 
         LL_prior_a = -4*log_sigma_alpha_1 - 1/exp(log_sigma_alpha_1)**2 \
                      - dot(alpha_1, alpha_1) / (2*exp(log_sigma_alpha_1)**2) \
                      - n_group1*log_sigma_alpha_1 - \
-                     numpy.trace(dot(diff_alpha, numpy.transpose(diff_alpha)))/(2*exp(log_sigma_2)**2)
-                     -n_group2*log_sigma_alpha_2
+                     diff_alpha_sq/(2*exp(log_sigma_2)**2)
+                     -n_group*log_sigma_alpha_2
 
         LL_prior_b = -4*log_sigma_beta_1 - 1/exp(log_sigma_beta_1)**2 \
                      - dot(beta_1, beta_1) / (2*exp(log_sigma_beta_1)**2) \
                      - n_group1*log_sigma_beta_1 - \
-                     numpy.trace(dot(diff_beta, numpy.transpose(diff_beta)))/(2*exp(log_beta_2)**2)
-                     -n_group2*log_beta_2
-                     
+                     diff_beta_sq/(2*exp(log_beta_2)**2)
+                     -n_group*log_sigma_beta_2
+
         LL = LL_prior_a + LL_prior_b + LL_data
     else:
         LL = LL_data

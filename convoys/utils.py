@@ -1,7 +1,6 @@
 import datetime
 import numpy
 import pandas
-
 __all__ = ['get_arrays']
 
 
@@ -164,3 +163,5 @@ def get_arrays(data, features=None, groups=None, created=None,
     T = T_deltas.apply(converter).to_numpy()
     res.append(T)
     return unit, groups_list, tuple(res)
+
+
