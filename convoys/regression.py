@@ -6,7 +6,7 @@ import emcee
 import numpy
 from scipy.special import gammaincinv
 from autograd.scipy.special import expit, gammaln
-from autograd.numpy import isnan, exp, dot, log, sum
+from autograd.numpy import isnan, exp, dot, log, sum, array, repeat
 import progressbar
 import scipy.optimize
 import warnings
@@ -31,14 +31,16 @@ def generalized_gamma_loss(x, X, B, T, W, fix_k, fix_p,
     alpha = x[6:6+n_features]
     beta = x[6+n_features:6+2*n_features]
     lambd = exp(dot(X, alpha)+a) # lambda = exp(\alpha+a),  X shape is N * n_groups, alpha is \n_features * 1 
-
-    # PDF: p*lambda^(k*p) / gamma(k) * t^(k*p-1) * exp(-(x*lambda)^p)
+    # PDF: p*lambda^(k*p) / gamma(k) * t^(k*p-1) * exp(-(x*lambda)^p), log pdf has shape (N,)
     log_pdf = log(p) + (k*p) * log(lambd) - gammaln(k) \
               + (k*p-1) * log(T) - (T*lambd)**p
     cdf = gammainc(k, (T*lambd)**p)
+    # cdf has shape (N,)
 
     if flavor == 'logistic':  # Log-likelihood with sigmoid
-        c = expit(dot(X, beta)+b) # fit one beta for each group 
+        c = expit(dot(X, beta)+b) # fit one beta for each group , x has shape(N, n_group), beta has shape (n_group, ), c has shape (N,)
+        # dot product shape is (N,)
+        # beta has shape (n_group,)
         LL_observed = log(c) + log_pdf
         LL_censored = log((1 - c) + c * (1 - cdf))
     elif flavor == 'linear':  # L2 loss, linear
@@ -49,9 +51,6 @@ def generalized_gamma_loss(x, X, B, T, W, fix_k, fix_p,
     LL_data = sum(
         W * B * LL_observed +
         W * (1 - B) * LL_censored, 0)
-    
-                      \
-                     - n_features*log_sigma_alpha
     if hierarchical:
         # Hierarchical model with sigmas ~ invgamma(1, 1)
         LL_prior_a = -4*log_sigma_alpha - 1/exp(log_sigma_alpha)**2 \
@@ -68,7 +67,87 @@ def generalized_gamma_loss(x, X, B, T, W, fix_k, fix_p,
         return -numpy.inf
     if callback is not None:
         callback(LL)
+    # loss is a constant, not a vector
     return LL
+
+
+
+def double_hierarchy_weibull_loss(x, G_1,X_2, B, T, W,n_group1, n_group2, fix_k, fix_p,
+                           hierarchical, flavor, callback=None):
+    # parameters for this distribution is p, k, lambd
+    k = exp(x[0]) if fix_k is None else fix_k # x[0], x[1], x
+    p = exp(x[1]) if fix_p is None else fix_p
+    log_sigma_alpha_1 = x[2]
+    log_sigma_beta_1 = x[3]
+    log_sigma_alpha_2 = x[4]
+    log_sigma_beta_2 = x[5]
+    a = x[6]
+    b = x[7]
+    alpha_1 = x[8:8+n_group1] # length=n_group1
+    beta_1 = x[8+num_group_1:8+2*n_group1] # length=n_group1
+    alpha_2 = x[8+2*n_group1:8+2*n_group1+n_group2] # length=n_group2
+    bete_2 = x[8+2*n_group1+n_group2:8+2*n_group1+2*n_group2] # length=n_group2
+    
+    # Vectorize double for loop using 3 D vector 
+    # If X_2 is (G1, N, G2), alpha_2 is G2, then X2 dot alpha_2 is (G1, N), call this Z_2
+    # G1 is (G1,), alpha_2[G1] is (N,) lambda values 
+    lambd=exp(dot(X_2, alpha_2)+1)[G_1]
+    # PDF: p*lambda^(k*p) / gamma(k) * t^(k*p-1) * exp(-(x*lambda)^p)
+    log_pdf = log(p) + (k*p) * log(lambd) - gammaln(k) \
+              + (k*p-1) * log(T) - (T*lambd)**p
+    cdf = gammainc(k, (T*lambd)**p)
+    
+    
+    if flavor == 'logistic':  # Log-likelihood with sigmoid
+        c = expit(dot(X_2, beta_2)+b)[G_1] # fit one beta for each group 
+        LL_observed = log(c) + log_pdf
+        LL_censored = log((1 - c) + c * (1 - cdf))
+    elif flavor == 'linear':  # L2 loss, linear
+        c = (dot(X_2, beta_2)+b)[G_1]
+        LL_observed = -(1 - c)**2 + log_pdf
+        LL_censored = -(c*cdf)**2
+    
+    # W should be sample weights, it is not implemented in this project 
+    LL_data = sum(
+        W * B * LL_observed +
+        W * (1 - B) * LL_censored, 0)
+    #TODO: rewrite this loss
+    if hierarchical:
+        # Hierarchical model with sigmas ~ invgamma(1, 1)
+        # alpha_2 is (n_group2,) -> make this (n_group1, n_group2)
+        # alpha_1 is (n_group1,) -> make this (n_group1,1)
+        # diff_alpha = alpha_2 - alpha_1 -> this is therefore (n_group1,n_group2) * transpose, you get the diagonal sum 
+        
+        alpha_2_x = repeat(numpy.expand_dims(alpha_2,axis=0), n_group1, axis=0)
+        alpha_1_x = numpy.expand_dims(alpha_1,axis=0)
+        diff_alpha = alpha_2_x-alpha_1_x 
+        
+        beta_2_x = repeat(numpy.expand_dims(beta_2,axis=0), n_group1, axis=0)
+        beta_1_x = numpy.expand_dims(beta_1,axis=0)
+        diff_beta = beta_2_x-beta_1_x 
+
+        LL_prior_a = -4*log_sigma_alpha_1 - 1/exp(log_sigma_alpha_1)**2 \
+                     - dot(alpha_1, alpha_1) / (2*exp(log_sigma_alpha_1)**2) \
+                     - n_group1*log_sigma_alpha_1 - \
+                     numpy.trace(dot(diff_alpha, numpy.transpose(diff_alpha)))/(2*exp(log_sigma_2)**2)
+                     -n_group2*log_sigma_alpha_2
+
+        LL_prior_b = -4*log_sigma_beta_1 - 1/exp(log_sigma_beta_1)**2 \
+                     - dot(beta_1, beta_1) / (2*exp(log_sigma_beta_1)**2) \
+                     - n_group1*log_sigma_beta_1 - \
+                     numpy.trace(dot(diff_beta, numpy.transpose(diff_beta)))/(2*exp(log_beta_2)**2)
+                     -n_group2*log_beta_2
+                     
+        LL = LL_prior_a + LL_prior_b + LL_data
+    else:
+        LL = LL_data
+
+    if isnan(LL):
+        return -numpy.inf
+    if callback is not None:
+        callback(LL)
+    return LL
+
 
 
 class RegressionModel(object):
@@ -194,6 +273,7 @@ class GeneralizedGamma(RegressionModel):
             W = numpy.ones(len(X))
         X, B, T, W = (Z if type(Z) == numpy.ndarray else numpy.array(Z)
                       for Z in (X, B, T, W))
+        # X here has shape (N, groups)
         keep_indexes = (T > 0) & (B >= 0) & (B <= 1) & (W >= 0)
         if sum(keep_indexes) < X.shape[0]:
             n_removed = X.shape[0] - sum(keep_indexes)
@@ -211,7 +291,7 @@ class GeneralizedGamma(RegressionModel):
         x0[1] = -1 if self._fix_p is None else log(self._fix_p)
         args = (X, B, T, W, self._fix_k, self._fix_p,
                 self._hierarchical, self._flavor)
-
+        # print("X shape in args",X.shape)
         # Set up progressbar and callback
         bar = progressbar.ProgressBar(widgets=[
                 progressbar.Variable('loss', width=15, precision=9), ' ',
