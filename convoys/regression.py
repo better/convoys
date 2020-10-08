@@ -18,70 +18,16 @@ __all__ = ['Exponential',
            'GeneralizedGamma']
 
 
-def generalized_gamma_loss(x, X, B, T, W, fix_k, fix_p,
-                           hierarchical, flavor, callback=None):
-    # parameters for this distribution is p, k, lambd
-    k = exp(x[0]) if fix_k is None else fix_k # x[0], x[1], x
-    p = exp(x[1]) if fix_p is None else fix_p
-    log_sigma_alpha = x[2]
-    log_sigma_beta = x[3]
-    a = x[4]
-    b = x[5]
-    n_features = int((len(x)-6)/2)
-    alpha = x[6:6+n_features]
-    beta = x[6+n_features:6+2*n_features]
-    lambd = exp(dot(X, alpha)+a) # lambda = exp(\alpha+a),  X shape is N * n_groups, alpha is \n_features * 1 
-    # PDF: p*lambda^(k*p) / gamma(k) * t^(k*p-1) * exp(-(x*lambda)^p), log pdf has shape (N,)
-    log_pdf = log(p) + (k*p) * log(lambd) - gammaln(k) \
-              + (k*p-1) * log(T) - (T*lambd)**p
-    cdf = gammainc(k, (T*lambd)**p)
-    # cdf has shape (N,)
-
-    if flavor == 'logistic':  # Log-likelihood with sigmoid
-        c = expit(dot(X, beta)+b) # fit one beta for each group , x has shape(N, n_group), beta has shape (n_group, ), c has shape (N,)
-        # dot product shape is (N,)
-        # beta has shape (n_group,)
-        LL_observed = log(c) + log_pdf
-        LL_censored = log((1 - c) + c * (1 - cdf))
-    elif flavor == 'linear':  # L2 loss, linear
-        c = dot(X, beta)+b
-        LL_observed = -(1 - c)**2 + log_pdf
-        LL_censored = -(c*cdf)**2
-    print("shape of result before sum", (W * B * LL_observed + W * (1 - B) * LL_censored).shape)
-    LL_data = numpy.sum(
-        W * B * LL_observed +
-        W * (1 - B) * LL_censored, 0)   #
-    if hierarchical:
-        # Hierarchical model with sigmas ~ invgamma(1, 1)
-        LL_prior_a = -4*log_sigma_alpha - 1/exp(log_sigma_alpha)**2 \
-                     - dot(alpha, alpha) / (2*exp(log_sigma_alpha)**2) \
-                     - n_features*log_sigma_alpha
-        LL_prior_b = -4*log_sigma_beta - 1/exp(log_sigma_beta)**2 \
-                     - dot(beta, beta) / (2*exp(log_sigma_beta)**2) \
-                     - n_features*log_sigma_beta
-        LL = LL_prior_a + LL_prior_b + LL_data
-    else:
-        LL = LL_data
-
-    if isnan(LL):
-        return -numpy.inf
-    if callback is not None:
-        callback(LL)
-    # loss is a constant, not a vector
-    return LL
 
 
-
-def double_hierarchy_weibull_loss(x, X, B, T, W, fix_k, fix_p,
-                           hierarchical, flavor, callback=None):
-    # parameters for this distribution is p, k, lambd
-    k = exp(x[0]) if fix_k is None else fix_k # x[0], x[1], x
-    p = exp(x[1]) if fix_p is None else fix_p
+def get_probabilities(x,B):
+    k = 1
+    p = exp(x[1]) 
     _,n_group1,n_group2 = X.shape
-    log_sigma_alpha_1 = x[2]
+    log_sigma_alpha_1 = x[2] 
     log_sigma_beta_1 = x[3]
-    log_sigma_alpha_2 = x[4]
-    log_sigma_beta_2 = x[5]
+    log_sigma_alpha_2 = min(x[4], log(max_std_alpha))# restricting the variance to make sure it works 
+    log_sigma_beta_2= min(x[5], log(max_std_beta))
     a = x[6]
     b = x[7]
     alpha_1 = x[8:8+n_group1] # length=n_group1
@@ -89,53 +35,20 @@ def double_hierarchy_weibull_loss(x, X, B, T, W, fix_k, fix_p,
     n_group=n_group1*n_group2
     alpha_2 = x[8+2*n_group1:8+2*n_group1+n_group].reshape(n_group1,n_group2) # length = n_group1*n_group2
     beta_2 = x[8+2*n_group1+n_group:8+2*n_group1+2*n_group].reshape(n_group1,n_group2) # length = n_group1*n_group2
-
-    # If X is (N, G1,G2), alpha_2 is (G1,G2), then X2 *alpha_2 is (N, G1,G2), call this Z_2
     lambd = exp(numpy.sum(X * alpha_2 , axis=(1,2))+a)
-    # PDF: p*lambda^(k*p) / gamma(k) * t^(k*p-1) * exp(-(x*lambda)^p)
-    log_pdf = log(p) + (k*p) * log(lambd) - gammaln(k) \
-              + (k*p-1) * log(T) - (T*lambd)**p
+    log_pdf = log(p) + (k*p) * log(lambd) - gammaln(k) + (k*p-1) * log(T) - (T*lambd)**p
     cdf = gammainc(k, (T*lambd)**p)
-    
-    # logistic part 
     c = expit(numpy.sum(X * beta_2, axis=(1,2))+b)
     LL_observed = log(c) + log_pdf
     LL_censored = log((1 - c) + c * (1 - cdf))
-  
-    # W should be sample weights, it is not implemented right now, let's delete it 
-    LL_data = sum(B * LL_observed +(1 - B) * LL_censored)
-    #TODO: rewrite this loss
-    if hierarchical:
-        # Hierarchical model with sigmas ~ invgamma(1, 1)
-        # alpha_2 is (G1,G2) -> 
-        # alpha_1 is (G1,) -> make this (n_group1,1)
-        # diff_alpha = alpha_2 - alpha_1 -> this is therefore (n_group1,n_group2)
-        
-        diff_alpha_sq = numpy.sum((alpha_2-numpy.expand_dims(alpha_1,axis=-1))**2)
-        diff_beta_sq = numpy.sum((beta_2-numpy.expand_dims(beta_1,axis=-1))**2)
-     
-
-        LL_prior_a = -4*log_sigma_alpha_1 - 1/exp(log_sigma_alpha_1)**2 \
-                     - dot(alpha_1, alpha_1) / (2*exp(log_sigma_alpha_1)**2) \
-                     - n_group1*log_sigma_alpha_1 - \
-                     diff_alpha_sq/(2*exp(log_sigma_alpha_2)**2) \
-                     -n_group*log_sigma_alpha_2
-
-        LL_prior_b = -4*log_sigma_beta_1 - 1/exp(log_sigma_beta_1)**2 \
-                     - dot(beta_1, beta_1) / (2*exp(log_sigma_beta_1)**2) \
-                     - n_group1*log_sigma_beta_1 - \
-                     diff_beta_sq/(2*exp(log_sigma_beta_2)**2) -n_group*log_sigma_beta_2
-
-        LL = LL_prior_a + LL_prior_b + LL_data
-    else:
-        LL = LL_data
-
-    if isnan(LL):
-        return -numpy.inf
-    if callback is not None:
-        callback(LL)
-    return LL
-
+    d=pandas.DataFrame({'c':conov,'t':T})
+    import matplotlib.pyplot as plt
+    plt.scatter(d.t,exp(d.c))
+    plt.show()
+    return B * LL_observed + (1 - B) * LL_censored
+    
+# plt.scatter(d.t,1-exp(d.c),s=1)
+# plt.show()
 
 
 class RegressionModel(object):
@@ -277,8 +190,8 @@ class GeneralizedGamma(RegressionModel):
         x0 = numpy.zeros(6+2*n_features)
         x0[0] = +1 if self._fix_k is None else log(self._fix_k)
         x0[1] = -1 if self._fix_p is None else log(self._fix_p)
-        args = (X, B, T, W, self._fix_k, self._fix_p,
-                self._hierarchical, self._flavor)
+        args = (X, B, T, W, self._fix_k, self._fix_p,self._hierarchical, self._flavor)
+        args = (X, B, T, W, None, None, True, 'logistic')
         # print("X shape in args",X.shape)
         # Set up progressbar and callback
         bar = progressbar.ProgressBar(widgets=[
@@ -289,15 +202,14 @@ class GeneralizedGamma(RegressionModel):
 
         def callback(LL, value_history=[]):
             value_history.append(LL)
-            bar.update(len(value_history), loss=LL)
+            bar.update(len(value_history), loss=-LL)
 
         # Define objective and use automatic differentiation
         f = lambda x: -generalized_gamma_loss(x, *args, callback=callback)
         jac = autograd.grad(lambda x: -generalized_gamma_loss(x, *args))
 
         # Find the maximum a posteriori of the distribution
-        res = scipy.optimize.minimize(f, x0, jac=jac, method='SLSQP',
-                                      options={'maxiter': 9999})
+        res = scipy.optimize.minimize(f, x0, jac=jac, method='SLSQP',options={'maxiter': 9999})
         if not res.success:
             raise Exception('Optimization failed with message: %s' %
                             res.message)
@@ -511,3 +423,213 @@ class Gamma(GeneralizedGamma):
     def __init__(self, *args, **kwargs):
         kwargs.update(dict(fix_p=1))
         super(Gamma, self).__init__(*args, **kwargs)
+
+
+class DoubleGeneralizedGamma(RegressionModel):
+    def __init__(self, mcmc=False, fix_k=None, fix_p=None, hierarchical=True,
+                 flavor='logistic', ci=None):
+        self._mcmc = mcmc
+        self._fix_k = fix_k
+        self._fix_p = fix_p
+        self._hierarchical = hierarchical
+        self._flavor = flavor
+        if ci is not None:
+            warnings.warn('The `ci` argument is deprecated in 0.2.1 in favor '
+                          ' of `mcmc`.', DeprecationWarning)
+            self._mcmc = ci
+
+    def fit(self, X, B, T, W=None):
+        '''Fits the model.
+
+        :param X: numpy matrix of shape :math:`k \\cdot n`
+        :param B: numpy vector of shape :math:`n`
+        :param T: numpy vector of shape :math:`n`
+        :param W: (optional) numpy vector of shape :math:`n`
+        '''
+        if W is None:
+            W = numpy.ones(len(X))
+        X, B, T, W = (Z if type(Z) == numpy.ndarray else numpy.array(Z) for Z in (X, B, T, W))
+        # X here has shape (N, groups)
+        keep_indexes = (T > 0) & (B >= 0) & (B <= 1) & (W >= 0)
+        if sum(keep_indexes) < X.shape[0]:
+            n_removed = X.shape[0] - sum(keep_indexes)
+            warnings.warn('Warning! Removed %d/%d entries from inputs where '
+                          'T <= 0 or B not 0/1 or W < 0' % (n_removed, len(X)))
+            X, B, T, W = (Z[keep_indexes] for Z in (X, B, T, W))
+
+
+        # scipy.optimize and emcee forces the the parameters to be a vector:
+        # (log k, log p, log sigma_alpha, log sigma_beta,
+        #  a, b, alpha_1...alpha_k, beta_1...beta_k)
+        # Generalized Gamma is a bit sensitive to the starting point!
+        _, n_group1,n_group2 = X.shape
+        x0 = numpy.random.randn(8+2*n_group1+2*n_group1*n_group2)
+       
+        # TODO: sample from invGamme(1,1)
+        x0[0] = +1 
+        x0[1] = -1 
+        args = (X, B, T, W, self._fix_k, self._fix_p, self._hierarchical, self._flavor)
+        args = (X, B, T, W, 1, None, True)
+        
+        # print("X shape in args",X.shape)
+        # Set up progressbar and callback
+        bar = progressbar.ProgressBar(widgets=[
+                progressbar.Variable('loss', width=15, precision=9), ' ',
+                progressbar.BouncingBar(), ' ',
+                progressbar.Counter(width=6),
+                ' [', progressbar.Timer(), ']'])
+
+        def callback(LL, value_history=[]):
+            value_history.append(LL)
+            bar.update(len(value_history), loss=-LL)
+
+        # Define objective and use automatic differentiation
+       
+        f = lambda x: -double_hierarchy_weibull_loss(x, *args, callback=callback,max_std_alpha=0.5, max_std_beta=0.5)
+        jac = autograd.grad(lambda x: -double_hierarchy_weibull_loss(x, *args))
+
+        # Find the maximum a posteriori of the distribution
+        res = scipy.optimize.minimize(f, x0, jac=jac, method='SLSQP',options={'maxiter': 9999})
+        if not res.success:
+            raise Exception('Optimization failed with message: %s' %
+                            res.message)
+        result = {'map': res.x}
+
+        # TODO: should not use fixed k/p as search parameters
+        if self._fix_k:
+            result['map'][0] = log(self._fix_k)
+        if self._fix_p:
+            result['map'][1] = log(self._fix_p)
+
+        # Make sure we're in a local minimum
+        gradient = jac(result['map'])
+        gradient_norm = numpy.dot(gradient, gradient)
+        if gradient_norm >= 1e-2 * len(X):
+            warnings.warn('Might not have found a local minimum! '
+                          'Norm of gradient is %f' % gradient_norm)
+
+        # Let's sample from the posterior to compute uncertainties
+        if self._mcmc:
+            dim, = res.x.shape
+            n_walkers = 5*dim
+            sampler = emcee.EnsembleSampler(
+                nwalkers=n_walkers,
+                ndim=dim,
+                log_prob_fn=double_hierarchy_weibull_loss,
+                args=args,
+            )
+            mcmc_initial_noise = 1e-3
+            p0 = [result['map'] + mcmc_initial_noise * numpy.random.randn(dim)
+                  for i in range(n_walkers)]
+            n_burnin = 100
+            n_steps = numpy.ceil(2000. / n_walkers)
+            n_iterations = n_burnin + n_steps
+
+            bar = progressbar.ProgressBar(max_value=n_iterations, widgets=[
+                    progressbar.Percentage(), ' ', progressbar.Bar(),
+                    ' %d walkers [' % n_walkers,
+                    progressbar.AdaptiveETA(), ']'])
+            for i, _ in enumerate(sampler.sample(p0, iterations=n_iterations)):
+                bar.update(i+1)
+            result['samples'] = sampler.chain[:, n_burnin:, :] \
+                                       .reshape((-1, dim)).T
+            if self._fix_k:
+                result['samples'][0, :] = log(self._fix_k)
+            if self._fix_p:
+                result['samples'][1, :] = log(self._fix_p)
+        self.params = {k: {
+            'k': exp(data[0]),
+            'p': exp(data[1]),
+            'a': data[6],
+            'b': data[7],
+            'alpha_1': data[8:8+n_group1].T,
+            'beta_1': data[8+n_group1:8+2*n_group1].T,
+            'alpha_2':data[8+2*n_group1:8+2*n_group1+n_group].reshape(n_group1,n_group2),
+            'beta_2':data[8+2*n_group1+n_group:8+2*n_group1+2*n_group].reshape(n_group1,n_group2)
+        } for k, data in result.items()}
+
+         
+  
+
+    def _predict(self, params, x, t):
+        lambd = exp(dot(x, params['alpha'].T) + params['a'])
+        if self._flavor == 'logistic':
+            c = expit(dot(x, params['beta'].T) + params['b'])
+        elif self._flavor == 'linear':
+            c = dot(x, params['beta'].T) + params['b']
+        M = c * gammainc(
+            params['k'],
+            (t*lambd)**params['p'])
+
+        return M
+
+    def predict_posteriori(self, x, t):
+        ''' Returns the trace samples generated via the MCMC steps.
+
+        Requires the model to be fit with `mcmc == True`.'''
+        x = numpy.array(x)
+        t = numpy.array(t)
+        assert self._mcmc
+        params = self.params['samples']
+        t = numpy.expand_dims(t, -1)
+        return self._predict(params, x, t)
+
+    def predict_ci(self, x, t, ci=0.8):
+        '''Works like :meth:`predict` but produces a confidence interval.
+
+        Requires the model to be fit with `ci = True`. The return value
+        will contain one more dimension than for :meth:`predict`, and
+        the last dimension will have size 3, containing the mean, the
+        lower bound of the confidence interval, and the upper bound of
+        the confidence interval.
+        '''
+        M = self.predict_posteriori(x, t)
+        y = numpy.mean(M, axis=-1)
+        y_lo = numpy.percentile(M, (1-ci)*50, axis=-1)
+        y_hi = numpy.percentile(M, (1+ci)*50, axis=-1)
+        return numpy.stack((y, y_lo, y_hi), axis=-1)
+
+    def predict(self, x, t):
+        '''Returns the value of the cumulative distribution function
+        for a fitted model (using the maximum a posteriori estimate).
+
+        :param x: feature vector (or matrix)
+        :param t: time
+        '''
+        params = self.params['map']
+        x = numpy.array(x)
+        t = numpy.array(t)
+        return self._predict(params, x, t)
+
+    def rvs(self, x, n_curves=1, n_samples=1, T=None):
+        ''' Samples values from this distribution
+
+        T is optional and means we already observed non-conversion until T
+        '''
+        assert self._mcmc  # Need to be fit with MCMC
+        if T is None:
+            T = numpy.zeros((n_curves, n_samples))
+        else:
+            assert T.shape == (n_curves, n_samples)
+        B = numpy.zeros((n_curves, n_samples), dtype=numpy.bool)
+        C = numpy.zeros((n_curves, n_samples))
+        params = self.params['samples']
+        for i, j in enumerate(numpy.random.randint(len(params['k']),
+                                                   size=n_curves)):
+            k = params['k'][j]
+            p = params['p'][j]
+            lambd = exp(dot(x, params['alpha'][j]) + params['a'][j])
+            c = expit(dot(x, params['beta'][j]) + params['b'][j])
+            z = numpy.random.uniform(size=(n_samples,))
+            cdf_now = c * gammainc(
+                k,
+                numpy.multiply.outer(T[i], lambd)**p)  # why is this outer?
+            adjusted_z = cdf_now + (1 - cdf_now) * z
+            B[i] = (adjusted_z < c)
+            y = adjusted_z / c
+            w = gammaincinv(k, y)
+            # x = (t * lambd)**p
+            C[i] = w**(1./p) / lambd
+            C[i][~B[i]] = 0
+
+        return B, C
