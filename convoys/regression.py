@@ -259,7 +259,7 @@ class GeneralizedGamma(RegressionModel):
             p0 = [result['map'] + mcmc_initial_noise * numpy.random.randn(dim)
                   for i in range(n_walkers)]
             n_burnin = 100
-            n_steps = numpy.ceil(2000. / n_walkers)
+            n_steps = int(numpy.ceil(2000. / n_walkers))
             n_iterations = n_burnin + n_steps
 
             bar = progressbar.ProgressBar(max_value=n_iterations, widgets=[
