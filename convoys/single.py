@@ -1,4 +1,3 @@
-from deprecated.sphinx import deprecated
 import numpy
 from scipy.special import expit, logit
 import scipy.stats
@@ -87,11 +86,6 @@ class KaplanMeier(SingleModel):
                     )
         return res
 
-    @deprecated(version='0.2.0',
-                reason='Use :meth:`predict` or :meth:`predict_ci` instead.')
     def cdf(self, t, ci=None):
-        '''Returns the predicted values.'''
-        if ci is not None:
-            return self.predict_ci(t)
-        else:
-            return self.predict(t)
+        raise Exception('This method has been removed in 0.3.0. '
+                        'Use `predict` or `predict_ci`.')
