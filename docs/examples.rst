@@ -81,7 +81,7 @@ This will show something like this:
 
 .. image:: images/dob-violations-combined.png
 
-The dashed lines are the Kaplan-Meier curves, whereas the solid ones with the shaded area are the Weibull model (with corresponding uncertainty intervals).
+The solid lines are the Kaplan-Meier curves, whereas the dashed ones with the shaded area are the Weibull model (with corresponding uncertainty intervals).
 They match really well!
 
 It looks like disposition has gotten consistently faster over the years, which is good to see.
